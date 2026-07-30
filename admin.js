@@ -91,6 +91,79 @@ const totalAnswersElement = document.querySelector("#totalAnswers");
 const visitsList = document.querySelector("#visitsList");
 
 
+// =====================================================
+// BUILD-100 — SMART FORM ENGINE
+// Resultado de visita → Intención de voto
+// =====================================================
+
+function applyVisitResultRules() {
+console.log("Resultado:", visitResultInput.value);
+  console.log(
+    "SMART FORM:",
+    visitResultInput.value
+  );
+    const visitResult =
+        visitResultInput.value;
+
+    // Sin resultado seleccionado
+    if (!visitResult) {
+
+        votingIntentionInput.value = "";
+        votingIntentionInput.disabled = true;
+        votingIntentionInput.required = false;
+
+        return;
+    }
+
+    // Hubo contacto con la persona
+    // La intención debe seleccionarse manualmente
+    if (visitResult === "flyer_entregado") {
+
+        votingIntentionInput.disabled = false;
+        votingIntentionInput.required = true;
+        votingIntentionInput.value = "";
+
+        return;
+    }
+
+    // La persona se negó a responder
+    if (visitResult === "se_nego") {
+
+        votingIntentionInput.value =
+            "no_respondio";
+
+        votingIntentionInput.disabled = true;
+        votingIntentionInput.required = false;
+
+        return;
+    }
+
+    // No se realizó la pregunta
+    if (
+        visitResult === "no_estaba" ||
+        visitResult === "no_estaba_flyer" ||
+        visitResult === "volver" ||
+        visitResult === "deshabitado"
+    ) {
+
+        votingIntentionInput.value =
+            "no_aplica";
+
+        votingIntentionInput.disabled = true;
+        votingIntentionInput.required = false;
+
+        return;
+    }
+}
+
+visitResultInput.addEventListener(
+    "change",
+    applyVisitResultRules
+);
+
+applyVisitResultRules();
+
+
 // ======================================================
 // MODAL DOMICILIO DUPLICADO
 // ======================================================
@@ -607,6 +680,15 @@ const normalizedAddress = normalizeAddress(
     return;
   }
 
+if (!selectedPhoto) {
+  visitMessage.textContent =
+    "Debes tomar una fotografía antes de guardar.";
+
+  return;
+}
+
+
+
   saveVisitButton.disabled = true;
   saveVisitButton.textContent = "Guardando...";
   visitMessage.textContent = "";
@@ -727,6 +809,9 @@ hasPhoto: true,
       `Visita guardada correctamente. ID: ${visitId}`;
 
     visitForm.reset();
+
+// Restablecer las reglas del formulario inteligente
+applyVisitResultRules();
 
     latitudeInput.value = "";
     longitudeInput.value = "";
