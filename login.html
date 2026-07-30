@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#17324d">
+  <title>Acceso | TERRA Campaign</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body>
+  <main class="auth-shell">
+    <section class="card auth-card">
+
+      <p class="eyebrow">TERRA CAMPAIGN</p>
+      <h1>Inicio de sesión</h1>
+
+      <form id="loginForm">
+
+        <label>
+          Correo
+          <input
+            id="email"
+            type="email"
+            autocomplete="username"
+            required
+          >
+        </label>
+
+        <label>
+          Contraseña
+          <input
+            id="password"
+            type="password"
+            autocomplete="current-password"
+            minlength="6"
+            required
+          >
+        </label>
+
+        <button class="button" type="submit">
+          Ingresar
+        </button>
+
+        <p
+          id="loginMessage"
+          class="message"
+          aria-live="polite"
+        ></p>
+
+      </form>
+
+      <a class="text-link" href="./index.html">
+        Volver al inicio
+      </a>
+
+    </section>
+  </main>
+
+  <script type="module" src="./login.js"></script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #17212b;
+  background: #eef3f7;
+  font-synthesis: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { min-height: 100vh; }
+button, input { font: inherit; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 1rem clamp(1rem, 4vw, 2rem); color: white; background: #17324d;
+  position: sticky; top: 0; z-index: 10;
+}
+h1, h2, p { margin-top: 0; }
+.topbar h1 { margin-bottom: 0; font-size: clamp(1.25rem, 4vw, 1.8rem); }
+.eyebrow { margin-bottom: .25rem; font-size: .72rem; letter-spacing: .16em; font-weight: 800; opacity: .8; }
+.shell { width: min(1100px, calc(100% - 2rem)); margin: 1rem auto 4rem; }
+.card { background: white; border-radius: 16px; padding: 1rem; box-shadow: 0 8px 24px rgba(23,50,77,.08); }
+.hero { padding: clamp(1.25rem, 5vw, 2.5rem); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 1rem; margin-top: 1rem; }
+.grid .card { display: flex; flex-direction: column; gap: .4rem; }
+.metrics strong { font-size: 2rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+.button {
+  display: inline-flex; justify-content: center; align-items: center; border: 0; border-radius: 10px;
+  padding: .8rem 1rem; background: #17324d; color: white; text-decoration: none; cursor: pointer;
+  font-weight: 750;
+}
+.button--secondary { background: #dfe8ef; color: #17324d; }
+.button--small { padding: .55rem .8rem; }
+.status { padding: .45rem .7rem; border-radius: 999px; font-size: .78rem; font-weight: 750; }
+.status--online { background: #d7f5e5; color: #16613a; }
+.status--offline { background: #ffe1e1; color: #8b2222; }
+.status--pending { background: #f7e9bd; color: #755b00; }
+.auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
+.auth-card { width: min(430px, 100%); }
+form { display: grid; gap: 1rem; }
+label { display: grid; gap: .4rem; font-weight: 700; }
+input { width: 100%; border: 1px solid #bdcbd6; border-radius: 10px; padding: .8rem; background: white; }
+input:focus { outline: 3px solid rgba(23,50,77,.15); border-color: #17324d; }
+.message { min-height: 1.2rem; margin-bottom: 0; }
+.text-link { display: inline-block; margin-top: 1rem; color: #17324d; }
+
+
+
+/* ======================================================
+   TERRA CAMPAIGN — MAP ENGINE
+   ====================================================== */
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.territory-map {
+  width: 100%;
+  min-height: 460px;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.map-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.map-dot--green {
+  background: #16a34a;
+}
+
+.map-dot--yellow {
+  background: #eab308;
+}
+
+.map-dot--red {
+  background: #dc2626;
+}
+
+.map-dot--blue {
+  background: #2563eb;
+}
+
+.map-dot--gray {
+  background: #6b7280;
+}
+
+.map-info-window {
+  min-width: 210px;
+  color: #111827;
+}
+
+.map-info-window strong {
+  font-size: 16px;
+}
+
+.map-info-window p {
+  margin: 6px 0;
+}
+
+.visit-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+  padding: 16px 0;
+  border-bottom: 1px solid #dbe3eb;
+}
+
+.visit-item:last-child {
+  border-bottom: 0;
+}
+
+.visit-item p {
+  margin: 4px 0;
+}
+
+@media (max-width: 700px) {
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .territory-map {
+    min-height: 380px;
+  }
+
+  .visit-item {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+
+
+/*=========================================
+TABLA DE DUPLICADOS
+=========================================*/
+
+.duplicates-table{
+
+width:100%;
+
+border-collapse:collapse;
+
+margin-top:20px;
+
+}
+
+.duplicates-table th{
+
+background:#17324d;
+
+color:white;
+
+padding:12px;
+
+text-align:left;
+
+}
+
+.duplicates-table td{
+
+padding:12px;
+
+border-bottom:1px solid #d9e3ef;
+
+}
+
+.duplicate{
+
+background:#fff3cd;
+
+}
+
+.normal{
+
+background:white;
+
+}
+
+
+/* ======================================================
+   MODAL — DOMICILIO DUPLICADO
+====================================================== */
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+}
+
+.modal__backdrop {
+  position: absolute;
+  inset: 0;
+
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.modal__content {
+  position: relative;
+  z-index: 1;
+
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+
+  overflow-y: auto;
+
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 22px;
+
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.28);
+}
+
+.modal__content h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.modal__content p {
+  margin: 8px 0;
+}
+
+.modal__actions {
+  display: flex;
+  gap: 10px;
+
+  margin-top: 18px;
+}
+
+.modal__actions .button {
+  flex: 1;
+}
+
+
+

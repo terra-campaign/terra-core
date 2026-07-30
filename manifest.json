@@ -1,0 +1,11 @@
+{
+  "name": "TERRA Campaign — Gestión Territorial",
+  "short_name": "TERRA",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef3f7",
+  "theme_color": "#17324d",
+  "lang": "es-MX",
+  "icons": []
+}

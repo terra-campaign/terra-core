@@ -1,0 +1,21 @@
+# Archivos de Windows
+Thumbs.db
+Desktop.ini
+
+# Visual Studio Code
+.vscode/
+
+# Archivos temporales
+*.log
+
+# Documentos privados
+*.doc
+*.docx
+*.pdf
+
+# Archivos comprimidos
+*.zip
+*.rar
+
+# Dependencias (si algún día usas npm)
+node_modules/

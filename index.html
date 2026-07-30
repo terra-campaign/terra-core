@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#17324d">
+  <meta name="description" content="Sistema de visitas y promoción territorial">
+  <title>TERRA Campaign</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">TERRA CAMPAIGN</p>
+      <h1>Operación territorial</h1>
+    </div>
+    <span id="connectionStatus" class="status status--pending">Verificando…</span>
+  </header>
+
+  <main class="shell">
+    <section class="card hero">
+      <h2>BUILD-000 instalado</h2>
+      <p>La estructura base está lista para conectar Firebase, Google Maps y el formulario de visitas.</p>
+      <div class="actions">
+        <a class="button" href="./login.html">Entrar</a>
+        <a class="button button--secondary" href="./admin.html">Panel administrativo</a>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card"><strong>Firebase</strong><span id="firebaseState">Pendiente de configurar</span></article>
+      <article class="card"><strong>Google Maps</strong><span id="mapsState">Pendiente de configurar</span></article>
+      <article class="card"><strong>PWA</strong><span id="pwaState">Comprobando</span></article>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
