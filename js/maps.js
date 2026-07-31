@@ -164,7 +164,7 @@ export async function renderVisitMarkers(visits = []) {
       map,
       position,
       title: buildMarkerTitle(visit),
-      content: pin.element,
+      content: pin,
       gmpClickable: true
     });
 
