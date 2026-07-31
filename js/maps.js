@@ -11,6 +11,9 @@ let currentLocationMarker = null;
 let visitMarkers = [];
 let googleMapsPromise = null;
 
+let visitHistoryModal = null;
+
+
 // Centro inicial: Zacualpan, Nayarit
 const DEFAULT_CENTER = {
   lat: 21.2475,
@@ -169,13 +172,50 @@ export async function renderVisitMarkers(visits = []) {
     });
 
     marker.addEventListener("gmp-click", () => {
-      infoWindow.setContent(buildInfoWindow(visit));
 
-      infoWindow.open({
-        map,
-        anchor: marker
-      });
-    });
+  const visitHistory =
+    getVisitHistory(visit, visitsWithLocation);
+
+  infoWindow.setContent(
+    buildInfoWindow(
+      visit,
+      visitHistory.length
+    )
+  );
+
+  infoWindow.open({
+    map,
+    anchor: marker
+  });
+
+  google.maps.event.addListenerOnce(
+    infoWindow,
+    "domready",
+    () => {
+
+      const historyButton =
+        document.querySelector(
+          "#mapVisitHistoryButton"
+        );
+
+      if (!historyButton) {
+        return;
+      }
+
+      historyButton.addEventListener(
+        "click",
+        () => {
+          showVisitHistoryModal(
+            visit,
+            visitHistory
+          );
+        }
+      );
+
+    }
+  );
+
+});
 
     visitMarkers.push(marker);
     bounds.extend(position);
@@ -338,7 +378,10 @@ function buildMarkerTitle(visit) {
 // BUILD-102A — VENTANA PROFESIONAL DE INFORMACIÓN
 // ------------------------------------------------------
 
-function buildInfoWindow(visit) {
+function buildInfoWindow(
+  visit,
+  historyCount = 1
+) {
 
   const address =
     `${escapeHtml(visit.street || "")} ` +
@@ -476,10 +519,279 @@ function buildInfoWindow(visit) {
       </div>
 
       ${photoHtml}
-    </div>
+
+<button
+  id="mapVisitHistoryButton"
+  type="button"
+  style="
+    display:block;
+    width:100%;
+    margin-top:14px;
+    padding:10px 12px;
+    border:0;
+    border-radius:8px;
+    background:#17324d;
+    color:#ffffff;
+    font-weight:700;
+    cursor:pointer;
+  "
+>
+  📜 Ver historial (${historyCount})
+</button>
+
+</div>
+`;
+
+}
+
+// ------------------------------------------------------
+// BUILD-102B — OBTENER HISTORIAL DEL DOMICILIO
+// ------------------------------------------------------
+
+function getVisitHistory(
+  selectedVisit,
+  allVisits
+) {
+
+  const selectedRootId =
+    selectedVisit.rootVisitId ||
+    selectedVisit.id ||
+    null;
+
+  const selectedAddress =
+    String(
+      selectedVisit.normalizedAddress || ""
+    ).trim();
+
+  const history = allVisits.filter(
+    (visit) => {
+
+      const visitRootId =
+        visit.rootVisitId ||
+        visit.id ||
+        null;
+
+      const visitAddress =
+        String(
+          visit.normalizedAddress || ""
+        ).trim();
+
+      if (
+        selectedRootId &&
+        visitRootId === selectedRootId
+      ) {
+        return true;
+      }
+
+      if (
+        selectedAddress &&
+        visitAddress === selectedAddress
+      ) {
+        return true;
+      }
+
+      return false;
+
+    }
+  );
+
+  history.sort((a, b) => {
+
+    const numberA =
+      Number(a.followUpNumber) || 1;
+
+    const numberB =
+      Number(b.followUpNumber) || 1;
+
+    if (numberA !== numberB) {
+      return numberB - numberA;
+    }
+
+    return (
+      getVisitTimestamp(b) -
+      getVisitTimestamp(a)
+    );
+
+  });
+
+  return history;
+}
+
+// ------------------------------------------------------
+// OBTENER MARCA DE TIEMPO
+// ------------------------------------------------------
+
+function getVisitTimestamp(visit) {
+
+  const value =
+    visit.visitedAt ||
+    visit.createdAt ||
+    visit.updatedAt;
+
+  if (!value) {
+    return 0;
+  }
+
+  if (
+    typeof value.toDate === "function"
+  ) {
+    return value.toDate().getTime();
+  }
+
+  if (
+    Number.isFinite(value.seconds)
+  ) {
+    return value.seconds * 1000;
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime())
+    ? 0
+    : date.getTime();
+}
+
+// ------------------------------------------------------
+// CONSTRUIR ELEMENTO DEL HISTORIAL
+// ------------------------------------------------------
+
+function buildHistoryItem(
+  visit,
+  fallbackNumber
+) {
+
+  const visitNumber =
+    Number(visit.followUpNumber) ||
+    fallbackNumber ||
+    1;
+
+  const interviewer =
+    escapeHtml(
+      visit.interviewerName ||
+      visit.interviewerEmail ||
+      "Sin identificar"
+    );
+
+  const photoHtml =
+    visit.photoURL
+      ? `
+          <img
+            src="${escapeHtml(visit.photoURL)}"
+            alt="Evidencia de la visita"
+            loading="lazy"
+            style="
+              display:block;
+              width:100%;
+              max-height:240px;
+              object-fit:cover;
+              margin-top:12px;
+              border-radius:9px;
+              border:1px solid #d1d5db;
+            "
+          >
+        `
+      : "";
+
+  return `
+    <article
+      style="
+        padding:16px;
+        margin-bottom:12px;
+        border:1px solid #dbe3ec;
+        border-radius:12px;
+        background:#ffffff;
+      "
+    >
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          gap:12px;
+          align-items:flex-start;
+        "
+      >
+        <strong
+          style="
+            color:#17324d;
+            font-size:16px;
+          "
+        >
+          Visita #${visitNumber}
+        </strong>
+
+        <span
+          style="
+            font-size:12px;
+            color:#6b7280;
+            text-align:right;
+          "
+        >
+          ${formatVisitDate(
+            visit.visitedAt ||
+            visit.createdAt
+          )}
+        </span>
+      </div>
+
+      <p style="margin:10px 0 4px;">
+        <b>Resultado:</b><br>
+        ${formatVisitResult(
+          visit.visitResult
+        )}
+      </p>
+
+      <p style="margin:4px 0;">
+        <b>Intención:</b><br>
+        ${formatVotingIntention(
+          visit.votingIntention
+        )}
+      </p>
+
+      <p style="margin:4px 0;">
+        <b>Encuestador:</b><br>
+        ${interviewer}
+      </p>
+
+      <p style="margin:4px 0;">
+        <b>Tipo:</b><br>
+        ${
+          visit.isFollowUp
+            ? "Seguimiento"
+            : "Primera visita"
+        }
+      </p>
+
+      ${photoHtml}
+    </article>
   `;
 }
 
+
+// ------------------------------------------------------
+// CERRAR MODAL DE HISTORIAL
+// ------------------------------------------------------
+
+function closeVisitHistoryModal() {
+
+  if (visitHistoryModal) {
+    visitHistoryModal.remove();
+    visitHistoryModal = null;
+  }
+
+  document.removeEventListener(
+    "keydown",
+    closeVisitHistoryWithEscape
+  );
+}
+
+function closeVisitHistoryWithEscape(
+  event
+) {
+
+  if (event.key === "Escape") {
+    closeVisitHistoryModal();
+  }
+}
 
 
 // ------------------------------------------------------
