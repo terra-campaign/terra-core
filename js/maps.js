@@ -287,13 +287,32 @@ function clearVisitMarkers() {
 // COLOR SEGÚN RESULTADO
 // ------------------------------------------------------
 
+// ------------------------------------------------------
+// BUILD-102A — COLOR INTELIGENTE SEGÚN RESULTADO
+// ------------------------------------------------------
+
 function getVisitColor(result) {
+
   const colors = {
+
+    // Se atendió el domicilio y se entregó propaganda
     flyer_entregado: "#16a34a",
-    no_estaba: "#eab308",
-    se_nego: "#dc2626",
-    volver: "#2563eb",
-    deshabitado: "#6b7280"
+
+    // No había ninguna persona
+    no_estaba: "#6b7280",
+
+    // No había nadie, pero se dejó flyer
+    no_estaba_flyer: "#2563eb",
+
+    // Se requiere regresar posteriormente
+    volver: "#f97316",
+
+    // La persona se negó a participar
+    se_nego: "#111827",
+
+    // Vivienda deshabitada
+    deshabitado: "#92400e"
+
   };
 
   return colors[result] || "#17324d";
@@ -315,70 +334,195 @@ function buildMarkerTitle(visit) {
 // VENTANA DE INFORMACIÓN
 // ------------------------------------------------------
 
+// ------------------------------------------------------
+// BUILD-102A — VENTANA PROFESIONAL DE INFORMACIÓN
+// ------------------------------------------------------
+
 function buildInfoWindow(visit) {
+
   const address =
     `${escapeHtml(visit.street || "")} ` +
     `${escapeHtml(visit.houseNumber || "")}`;
 
+  const zoneParts = [
+    visit.neighborhood,
+    visit.locality
+  ]
+    .filter(Boolean)
+    .map(escapeHtml);
+
   const zone =
-    `${escapeHtml(visit.neighborhood || "")}, ` +
-    `${escapeHtml(visit.locality || "")}`;
+    zoneParts.length
+      ? zoneParts.join(", ")
+      : "Zona sin especificar";
+
+  const interviewer =
+    escapeHtml(
+      visit.interviewerName ||
+      visit.interviewerEmail ||
+      "Sin identificar"
+    );
+
+  const visitDate =
+    formatVisitDate(
+      visit.visitedAt ||
+      visit.createdAt
+    );
+
+  const followUpNumber =
+    Number.isFinite(Number(visit.followUpNumber))
+      ? Number(visit.followUpNumber)
+      : 1;
+
+  const visitType =
+    visit.isFollowUp
+      ? `Seguimiento #${followUpNumber}`
+      : "Primera visita";
 
   const photoHtml = visit.photoURL
-  ? `
-      <img
-        src="${escapeHtml(visit.photoURL)}"
-        alt="Evidencia fotográfica"
+    ? `
+        <div style="margin-top:12px;">
+          <p style="margin:0 0 6px;">
+            <b>Fotografía</b>
+          </p>
+
+          <img
+            src="${escapeHtml(visit.photoURL)}"
+            alt="Evidencia fotográfica"
+            style="
+              display:block;
+              width:100%;
+              max-width:280px;
+              max-height:220px;
+              object-fit:cover;
+              border-radius:10px;
+              border:1px solid #d1d5db;
+            "
+          >
+        </div>
+      `
+    : `
+        <p style="margin:10px 0 0;">
+          <b>Fotografía:</b>
+          Sin evidencia
+        </p>
+      `;
+
+  return `
+    <div
+      class="map-info-window"
+      style="
+        width:280px;
+        max-width:100%;
+        font-family:Arial,sans-serif;
+        color:#1f2937;
+        line-height:1.4;
+      "
+    >
+      <div
         style="
-          display:block;
-          width:100%;
-          max-width:260px;
-          max-height:220px;
-          object-fit:cover;
-          margin-top:10px;
-          border-radius:8px;
+          padding-bottom:8px;
+          border-bottom:1px solid #e5e7eb;
         "
       >
-    `
-  : `
-      <p>
-        <b>Fotografía:</b>
-        Sin evidencia
-      </p>
-    `;
+        <div
+          style="
+            font-size:17px;
+            font-weight:700;
+            color:#17324d;
+          "
+        >
+          🏠 ${address || "Domicilio visitado"}
+        </div>
 
-return `
-  <div
-    class="map-info-window"
-    style="max-width:280px;"
-  >
-    <strong>${address}</strong>
+        <div
+          style="
+            margin-top:4px;
+            font-size:13px;
+            color:#6b7280;
+          "
+        >
+          ${zone}
+        </div>
+      </div>
 
-    <p>${zone}</p>
+      <div style="margin-top:10px;">
+        <p style="margin:5px 0;">
+          <b>👤 Encuestador:</b><br>
+          ${interviewer}
+        </p>
 
-    <p>
-      <b>Resultado:</b>
-      ${formatVisitResult(visit.visitResult)}
-    </p>
+        <p style="margin:5px 0;">
+          <b>📅 Fecha:</b><br>
+          ${visitDate}
+        </p>
 
-    <p>
-      <b>Intención:</b>
-      ${formatVotingIntention(visit.votingIntention)}
-    </p>
+        <p style="margin:5px 0;">
+          <b>📋 Resultado:</b><br>
+          ${formatVisitResult(visit.visitResult)}
+        </p>
 
-    <p>
-      <b>Encuestador:</b>
-      ${escapeHtml(
-        visit.interviewerName ||
-        visit.interviewerEmail ||
-        "Sin identificar"
-      )}
-    </p>
+        <p style="margin:5px 0;">
+          <b>🗳 Intención:</b><br>
+          ${formatVotingIntention(
+            visit.votingIntention
+          )}
+        </p>
 
-    ${photoHtml}
-  </div>
-`;
+        <p style="margin:5px 0;">
+          <b>🔁 Tipo de visita:</b><br>
+          ${visitType}
+        </p>
+      </div>
+
+      ${photoHtml}
+    </div>
+  `;
 }
+
+
+
+// ------------------------------------------------------
+// FORMATEAR FECHA DE VISITA
+// ------------------------------------------------------
+
+function formatVisitDate(value) {
+
+  if (!value) {
+    return "Sin fecha registrada";
+  }
+
+  let date = null;
+
+  if (typeof value.toDate === "function") {
+    date = value.toDate();
+
+  } else if (Number.isFinite(value.seconds)) {
+    date = new Date(value.seconds * 1000);
+
+  } else if (value instanceof Date) {
+    date = value;
+
+  } else {
+    date = new Date(value);
+  }
+
+  if (
+    !(date instanceof Date) ||
+    Number.isNaN(date.getTime())
+  ) {
+    return "Sin fecha registrada";
+  }
+
+  return date.toLocaleString("es-MX", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 
 // ------------------------------------------------------
 // FORMATEAR RESULTADO
