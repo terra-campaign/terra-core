@@ -936,7 +936,7 @@ saveVisitButton.textContent =
   "Guardando visita...";
 
 
-    await setDoc(visitRef, {
+  
 console.log("VALIDACIÓN DE VISITA", {
   authUid: currentUser.uid,
 
@@ -951,8 +951,11 @@ console.log("VALIDACIÓN DE VISITA", {
     currentUserProfile.campaignId || "CAM-001",
   visitBrigadeId:
     currentUserProfile.brigadeId || null
+
 });
 
+
+  await setDoc(visitRef, {
 
         id: visitId,
 
