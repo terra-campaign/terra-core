@@ -309,7 +309,7 @@ onAuthStateChanged(auth, async (user) => {
 
 
       applyRoleInterface();
-      
+
 
     console.log(
       "Perfil autorizado:",
@@ -655,6 +655,12 @@ if (
     collection(db, "visitas"),
 
     where(
+      "campaignId",
+      "==",
+      currentUserProfile.campaignId
+    ),
+
+    where(
       "normalizedAddress",
       "==",
       normalizedAddress
@@ -662,7 +668,6 @@ if (
   );
 
 }
-
 
 
 
@@ -1131,21 +1136,28 @@ switch (currentUserProfile.role) {
     );
 
     break;
+case "brigadista":
 
-  case "brigadista":
+  visitsQuery = query(
+    collection(db, "visitas"),
 
-    visitsQuery = query(
-      collection(db, "visitas"),
-      where(
-        "interviewerId",
-        "==",
-        currentUser.uid
-      ),
-      orderBy("createdAt", "desc"),
-      limit(200)
-    );
+    where(
+      "interviewerId",
+      "==",
+      currentUser.uid
+    ),
 
-    break;
+    orderBy(
+      "createdAt",
+      "desc"
+    ),
+
+    limit(200)
+  );
+
+  break;
+
+
 
   case "coordinador":
 
