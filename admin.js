@@ -649,6 +649,39 @@ if (
     )
   );
 
+} else if (
+  currentUserProfile.role === "coordinador"
+) {
+
+  const assignedBrigades =
+    currentUserProfile.brigadeIds || [];
+
+  if (!assignedBrigades.length) {
+    return [];
+  }
+
+  visitsQuery = query(
+    collection(db, "visitas"),
+
+    where(
+      "campaignId",
+      "==",
+      currentUserProfile.campaignId
+    ),
+
+    where(
+      "normalizedAddress",
+      "==",
+      normalizedAddress
+    ),
+
+    where(
+      "brigadeId",
+      "in",
+      assignedBrigades
+    )
+  );
+
 } else {
 
   visitsQuery = query(
@@ -1018,6 +1051,7 @@ interviewerRole:
 
 brigadeId:
   currentUserProfile.brigadeId ||
+  currentUserProfile.brigadeIds?.[0] ||
   null,
 
 
