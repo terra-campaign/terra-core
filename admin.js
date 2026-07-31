@@ -1005,25 +1005,6 @@ saveVisitButton.textContent =
   "Guardando visita...";
 
 
-  
-console.log("VALIDACIÓN DE VISITA", {
-  authUid: currentUser.uid,
-
-  profileUid: currentUserProfile.uid,
-  profileRole: currentUserProfile.role,
-  profileActive: currentUserProfile.active,
-  profileCampaignId: currentUserProfile.campaignId,
-  profileBrigadeId: currentUserProfile.brigadeId,
-
-  visitInterviewerId: currentUser.uid,
-  visitCampaignId:
-    currentUserProfile.campaignId || "CAM-001",
-  visitBrigadeId:
-    currentUserProfile.brigadeId || null
-
-});
-
-
   await setDoc(visitRef, {
 
         id: visitId,
