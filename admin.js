@@ -596,14 +596,44 @@ async function findVisitHistory(normalizedAddress) {
     return [];
   }
 
-  const visitsQuery = query(
+  let visitsQuery;
+
+if (
+  currentUserProfile.role === "brigadista"
+) {
+
+  visitsQuery = query(
     collection(db, "visitas"),
+
+    where(
+      "normalizedAddress",
+      "==",
+      normalizedAddress
+    ),
+
+    where(
+      "interviewerId",
+      "==",
+      currentUser.uid
+    )
+  );
+
+} else {
+
+  visitsQuery = query(
+    collection(db, "visitas"),
+
     where(
       "normalizedAddress",
       "==",
       normalizedAddress
     )
   );
+
+}
+
+
+
 
   const snapshot =
     await getDocs(visitsQuery);
@@ -907,7 +937,21 @@ saveVisitButton.textContent =
 
 
     await setDoc(visitRef, {
+console.log("VALIDACIÓN DE VISITA", {
+  authUid: currentUser.uid,
 
+  profileUid: currentUserProfile.uid,
+  profileRole: currentUserProfile.role,
+  profileActive: currentUserProfile.active,
+  profileCampaignId: currentUserProfile.campaignId,
+  profileBrigadeId: currentUserProfile.brigadeId,
+
+  visitInterviewerId: currentUser.uid,
+  visitCampaignId:
+    currentUserProfile.campaignId || "CAM-001",
+  visitBrigadeId:
+    currentUserProfile.brigadeId || null
+});
 
 
         id: visitId,
