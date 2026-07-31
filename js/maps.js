@@ -174,48 +174,53 @@ export async function renderVisitMarkers(visits = []) {
     marker.addEventListener("gmp-click", () => {
 
   const visitHistory =
-    getVisitHistory(visit, visitsWithLocation);
+    getVisitHistory(
+      visit,
+      visitsWithLocation
+    );
 
-  infoWindow.setContent(
+  const infoContent =
+    document.createElement("div");
+
+  infoContent.innerHTML =
     buildInfoWindow(
       visit,
       visitHistory.length
-    )
-  );
+    );
+
+  const historyButton =
+    infoContent.querySelector(
+      "[data-map-history-button]"
+    );
+
+  if (historyButton) {
+
+    historyButton.addEventListener(
+      "click",
+      (event) => {
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        showVisitHistoryModal(
+          visit,
+          visitHistory
+        );
+
+      }
+    );
+
+  }
+
+  infoWindow.setContent(infoContent);
 
   infoWindow.open({
     map,
     anchor: marker
   });
 
-  google.maps.event.addListenerOnce(
-    infoWindow,
-    "domready",
-    () => {
-
-      const historyButton =
-        document.querySelector(
-          "#mapVisitHistoryButton"
-        );
-
-      if (!historyButton) {
-        return;
-      }
-
-      historyButton.addEventListener(
-        "click",
-        () => {
-          showVisitHistoryModal(
-            visit,
-            visitHistory
-          );
-        }
-      );
-
-    }
-  );
-
 });
+
 
     visitMarkers.push(marker);
     bounds.extend(position);
@@ -521,7 +526,7 @@ function buildInfoWindow(
       ${photoHtml}
 
 <button
-  id="mapVisitHistoryButton"
+   data-map-history-button
   type="button"
   style="
     display:block;
