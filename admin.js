@@ -21,6 +21,7 @@ import {
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -205,6 +206,7 @@ const cancelDuplicateVisitButton =
 // ======================================================
 
 let currentUser = null;
+let currentUserProfile = null;
 let latestVisits = [];
 let filteredVisits = [];
 
@@ -216,6 +218,50 @@ let mapReady = false;
 let selectedPhoto = null;
 let previewPhotoUrl = "";
 
+// ======================================================
+// BUILD-104A — CARGAR PERFIL Y ROL DEL USUARIO
+// ======================================================
+
+async function loadCurrentUserProfile(user) {
+
+  const userRef =
+    doc(db, "usuarios", user.uid);
+
+  const userSnapshot =
+    await getDoc(userRef);
+
+  if (!userSnapshot.exists()) {
+    throw new Error(
+      "El usuario no tiene perfil autorizado."
+    );
+  }
+
+  const profile = {
+    uid: userSnapshot.id,
+    ...userSnapshot.data()
+  };
+
+  if (profile.active !== true) {
+    throw new Error(
+      "El usuario está desactivado."
+    );
+  }
+
+  const allowedRoles = [
+    "admin",
+    "coordinador",
+    "brigadista",
+    "consulta"
+  ];
+
+  if (!allowedRoles.includes(profile.role)) {
+    throw new Error(
+      "El usuario no tiene un rol válido."
+    );
+  }
+
+  return profile;
+}
 
 
 // ======================================================
@@ -231,13 +277,40 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
 
   try {
-    mapReady = await initializeTerritoryMap();
-  } catch (error) {
-    console.error("No fue posible iniciar el mapa:", error);
-    mapMessage.textContent = "No fue posible iniciar Google Maps.";
-  }
+    currentUserProfile =
+      await loadCurrentUserProfile(user);
 
-  listenVisits();
+    console.log(
+      "Perfil autorizado:",
+      currentUserProfile
+    );
+
+    mapReady =
+      await initializeTerritoryMap();
+
+    listenVisits();
+
+  } catch (error) {
+    console.error(
+      "Acceso rechazado:",
+      error
+    );
+
+    mapMessage.textContent =
+      error.message ||
+      "No fue posible validar el acceso.";
+
+    visitMessage.textContent =
+      "Acceso no autorizado.";
+
+    visitForm.hidden = true;
+
+    setTimeout(async () => {
+      await signOut(auth);
+      window.location.href =
+        "./login.html";
+    }, 2500);
+  }
 });
 
 // ======================================================
@@ -1061,9 +1134,34 @@ function updateMetrics(visits) {
     (visit) => visit.answeredQuestion === true
   ).length;
 
+  const totalSupport = visits.filter(
+    (visit) =>
+      visit.votingIntention === "apoya"
+  ).length;
+
+  const totalUndecided = visits.filter(
+    (visit) =>
+      visit.votingIntention === "indeciso"
+  ).length;
+
+  const totalOtherOption = visits.filter(
+    (visit) =>
+      visit.votingIntention === "otra_opcion"
+  ).length;
+
+  const totalFollowUps = visits.filter(
+    (visit) =>
+      visit.isFollowUp === true
+  ).length;
+
   totalVisitsElement.textContent = totalVisits;
   totalFlyersElement.textContent = totalFlyers;
   totalAnswersElement.textContent = totalAnswers;
+
+  totalSupportElement.textContent = totalSupport;
+  totalUndecidedElement.textContent = totalUndecided;
+  totalOtherOptionElement.textContent = totalOtherOption;
+  totalFollowUpsElement.textContent = totalFollowUps;
 }
 
 // ======================================================
