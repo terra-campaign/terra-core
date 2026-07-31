@@ -97,11 +97,7 @@ const visitsList = document.querySelector("#visitsList");
 // =====================================================
 
 function applyVisitResultRules() {
-console.log("Resultado:", visitResultInput.value);
-  console.log(
-    "SMART FORM:",
-    visitResultInput.value
-  );
+
     const visitResult =
         visitResultInput.value;
 
@@ -495,11 +491,14 @@ function normalizeAddress(
 // ======================================================
 // BUSCAR DOMICILIO YA VISITADO
 // ======================================================
+// ======================================================
+// BUILD-101 — BUSCAR HISTORIAL DEL DOMICILIO
+// ======================================================
 
-async function findExistingVisit(normalizedAddress) {
+async function findVisitHistory(normalizedAddress) {
 
   if (!normalizedAddress) {
-    return null;
+    return [];
   }
 
   const visitsQuery = query(
@@ -514,81 +513,133 @@ async function findExistingVisit(normalizedAddress) {
   const snapshot =
     await getDocs(visitsQuery);
 
-  if (snapshot.empty) {
-    return null;
-  }
+  const visitHistory = [];
 
-  let latestVisit = null;
+  snapshot.forEach((documentSnapshot) => {
 
-  snapshot.forEach((doc) => {
-
-    const data = doc.data();
-
-    if (
-      !latestVisit ||
-      (
-        data.createdAt?.seconds || 0
-      ) >
-      (
-        latestVisit.createdAt?.seconds || 0
-      )
-    ) {
-
-      latestVisit = {
-        id: doc.id,
-        ...data
-      };
-
-    }
+    visitHistory.push({
+      id: documentSnapshot.id,
+      ...documentSnapshot.data()
+    });
 
   });
 
-  return latestVisit;
+  visitHistory.sort((a, b) => {
 
+    const dateA =
+      a.visitedAt?.seconds ||
+      a.createdAt?.seconds ||
+      0;
+
+    const dateB =
+      b.visitedAt?.seconds ||
+      b.createdAt?.seconds ||
+      0;
+
+    return dateB - dateA;
+
+  });
+
+  return visitHistory;
 }
 
-async function confirmDuplicateVisit(existingVisit){
 
-  return new Promise((resolve)=>{
+// ======================================================
+// BUILD-101 — MODAL DE HISTORIAL Y SEGUIMIENTO
+// ======================================================
 
-    const interviewer =
-      existingVisit.interviewerName ||
-      existingVisit.interviewerEmail ||
-      "Sin identificar";
+async function confirmDuplicateVisit(visitHistory) {
 
-    const visitDate =
-      existingVisit.visitedAt?.toDate?.() ||
-      existingVisit.createdAt?.toDate?.();
+  return new Promise((resolve) => {
+
+    const latestVisit =
+      visitHistory[0];
 
     duplicateVisitDetails.innerHTML = `
-      <p><b>Fecha:</b> ${
-        visitDate
-          ? visitDate.toLocaleString("es-MX")
-          : "Sin fecha"
-      }</p>
-
-      <p><b>Encuestador:</b>
-        ${escapeHtml(interviewer)}
+      <p>
+        <strong>
+          Este domicilio ya cuenta con
+          ${visitHistory.length}
+          ${visitHistory.length === 1 ? "visita registrada" : "visitas registradas"}.
+        </strong>
       </p>
 
-      <p><b>Resultado:</b>
-        ${formatVisitResult(existingVisit.visitResult)}
-      </p>
+      <div class="visit-history">
 
-      <p><b>Intención:</b>
-        ${formatVotingIntention(existingVisit.votingIntention)}
-      </p>
+        ${visitHistory.map((visit, index) => {
+
+          const interviewer =
+            visit.interviewerName ||
+            visit.interviewerEmail ||
+            "Sin identificar";
+
+          const visitDate =
+            visit.visitedAt?.toDate?.() ||
+            visit.createdAt?.toDate?.();
+
+          return `
+            <article class="visit-history__item">
+
+              <p>
+                <strong>
+                  ${index === 0
+                    ? "Visita más reciente"
+                    : `Visita anterior ${index}`}
+                </strong>
+              </p>
+
+              <p>
+                <b>Fecha:</b>
+                ${
+                  visitDate
+                    ? visitDate.toLocaleString("es-MX")
+                    : "Sin fecha"
+                }
+              </p>
+
+              <p>
+                <b>Encuestador:</b>
+                ${escapeHtml(interviewer)}
+              </p>
+
+              <p>
+                <b>Resultado:</b>
+                ${formatVisitResult(visit.visitResult)}
+              </p>
+
+              <p>
+                <b>Intención:</b>
+                ${formatVotingIntention(visit.votingIntention)}
+              </p>
+
+              <p>
+                <b>Tipo:</b>
+                ${
+                  visit.isFollowUp
+                    ? "Seguimiento"
+                    : "Primera visita"
+                }
+              </p>
+
+            </article>
+          `;
+
+        }).join("")}
+
+      </div>
     `;
 
-    if(existingVisit.photoURL){
+    if (latestVisit?.photoURL) {
 
       duplicateVisitPhoto.src =
-        existingVisit.photoURL;
+        latestVisit.photoURL;
 
       duplicateVisitPhoto.style.display =
         "block";
 
-    }else{
+    } else {
+
+      duplicateVisitPhoto.removeAttribute("src");
 
       duplicateVisitPhoto.style.display =
         "none";
@@ -597,7 +648,7 @@ async function confirmDuplicateVisit(existingVisit){
 
     duplicateVisitModal.hidden = false;
 
-    confirmDuplicateVisitButton.onclick = ()=>{
+    confirmDuplicateVisitButton.onclick = () => {
 
       duplicateVisitModal.hidden = true;
 
@@ -605,7 +656,7 @@ async function confirmDuplicateVisit(existingVisit){
 
     };
 
-    cancelDuplicateVisitButton.onclick = ()=>{
+    cancelDuplicateVisitButton.onclick = () => {
 
       duplicateVisitModal.hidden = true;
 
@@ -614,7 +665,6 @@ async function confirmDuplicateVisit(existingVisit){
     };
 
   });
-
 }
 
 
@@ -705,14 +755,18 @@ if (!selectedPhoto) {
 
 
   try {
-const existingVisit =
-  await findExistingVisit(normalizedAddress);
+const visitHistory =
+  await findVisitHistory(normalizedAddress);
 
-if (existingVisit) {
+const previousVisit =
+  visitHistory[0] || null;
+
+if (previousVisit) {
+
   const continueAsFollowUp =
-  await confirmDuplicateVisit(existingVisit);
-
-
+    await confirmDuplicateVisit(
+      visitHistory
+    );
 
   if (!continueAsFollowUp) {
     return;
@@ -779,8 +833,18 @@ locality,
 
 normalizedAddress,
 
-isFollowUp: Boolean(existingVisit),
-previousVisitId: existingVisit?.id || null,
+isFollowUp: Boolean(previousVisit),
+
+previousVisitId:
+  previousVisit?.id || null,
+
+followUpNumber:
+  visitHistory.length + 1,
+
+rootVisitId:
+  previousVisit?.rootVisitId ||
+  previousVisit?.id ||
+  visitId,
 
 visitResult,
 
