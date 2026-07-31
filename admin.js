@@ -90,6 +90,9 @@ const totalAnswersElement = document.querySelector("#totalAnswers");
 
 const visitsList = document.querySelector("#visitsList");
 
+const territoryFilters =
+  document.querySelectorAll(".territory-filter");
+
 
 // =====================================================
 // BUILD-100 — SMART FORM ENGINE
@@ -1170,3 +1173,32 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+
+// ======================================================
+// EVENTOS DE INTERFAZ
+// ======================================================
+
+// BUILD-102C — FILTROS TERRITORIALES
+
+territoryFilters.forEach((button) => {
+
+  button.addEventListener("click", () => {
+
+    activeFilter =
+      button.dataset.filter || "all";
+
+    territoryFilters.forEach((item) => {
+      item.classList.remove("active");
+    });
+
+    button.classList.add("active");
+
+    applyTerritoryFilter();
+
+  });
+
+});
+
+
+

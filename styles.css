@@ -268,3 +268,53 @@ background:white;
 
 
 
+/* =====================================================
+   BUILD-102C — FILTROS TERRITORIALES
+===================================================== */
+
+.territory-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.territory-filter {
+  border: 1px solid #d0d5dd;
+  background: #ffffff;
+  color: #344054;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.territory-filter:hover {
+  transform: translateY(-1px);
+  border-color: #98a2b3;
+}
+
+.territory-filter.active {
+  background: #1d4ed8;
+  color: #ffffff;
+  border-color: #1d4ed8;
+}
+
+@media (max-width: 640px) {
+  .territory-filters {
+    gap: 8px;
+  }
+
+  .territory-filter {
+    flex: 1 1 calc(50% - 8px);
+    padding: 10px 12px;
+  }
+}
+
+
