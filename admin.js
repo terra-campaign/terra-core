@@ -62,6 +62,10 @@ const houseNumberInput = document.querySelector("#houseNumber");
 const neighborhoodInput = document.querySelector("#neighborhood");
 const localityInput = document.querySelector("#locality");
 
+
+const duplicateAddressWarning =
+  document.querySelector("#duplicateAddressWarning");
+
 const visitResultInput = document.querySelector("#visitResult");
 const votingIntentionInput = document.querySelector("#votingIntention");
 
