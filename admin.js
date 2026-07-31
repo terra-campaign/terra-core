@@ -88,10 +88,26 @@ const totalVisitsElement = document.querySelector("#totalVisits");
 const totalFlyersElement = document.querySelector("#totalFlyers");
 const totalAnswersElement = document.querySelector("#totalAnswers");
 
+const totalSupportElement =
+  document.querySelector("#totalSupport");
+
+const totalUndecidedElement =
+  document.querySelector("#totalUndecided");
+
+const totalOtherOptionElement =
+  document.querySelector("#totalOtherOption");
+
+const totalFollowUpsElement =
+  document.querySelector("#totalFollowUps");
+
 const visitsList = document.querySelector("#visitsList");
 
 const territoryFilters =
   document.querySelectorAll(".territory-filter");
+
+
+
+
 
 
 // =====================================================
