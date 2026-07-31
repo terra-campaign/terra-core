@@ -679,6 +679,57 @@ function showVisitHistoryModal(
     .map(escapeHtml)
     .join(", ");
 
+
+
+const latestVisit = history[0];
+
+const totalVisits = history.length;
+
+const summaryHtml = `
+<div
+style="
+margin-bottom:18px;
+padding:14px;
+background:#ecfdf5;
+border:1px solid #86efac;
+border-radius:10px;
+">
+
+<div style="font-size:17px;font-weight:700;">
+📊 Estado actual
+</div>
+
+<p>
+
+<b>Total de visitas:</b>
+
+${totalVisits}
+
+</p>
+
+<p>
+
+<b>Resultado actual:</b>
+
+${formatVisitResult(
+latestVisit.visitResult
+)}
+
+</p>
+
+<p>
+
+<b>Intención actual:</b>
+
+${formatVotingIntention(
+latestVisit.votingIntention
+)}
+
+</p>
+
+</div>
+`;
+
   const historyHtml =
     history.length
       ? history
@@ -806,7 +857,9 @@ function showVisitHistoryModal(
             background:#f8fafc;
           "
         >
-          ${historyHtml}
+          ${summaryHtml}
+
+${historyHtml}
         </div>
       </section>
     </div>
@@ -890,40 +943,86 @@ function buildHistoryItem(
         `
       : "";
 
-  return `
-    <article
-      style="
-        padding:16px;
-        margin-bottom:12px;
-        border:1px solid #dbe3ec;
-        border-radius:12px;
-        background:#ffffff;
-      "
-    >
-      <div
-        style="
-          display:flex;
-          justify-content:space-between;
-          gap:12px;
-          align-items:flex-start;
-        "
-      >
-        <strong
-          style="
-            color:#17324d;
-            font-size:16px;
-          "
-        >
-          Visita #${visitNumber}
-        </strong>
 
-        <span
-          style="
-            font-size:12px;
-            color:#6b7280;
-            text-align:right;
-          "
-        >
+
+let changes = "";
+
+if(
+visit.previousVisitResult &&
+visit.previousVisitResult!==visit.visitResult
+){
+
+changes+=`
+<p
+style="color:#ea580c;font-weight:bold;">
+⚠ Cambió el resultado
+</p>
+`;
+
+}
+
+if(
+visit.previousVotingIntention &&
+visit.previousVotingIntention!==visit.votingIntention
+){
+
+changes+=`
+<p
+style="color:#2563eb;font-weight:bold;">
+🔄 Cambió la intención
+</p>
+`;
+
+}
+
+
+  return `
+
+<div
+style="
+display:flex;
+gap:16px;
+margin-bottom:18px;
+">
+
+<div
+style="
+display:flex;
+flex-direction:column;
+align-items:center;
+width:24px;
+">
+
+<div
+style="
+width:14px;
+height:14px;
+border-radius:50%;
+background:#17324d;
+margin-top:6px;
+">
+</div>
+
+<div
+style="
+flex:1;
+width:2px;
+background:#cbd5e1;
+min-height:40px;
+">
+</div>
+
+</div>
+
+<article
+style="
+flex:1;
+padding:16px;
+border:1px solid #dbe3ec;
+border-radius:12px;
+background:#ffffff;
+"
+>
           ${formatVisitDate(
             visit.visitedAt ||
             visit.createdAt
@@ -947,6 +1046,8 @@ function buildHistoryItem(
 
       <p style="margin:4px 0;">
         <b>Encuestador:</b><br>
+
+       ${changes} 
         ${interviewer}
       </p>
 
@@ -960,8 +1061,11 @@ function buildHistoryItem(
       </p>
 
       ${photoHtml}
-    </article>
-  `;
+   </article>
+
+</div>
+
+`;
 }
 
 
