@@ -912,14 +912,32 @@ saveVisitButton.textContent =
 
         id: visitId,
 
-      campaignId: "CAM-001",
+      campaignId:
+  currentUserProfile.campaignId ||
+  "CAM-001",
 
-      interviewerId: currentUser.uid,
-interviewerEmail: currentUser.email || "",
+interviewerId:
+  currentUser.uid,
+
+interviewerEmail:
+  currentUserProfile.email ||
+  currentUser.email ||
+  "",
+
 interviewerName:
+  currentUserProfile.name ||
   currentUser.displayName ||
   currentUser.email?.split("@")[0] ||
   "Sin identificar",
+
+interviewerRole:
+  currentUserProfile.role,
+
+brigadeId:
+  currentUserProfile.brigadeId ||
+  null,
+
+
 
      street,
 houseNumber,
@@ -1017,11 +1035,84 @@ photoStatus.textContent =
 // ======================================================
 
 function listenVisits() {
-  const visitsQuery = query(
-    collection(db, "visitas"),
-    orderBy("createdAt", "desc"),
-    limit(200)
-  );
+  let visitsQuery;
+
+switch (currentUserProfile.role) {
+
+  case "admin":
+
+    visitsQuery = query(
+      collection(db, "visitas"),
+      where(
+        "campaignId",
+        "==",
+        currentUserProfile.campaignId
+      ),
+      orderBy("createdAt", "desc"),
+      limit(200)
+    );
+
+    break;
+
+  case "brigadista":
+
+    visitsQuery = query(
+      collection(db, "visitas"),
+      where(
+        "interviewerId",
+        "==",
+        currentUser.uid
+      ),
+      orderBy("createdAt", "desc"),
+      limit(200)
+    );
+
+    break;
+
+  case "coordinador":
+
+    visitsQuery = query(
+      collection(db, "visitas"),
+      where(
+        "campaignId",
+        "==",
+        currentUserProfile.campaignId
+      ),
+      where(
+        "brigadeId",
+        "in",
+        currentUserProfile.brigadeIds || []
+      ),
+      orderBy("createdAt", "desc"),
+      limit(200)
+    );
+
+    break;
+
+  case "consulta":
+
+    visitsQuery = query(
+      collection(db, "visitas"),
+      where(
+        "campaignId",
+        "==",
+        currentUserProfile.campaignId
+      ),
+      orderBy("createdAt", "desc"),
+      limit(200)
+    );
+
+    break;
+
+  default:
+
+    throw new Error(
+      "Rol sin alcance de lectura."
+    );
+}
+
+
+
 
   onSnapshot(
     visitsQuery,
