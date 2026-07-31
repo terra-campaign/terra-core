@@ -4,7 +4,7 @@
 // PWA ENGINE v2
 // ======================================================
 
-const CACHE_NAME = "terra-campaign-build-001";
+const CACHE_NAME = "terra-campaign-build-002";
 
 const APP_SHELL = [
 
@@ -76,11 +76,21 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
 
+
+    const url = new URL(event.request.url);
+
+if (
+  url.protocol !== "http:" &&
+  url.protocol !== "https:"
+) {
+  return;
+}
+
+
     if (event.request.method !== "GET") {
         return;
     }
 
-    const url = new URL(event.request.url);
 
     const isHtml =
         event.request.mode === "navigate";
