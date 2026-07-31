@@ -46,7 +46,7 @@ import {
   renderVisitMarkers,
   showCurrentLocation,
   centerTerritoryMap
-} from "./maps.js?v=BUILD-102A-1";
+} from "./maps.js";
 
 // ======================================================
 // ELEMENTOS DE PANTALLA
