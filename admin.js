@@ -265,6 +265,33 @@ async function loadCurrentUserProfile(user) {
 
 
 // ======================================================
+// BUILD-104C — INTERFAZ SEGÚN ROL
+// ======================================================
+
+function applyRoleInterface() {
+
+  if (!currentUserProfile) {
+    return;
+  }
+
+  const isReadOnly =
+    currentUserProfile.role === "consulta";
+
+  if (isReadOnly) {
+    visitForm.hidden = true;
+
+    visitMessage.textContent =
+      "Acceso de consulta: solo lectura.";
+
+    return;
+  }
+
+  visitForm.hidden = false;
+}
+
+
+
+// ======================================================
 // INICIO DE SESIÓN Y MAPA
 // ======================================================
 
@@ -279,6 +306,10 @@ onAuthStateChanged(auth, async (user) => {
   try {
     currentUserProfile =
       await loadCurrentUserProfile(user);
+
+
+      applyRoleInterface();
+      
 
     console.log(
       "Perfil autorizado:",
