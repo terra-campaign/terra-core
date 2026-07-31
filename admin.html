@@ -234,7 +234,11 @@
         <label>
           Resultado de la visita
 
-          <select id="visitResult" required>
+          <select
+  id="visitResult"
+  required
+  onchange="applySmartVisitRules()"
+>
 
             <option value="">
               Seleccionar
@@ -454,7 +458,60 @@
     </section>
   </div>
 
-  <script type="module" src="./admin.js?v=100"></script>
+<script>
+  function applySmartVisitRules() {
+    const visitResult =
+      document.querySelector("#visitResult");
+
+    const votingIntention =
+      document.querySelector("#votingIntention");
+
+    if (!visitResult || !votingIntention) {
+      return;
+    }
+
+    const result = visitResult.value;
+
+    if (!result) {
+      votingIntention.value = "";
+      votingIntention.disabled = true;
+      votingIntention.required = false;
+      return;
+    }
+
+    if (result === "flyer_entregado") {
+      votingIntention.value = "";
+      votingIntention.disabled = false;
+      votingIntention.required = true;
+      return;
+    }
+
+    if (result === "se_nego") {
+      votingIntention.value = "no_respondio";
+      votingIntention.disabled = true;
+      votingIntention.required = false;
+      return;
+    }
+
+    if (
+      result === "no_estaba" ||
+      result === "no_estaba_flyer" ||
+      result === "volver" ||
+      result === "deshabitado"
+    ) {
+      votingIntention.value = "no_aplica";
+      votingIntention.disabled = true;
+      votingIntention.required = false;
+    }
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    applySmartVisitRules();
+  });
+</script>
+
+<script type="module" src="./admin.js?v=100"></script>
+
 
 
 </body>
