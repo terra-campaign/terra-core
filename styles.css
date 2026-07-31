@@ -318,3 +318,27 @@ background:white;
 }
 
 
+/* =====================================================
+   BUILD-105 — AVISO DE DOMICILIO REPETIDO
+===================================================== */
+
+.duplicate-address-warning {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid #f59e0b;
+  border-left: 5px solid #d97706;
+  border-radius: 10px;
+  background: #fffbeb;
+  color: #78350f;
+}
+
+.duplicate-address-warning strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.duplicate-address-warning p {
+  margin: 6px 0;
+  line-height: 1.4;
+}

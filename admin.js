@@ -743,6 +743,154 @@ if (
 
 
 // ======================================================
+// BUILD-105 — DETECTOR DE DOMICILIO REPETIDO
+// ======================================================
+
+let duplicateAddressTimer = null;
+let duplicateAddressRequest = 0;
+
+function normalizeAddressPart(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildCurrentNormalizedAddress() {
+  return [
+    streetInput.value,
+    houseNumberInput.value,
+    neighborhoodInput.value,
+    localityInput.value
+  ]
+    .map(normalizeAddressPart)
+    .filter(Boolean)
+    .join(" ");
+}
+
+function clearDuplicateAddressWarning() {
+  duplicateAddressWarning.hidden = true;
+  duplicateAddressWarning.innerHTML = "";
+}
+
+async function detectDuplicateAddress() {
+  const street = streetInput.value.trim();
+  const houseNumber = houseNumberInput.value.trim();
+  const neighborhood = neighborhoodInput.value.trim();
+  const locality = localityInput.value.trim();
+
+  if (
+    !street ||
+    !houseNumber ||
+    !neighborhood ||
+    !locality
+  ) {
+    clearDuplicateAddressWarning();
+    return;
+  }
+
+  const normalizedAddress =
+    buildCurrentNormalizedAddress();
+
+  if (!normalizedAddress) {
+    clearDuplicateAddressWarning();
+    return;
+  }
+
+  const requestId =
+    ++duplicateAddressRequest;
+
+  duplicateAddressWarning.hidden = false;
+
+  duplicateAddressWarning.innerHTML = `
+    <p style="margin:0;">
+      Consultando antecedentes del domicilio...
+    </p>
+  `;
+
+  try {
+    const history =
+      await findVisitHistory(normalizedAddress);
+
+    // Ignora una respuesta vieja si el usuario siguió escribiendo.
+    if (requestId !== duplicateAddressRequest) {
+      return;
+    }
+
+    if (!history.length) {
+      clearDuplicateAddressWarning();
+      return;
+    }
+
+    const latestVisit = history[0];
+
+    duplicateAddressWarning.hidden = false;
+
+    duplicateAddressWarning.innerHTML = `
+      <div>
+        <strong>
+          ⚠ Domicilio previamente visitado
+        </strong>
+
+        <p>
+          ${escapeHtml(street)}
+          ${escapeHtml(houseNumber)}
+          <br>
+          ${escapeHtml(neighborhood)},
+          ${escapeHtml(locality)}
+        </p>
+
+        <p>
+          <b>Visitas encontradas:</b>
+          ${history.length}
+        </p>
+
+        <p>
+          <b>Último resultado:</b>
+          ${formatVisitResult(
+            latestVisit.visitResult
+          )}
+        </p>
+
+        <p>
+          <b>Última intención:</b>
+          ${formatVotingIntention(
+            latestVisit.votingIntention
+          )}
+        </p>
+
+        <p style="margin-bottom:0;">
+          El registro se guardará como seguimiento
+          cuando corresponda.
+        </p>
+      </div>
+    `;
+
+  } catch (error) {
+    console.error(
+      "Error al verificar domicilio:",
+      error
+    );
+
+    clearDuplicateAddressWarning();
+  }
+}
+
+function scheduleDuplicateAddressDetection() {
+  clearTimeout(duplicateAddressTimer);
+
+  duplicateAddressTimer = setTimeout(
+    detectDuplicateAddress,
+    650
+  );
+}
+
+
+// ======================================================
 // BUILD-101 — MODAL DE HISTORIAL Y SEGUIMIENTO
 // ======================================================
 
