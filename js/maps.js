@@ -657,6 +657,199 @@ function getVisitTimestamp(visit) {
 }
 
 // ------------------------------------------------------
+// BUILD-102B — MOSTRAR MODAL DE HISTORIAL
+// ------------------------------------------------------
+
+function showVisitHistoryModal(
+  selectedVisit,
+  history
+) {
+
+  closeVisitHistoryModal();
+
+  const address =
+    `${escapeHtml(selectedVisit.street || "")} ` +
+    `${escapeHtml(selectedVisit.houseNumber || "")}`;
+
+  const zone = [
+    selectedVisit.neighborhood,
+    selectedVisit.locality
+  ]
+    .filter(Boolean)
+    .map(escapeHtml)
+    .join(", ");
+
+  const historyHtml =
+    history.length
+      ? history
+          .map((visit, index) =>
+            buildHistoryItem(
+              visit,
+              history.length - index
+            )
+          )
+          .join("")
+      : `
+          <p>
+            No existe historial disponible.
+          </p>
+        `;
+
+  visitHistoryModal =
+    document.createElement("div");
+
+  visitHistoryModal.id =
+    "visitHistoryModal";
+
+  visitHistoryModal.innerHTML = `
+    <div
+      data-history-backdrop
+      style="
+        position:fixed;
+        inset:0;
+        z-index:10000;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:18px;
+        background:rgba(15,23,42,.72);
+      "
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="visitHistoryTitle"
+        style="
+          width:min(560px,100%);
+          max-height:90vh;
+          overflow:auto;
+          background:#ffffff;
+          border-radius:14px;
+          box-shadow:0 20px 60px rgba(0,0,0,.30);
+        "
+      >
+        <header
+          style="
+            position:sticky;
+            top:0;
+            display:flex;
+            justify-content:space-between;
+            gap:16px;
+            padding:18px;
+            border-bottom:1px solid #e5e7eb;
+            background:#ffffff;
+            z-index:1;
+          "
+        >
+          <div>
+            <div
+              id="visitHistoryTitle"
+              style="
+                font-size:18px;
+                font-weight:800;
+                color:#17324d;
+              "
+            >
+              Historial del domicilio
+            </div>
+
+            <div
+              style="
+                margin-top:4px;
+                font-size:14px;
+                color:#374151;
+              "
+            >
+              ${address || "Domicilio registrado"}
+            </div>
+
+            ${
+              zone
+                ? `
+                    <div
+                      style="
+                        margin-top:2px;
+                        font-size:13px;
+                        color:#6b7280;
+                      "
+                    >
+                      ${zone}
+                    </div>
+                  `
+                : ""
+            }
+          </div>
+
+          <button
+            type="button"
+            data-close-history
+            aria-label="Cerrar historial"
+            style="
+              width:36px;
+              height:36px;
+              flex:0 0 auto;
+              border:0;
+              border-radius:50%;
+              background:#f3f4f6;
+              color:#111827;
+              font-size:22px;
+              cursor:pointer;
+            "
+          >
+            ×
+          </button>
+        </header>
+
+        <div
+          style="
+            padding:18px;
+            background:#f8fafc;
+          "
+        >
+          ${historyHtml}
+        </div>
+      </section>
+    </div>
+  `;
+
+  document.body.appendChild(
+    visitHistoryModal
+  );
+
+  const closeButton =
+    visitHistoryModal.querySelector(
+      "[data-close-history]"
+    );
+
+  const backdrop =
+    visitHistoryModal.querySelector(
+      "[data-history-backdrop]"
+    );
+
+  closeButton.addEventListener(
+    "click",
+    closeVisitHistoryModal
+  );
+
+  backdrop.addEventListener(
+    "click",
+    (event) => {
+
+      if (event.target === backdrop) {
+        closeVisitHistoryModal();
+      }
+
+    }
+  );
+
+  document.addEventListener(
+    "keydown",
+    closeVisitHistoryWithEscape
+  );
+}
+
+
+// ------------------------------------------------------
 // CONSTRUIR ELEMENTO DEL HISTORIAL
 // ------------------------------------------------------
 
