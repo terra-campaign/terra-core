@@ -1,4 +1,4 @@
-const CACHE_NAME = "terra-campaign-build-000-v1";
+const CACHE_NAME = "terra-campaign-build-000-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
