@@ -187,6 +187,9 @@ const cancelDuplicateVisitButton =
 
 let currentUser = null;
 let latestVisits = [];
+let filteredVisits = [];
+
+let activeFilter = "all";
 let mapReady = false;
 
 
@@ -941,12 +944,7 @@ function listenVisits() {
         });
       });
 
-      updateMetrics(latestVisits);
-      renderVisits(latestVisits.slice(0, 10));
-
-      if (mapReady) {
-        await renderVisitMarkers(latestVisits);
-      }
+      applyTerritoryFilter();
     },
 
     (error) => {
@@ -957,6 +955,77 @@ function listenVisits() {
     }
   );
 }
+
+// ======================================================
+// BUILD-102C — TERRITORY FILTER ENGINE
+// ======================================================
+
+function applyTerritoryFilter() {
+
+  switch (activeFilter) {
+
+    case "all":
+      filteredVisits = [...latestVisits];
+      break;
+
+    case "support":
+      filteredVisits = latestVisits.filter(
+        (visit) =>
+          visit.votingIntention === "apoya"
+      );
+      break;
+
+    case "indecisos":
+      filteredVisits = latestVisits.filter(
+        (visit) =>
+          visit.votingIntention === "indeciso"
+      );
+      break;
+
+    case "otra":
+      filteredVisits = latestVisits.filter(
+        (visit) =>
+          visit.votingIntention === "otra_opcion"
+      );
+      break;
+
+    case "flyer":
+      filteredVisits = latestVisits.filter(
+        (visit) =>
+          visit.flyerDelivered === true
+      );
+      break;
+
+    case "volver":
+      filteredVisits = latestVisits.filter(
+        (visit) =>
+          visit.visitResult === "volver"
+      );
+      break;
+
+    case "followup":
+      filteredVisits = latestVisits.filter(
+        (visit) =>
+          visit.isFollowUp === true
+      );
+      break;
+
+    default:
+      filteredVisits = [...latestVisits];
+  }
+
+  updateMetrics(filteredVisits);
+
+  renderVisits(
+    filteredVisits.slice(0, 10)
+  );
+
+  if (mapReady) {
+    renderVisitMarkers(filteredVisits);
+  }
+}
+
+
 
 // ======================================================
 // CONTADORES
