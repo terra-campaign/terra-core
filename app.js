@@ -75,3 +75,29 @@ updateConnectionStatus();
 
 window.addEventListener("online", updateConnectionStatus);
 window.addEventListener("offline", updateConnectionStatus);
+
+
+// ======================================================
+// REGISTRO DEL SERVICE WORKER
+// ======================================================
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+    try {
+      const registration =
+        await navigator.serviceWorker.register(
+          "./service-worker.js"
+        );
+
+      console.log(
+        "Service Worker registrado:",
+        registration.scope
+      );
+    } catch (error) {
+      console.error(
+        "No fue posible registrar el Service Worker:",
+        error
+      );
+    }
+  });
+}
