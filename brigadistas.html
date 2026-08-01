@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="es-MX">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <meta
+    name="theme-color"
+    content="#17324d"
+  >
+
+  <title>
+    Administración de brigadistas | TERRA Campaign
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  >
+
+</head>
+
+<body>
+
+  <header class="topbar">
+
+    <div>
+
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1>
+        Administración de brigadistas
+      </h1>
+
+    </div>
+
+    <div class="actions">
+
+      <a
+        class="button button--secondary"
+        href="./admin.html"
+      >
+        Volver a operación
+      </a>
+
+      <button
+        id="logoutButton"
+        class="button button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+  <main class="shell">
+
+    <section class="card">
+
+      <div class="section-heading">
+
+        <div>
+
+          <p class="eyebrow">
+            ADMINISTRACIÓN
+          </p>
+
+          <h2>
+            Personal de campo
+          </h2>
+
+          <p>
+            Consulta y administra los brigadistas
+            autorizados para utilizar la plataforma.
+          </p>
+
+        </div>
+
+        <button
+          id="newBrigadistaButton"
+          class="button"
+          type="button"
+        >
+          + Nuevo brigadista
+        </button>
+
+      </div>
+
+    </section>
+
+    <section class="grid">
+
+      <article class="card">
+
+        <strong>
+          Brigadistas registrados
+        </strong>
+
+        <span id="totalBrigadistas">
+          0
+        </span>
+
+      </article>
+
+      <article class="card">
+
+        <strong>
+          Brigadistas activos
+        </strong>
+
+        <span id="activeBrigadistas">
+          0
+        </span>
+
+      </article>
+
+      <article class="card">
+
+        <strong>
+          Brigada asignada
+        </strong>
+
+        <span>
+          BRIG-001
+        </span>
+
+      </article>
+
+    </section>
+
+    <section class="card">
+
+      <div class="section-heading">
+
+        <div>
+
+          <p class="eyebrow">
+            USUARIOS
+          </p>
+
+          <h2>
+            Brigadistas registrados
+          </h2>
+
+        </div>
+
+      </div>
+
+      <div
+        id="brigadistasMessage"
+        class="message"
+        aria-live="polite"
+      ></div>
+
+      <div
+        id="brigadistasList"
+        class="table-wrapper"
+      >
+
+        <p>
+          Cargando brigadistas...
+        </p>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <script
+    type="module"
+    src="./brigadistas.js?v=107A"
+  ></script>
+
+</body>
+
+</html>
