@@ -342,3 +342,19 @@ background:white;
   margin: 6px 0;
   line-height: 1.4;
 }
+
+
+
+.photo-instruction{
+    margin:10px 0;
+    padding:10px 12px;
+    background:#fff8e6;
+    border-left:4px solid #f4b400;
+    border-radius:6px;
+    font-size:14px;
+    line-height:1.45;
+    color:#444;
+}
+
+
+

@@ -491,16 +491,19 @@
 
 <div class="form-group">
 
-  <label for="photo">
+ <label>
     Evidencia fotográfica
-  </label>
-
- <label
-  for="photo"
-  class="button button--secondary"
->
-  Abrir cámara y tomar fotografía
 </label>
+
+<p class="photo-instruction">
+📸 <strong>Evidencia de la visita:</strong> Tome la fotografía mostrando el <strong>flyer entregado</strong>. Siempre que sea posible, el ciudadano deberá sostener el flyer en su mano y deberá apreciarse parte de la fachada o acceso del domicilio. Esta imagen será utilizada como evidencia del trabajo realizado.
+</p>
+
+<button
+    id="photoButton"
+    type="button">
+    Abrir cámara y tomar fotografía
+</button>
 
 <input
   id="photo"
@@ -537,6 +540,10 @@
         >
           Guardar visita
         </button>
+
+<p class="save-warning">
+⚠️ Revise cuidadosamente la información antes de guardar. Una vez registrada la visita, formará parte del historial del domicilio.
+</p>
 
         <p
           id="visitMessage"
