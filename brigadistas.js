@@ -426,6 +426,96 @@ document
   });
 
 
+
+
+  newBrigadistaForm.addEventListener(
+  "submit",
+  async (event) => {
+
+    event.preventDefault();
+
+    const name =
+      brigadistaNameInput.value.trim();
+
+    const email =
+      brigadistaEmailInput.value
+        .trim()
+        .toLowerCase();
+
+    const phone =
+      brigadistaPhoneInput.value.trim();
+
+    const temporaryPassword =
+      brigadistaTemporaryPasswordInput.value;
+
+    if (
+      !name ||
+      !email ||
+      !phone ||
+      !temporaryPassword
+    ) {
+      newBrigadistaMessage.textContent =
+        "Complete todos los campos obligatorios.";
+
+      return;
+    }
+
+    saveBrigadistaButton.disabled = true;
+
+    saveBrigadistaButton.textContent =
+      "Creando brigadista...";
+
+    newBrigadistaMessage.textContent =
+      "Procesando alta...";
+
+    try {
+
+      const response =
+        await createBrigadistaFunction({
+          name,
+          email,
+          phone,
+          temporaryPassword
+        });
+
+      const result =
+        response.data;
+
+      newBrigadistaMessage.textContent =
+        result.message ||
+        "Brigadista creado correctamente.";
+
+      newBrigadistaForm.reset();
+
+      setTimeout(() => {
+        closeNewBrigadistaModal();
+      }, 1200);
+
+    } catch (error) {
+
+      console.error(
+        "Error al crear brigadista:",
+        error
+      );
+
+      newBrigadistaMessage.textContent =
+        error.message ||
+        "No fue posible crear el brigadista.";
+
+    } finally {
+
+      saveBrigadistaButton.disabled = false;
+
+      saveBrigadistaButton.textContent =
+        "Crear brigadista";
+
+    }
+
+  }
+);
+
+
+
 // ======================================================
 // CERRAR SESIÓN
 // ======================================================
