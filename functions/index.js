@@ -384,8 +384,10 @@ if (
 
 
 
+
 // ======================================================
-// BUILD-109 — ACTIVAR / DESACTIVAR BRIGADISTA
+// BUILD-109 / BUILD-111
+// ACTIVAR O DESACTIVAR BRIGADISTA
 // ======================================================
 
 exports.updateBrigadistaStatus = onCall(
@@ -396,7 +398,7 @@ exports.updateBrigadistaStatus = onCall(
   async (request) => {
 
     // --------------------------------------------------
-    // 1. VALIDAR ADMINISTRADOR
+    // 1. VALIDAR USUARIO AUTENTICADO
     // --------------------------------------------------
 
     if (!request.auth) {
@@ -406,67 +408,41 @@ exports.updateBrigadistaStatus = onCall(
       );
     }
 
-    const adminUid = request.auth.uid;
+    const managerUid =
+      request.auth.uid;
 
-    const adminSnapshot =
+    const managerSnapshot =
       await db
         .collection("usuarios")
-        .doc(adminUid)
+        .doc(managerUid)
         .get();
 
-    if (!adminSnapshot.exists) {
+    if (!managerSnapshot.exists) {
       throw new HttpsError(
         "permission-denied",
-        "El administrador no tiene un perfil autorizado."
+        "El usuario no tiene un perfil autorizado."
       );
     }
 
-    const adminProfile =
-      adminSnapshot.data();
+    const managerProfile =
+      managerSnapshot.data();
 
     const allowedManagerRoles = [
-  "admin",
-  "coordinador"
-];
+      "admin",
+      "coordinador"
+    ];
 
-if (
-  adminProfile.active !== true ||
-  !allowedManagerRoles.includes(
-    adminProfile.role
-  )
-) {
-  throw new HttpsError(
-    "permission-denied",
-    "Esta operación es exclusiva para administradores y coordinadores activos."
-  );
-}
-
-
-// El coordinador únicamente puede administrar
-// brigadistas pertenecientes a sus brigadas.
-
-if (
-  adminProfile.role === "coordinador"
-) {
-
-  const assignedBrigades =
-    Array.isArray(adminProfile.brigadeIds)
-      ? adminProfile.brigadeIds
-      : [];
-
-  if (
-    !assignedBrigades.includes(
-      brigadistaProfile.brigadeId
-    )
-  ) {
-    throw new HttpsError(
-      "permission-denied",
-      "El brigadista no pertenece a una brigada asignada al coordinador."
-    );
-  }
-}
-
-
+    if (
+      managerProfile.active !== true ||
+      !allowedManagerRoles.includes(
+        managerProfile.role
+      )
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "Esta operación es exclusiva para administradores y coordinadores activos."
+      );
+    }
 
     // --------------------------------------------------
     // 2. VALIDAR DATOS RECIBIDOS
@@ -485,7 +461,10 @@ if (
       );
     }
 
-    if (typeof newActiveStatus !== "boolean") {
+    if (
+      typeof newActiveStatus !==
+      "boolean"
+    ) {
       throw new HttpsError(
         "invalid-argument",
         "El estado solicitado no es válido."
@@ -514,7 +493,10 @@ if (
     const brigadistaProfile =
       brigadistaSnapshot.data();
 
-    if (brigadistaProfile.role !== "brigadista") {
+    if (
+      brigadistaProfile.role !==
+      "brigadista"
+    ) {
       throw new HttpsError(
         "failed-precondition",
         "El usuario seleccionado no es brigadista."
@@ -523,7 +505,7 @@ if (
 
     if (
       brigadistaProfile.campaignId !==
-      adminProfile.campaignId
+      managerProfile.campaignId
     ) {
       throw new HttpsError(
         "permission-denied",
@@ -531,34 +513,36 @@ if (
       );
     }
 
-// El coordinador únicamente puede administrar
-// brigadistas pertenecientes a sus brigadas.
+    // --------------------------------------------------
+    // 4. LIMITAR AL COORDINADOR A SUS BRIGADAS
+    // --------------------------------------------------
 
-if (
-  adminProfile.role === "coordinador"
-) {
+    if (
+      managerProfile.role ===
+      "coordinador"
+    ) {
 
-  const assignedBrigades =
-    Array.isArray(
-      adminProfile.brigadeIds
-    )
-      ? adminProfile.brigadeIds
-      : [];
+      const assignedBrigades =
+        Array.isArray(
+          managerProfile.brigadeIds
+        )
+          ? managerProfile.brigadeIds
+          : [];
 
-  if (
-    !assignedBrigades.includes(
-      brigadistaProfile.brigadeId
-    )
-  ) {
-    throw new HttpsError(
-      "permission-denied",
-      "El brigadista no pertenece a una brigada asignada al coordinador."
-    );
-  }
-}
+      if (
+        !assignedBrigades.includes(
+          brigadistaProfile.brigadeId
+        )
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "El brigadista no pertenece a una brigada asignada al coordinador."
+        );
+      }
+    }
 
     // --------------------------------------------------
-    // 4. CAMBIAR ESTADO EN AUTHENTICATION
+    // 5. CAMBIAR ESTADO EN AUTHENTICATION
     // --------------------------------------------------
 
     try {
@@ -566,7 +550,8 @@ if (
       await auth.updateUser(
         targetUid,
         {
-          disabled: !newActiveStatus
+          disabled:
+            !newActiveStatus
         }
       );
 
@@ -584,19 +569,20 @@ if (
     }
 
     // --------------------------------------------------
-    // 5. CAMBIAR ESTADO EN FIRESTORE
+    // 6. CAMBIAR ESTADO EN FIRESTORE
     // --------------------------------------------------
 
     try {
 
       await brigadistaReference.update({
-        active: newActiveStatus,
+        active:
+          newActiveStatus,
 
         updatedAt:
           FieldValue.serverTimestamp(),
 
         updatedBy:
-          adminUid
+          managerUid
       });
 
     } catch (error) {
@@ -608,17 +594,22 @@ if (
 
       // Revertir Authentication si Firestore falla.
       try {
+
         await auth.updateUser(
           targetUid,
           {
-            disabled: newActiveStatus
+            disabled:
+              newActiveStatus
           }
         );
+
       } catch (rollbackError) {
+
         console.error(
           "No fue posible revertir Authentication:",
           rollbackError
         );
+
       }
 
       throw new HttpsError(
@@ -628,22 +619,26 @@ if (
     }
 
     // --------------------------------------------------
-    // 6. RESPUESTA
+    // 7. RESPUESTA
     // --------------------------------------------------
 
     return {
       success: true,
 
-      uid: targetUid,
+      uid:
+        targetUid,
 
-      active: newActiveStatus,
+      active:
+        newActiveStatus,
 
-      message: newActiveStatus
-        ? "Brigadista activado correctamente."
-        : "Brigadista desactivado correctamente."
+      message:
+        newActiveStatus
+          ? "Brigadista activado correctamente."
+          : "Brigadista desactivado correctamente."
     };
   }
 );
+
 
 
 
