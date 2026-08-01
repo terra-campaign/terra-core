@@ -1037,6 +1037,23 @@ async function confirmDuplicateVisit(visitHistory) {
 visitForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
+const adultsValue =
+  Number(adultsInput.value);
+
+if (
+  !Number.isInteger(adultsValue) ||
+  adultsValue < 1
+) {
+  visitMessage.textContent =
+    "Indique cuántos mayores de 18 años habitan en el domicilio.";
+
+  adultsInput.focus();
+  return;
+}
+
+
+
+
   if (!currentUser) {
     visitMessage.textContent =
       "La sesión todavía no está disponible.";
@@ -1546,66 +1563,154 @@ function updateMetrics(visits) {
 // ======================================================
 
 function renderVisits(visits) {
+
   if (!visits.length) {
+
     visitsList.innerHTML =
       "<p>Todavía no existen visitas registradas.</p>";
 
     return;
+
   }
 
   visitsList.innerHTML = visits
     .map((visit) => {
+
       const dateText =
-        formatFirestoreDate(visit.createdAt);
+        formatFirestoreDate(
+          visit.createdAt
+        );
 
       const hasCoordinates =
         Number.isFinite(visit.latitude) &&
         Number.isFinite(visit.longitude);
 
       return `
+
         <article class="visit-item">
 
           <div>
+
             <strong>
+
               ${escapeHtml(visit.street || "")}
               ${escapeHtml(visit.houseNumber || "")}
+
             </strong>
 
             <p>
+
               ${escapeHtml(visit.neighborhood || "")},
               ${escapeHtml(visit.locality || "")}
+
             </p>
+
           </div>
 
           <div>
+
             <p>
+
               Resultado:
               <strong>
-                ${formatVisitResult(visit.visitResult)}
+
+                ${formatVisitResult(
+                  visit.visitResult
+                )}
+
               </strong>
+
             </p>
 
             <p>
+
               Intención:
               <strong>
-                ${formatVotingIntention(visit.votingIntention)}
+
+                ${formatVotingIntention(
+                  visit.votingIntention
+                )}
+
               </strong>
+
             </p>
 
             <p>
-              GPS:
+
+              Mayores de 18:
               <strong>
-                ${hasCoordinates ? "Sí" : "No"}
+
+                ${visit.adults ?? "-"}
+
               </strong>
+
             </p>
 
-            <p>${dateText}</p>
+            <p>
+
+              Nombre:
+              <strong>
+
+                ${escapeHtml(
+                  visit.citizenName || "-"
+                )}
+
+              </strong>
+
+            </p>
+
+            <p>
+
+              Teléfono:
+              <strong>
+
+                ${escapeHtml(
+                  visit.citizenPhone || "-"
+                )}
+
+              </strong>
+
+            </p>
+
+            <p>
+
+              Observaciones:
+              <strong>
+
+                ${escapeHtml(
+                  visit.observations || "-"
+                )}
+
+              </strong>
+
+            </p>
+
+            <p>
+
+              GPS:
+              <strong>
+
+                ${hasCoordinates ? "Sí" : "No"}
+
+              </strong>
+
+            </p>
+
+            <p>
+
+              ${dateText}
+
+            </p>
+
           </div>
 
         </article>
+
       `;
+
     })
     .join("");
+
 }
 
 // ======================================================
