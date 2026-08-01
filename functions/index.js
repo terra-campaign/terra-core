@@ -531,6 +531,32 @@ if (
       );
     }
 
+// El coordinador únicamente puede administrar
+// brigadistas pertenecientes a sus brigadas.
+
+if (
+  adminProfile.role === "coordinador"
+) {
+
+  const assignedBrigades =
+    Array.isArray(
+      adminProfile.brigadeIds
+    )
+      ? adminProfile.brigadeIds
+      : [];
+
+  if (
+    !assignedBrigades.includes(
+      brigadistaProfile.brigadeId
+    )
+  ) {
+    throw new HttpsError(
+      "permission-denied",
+      "El brigadista no pertenece a una brigada asignada al coordinador."
+    );
+  }
+}
+
     // --------------------------------------------------
     // 4. CAMBIAR ESTADO EN AUTHENTICATION
     // --------------------------------------------------
