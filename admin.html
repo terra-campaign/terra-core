@@ -318,6 +318,81 @@
             placeholder="Ejemplo: Zacualpan"
           >
         </label>
+
+
+<!-- =====================================================
+     BUILD-106
+     INFORMACIÓN DEL CIUDADANO
+====================================================== -->
+
+<section class="citizen-section">
+
+  <h3>Información del ciudadano</h3>
+
+  <label>
+
+    ¿Cuántos mayores de 18 años habitan aquí? *
+
+    <select
+      id="adults"
+      required>
+
+      <option value="">
+        Seleccione...
+      </option>
+
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+      <option value="9">9</option>
+      <option value="10">10 o más</option>
+
+    </select>
+
+  </label>
+
+  <label>
+
+    Nombre del ciudadano (opcional)
+
+    <input
+      id="citizenName"
+      type="text"
+      maxlength="120">
+
+  </label>
+
+  <label>
+
+    Teléfono (opcional)
+
+    <input
+      id="citizenPhone"
+      type="tel"
+      maxlength="20">
+
+  </label>
+
+  <label>
+
+    Observaciones (opcional)
+
+    <textarea
+      id="observations"
+      rows="4"
+      maxlength="1000"></textarea>
+
+  </label>
+
+</section>
+
+
+
 <!-- =====================================================
      BUILD-105 — AVISO DE DOMICILIO REPETIDO
 ====================================================== -->
@@ -608,7 +683,8 @@
 </script>
 
 
-<script type="module" src="./admin.js?v=1.0.1"></script>
+
+<script type="module" src="./admin.js?v=1.0.2"></script>
 
 </body>
 

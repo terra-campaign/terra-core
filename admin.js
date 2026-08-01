@@ -63,6 +63,21 @@ const neighborhoodInput = document.querySelector("#neighborhood");
 const localityInput = document.querySelector("#locality");
 
 
+const adultsInput =
+    document.querySelector("#adults");
+
+const citizenNameInput =
+    document.querySelector("#citizenName");
+
+const citizenPhoneInput =
+    document.querySelector("#citizenPhone");
+
+const observationsInput =
+    document.querySelector("#observations");
+
+    
+
+
 const duplicateAddressWarning =
   document.querySelector("#duplicateAddressWarning");
 
@@ -1225,6 +1240,20 @@ visitResult,
 photoPath,
 hasPhoto: true,
 
+adults:
+  Number(adultsInput.value),
+
+citizenName:
+  citizenNameInput.value.trim(),
+
+citizenPhone:
+  citizenPhoneInput.value.trim(),
+
+observations:
+  observationsInput.value.trim(),
+
+
+
       visitedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -1661,6 +1690,31 @@ territoryFilters.forEach((button) => {
   });
 
 });
+
+// ======================================================
+// BUILD-105 — EVENTOS DEL DETECTOR
+// ======================================================
+
+[
+  streetInput,
+  houseNumberInput,
+  neighborhoodInput,
+  localityInput
+].forEach((input) => {
+
+  input.addEventListener(
+    "input",
+    scheduleDuplicateAddressDetection
+  );
+
+  input.addEventListener(
+    "change",
+    scheduleDuplicateAddressDetection
+  );
+
+});
+
+
 
 
 
