@@ -292,7 +292,8 @@ async function loadCurrentUserProfile(user) {
 
 
 // ======================================================
-// BUILD-110 — INTERFAZ SEGÚN ROL
+// ======================================================
+// BUILD-111 — INTERFAZ SEGÚN ROL
 // ======================================================
 
 function applyRoleInterface() {
@@ -301,17 +302,18 @@ function applyRoleInterface() {
     return;
   }
 
-  const isAdmin =
-    currentUserProfile.role === "admin";
+  const canManageBrigadistas =
+    currentUserProfile.role === "admin" ||
+    currentUserProfile.role === "coordinador";
 
   const isReadOnly =
     currentUserProfile.role === "consulta";
 
-  // El acceso al módulo de brigadistas
-  // solamente se muestra al administrador.
+  // Administrador y coordinador pueden entrar
+  // al módulo de brigadistas.
   if (brigadistasAdminButton) {
     brigadistasAdminButton.hidden =
-      !isAdmin;
+      !canManageBrigadistas;
   }
 
   // El usuario de consulta no puede capturar visitas.
@@ -327,6 +329,8 @@ function applyRoleInterface() {
 
   visitForm.hidden = false;
 }
+
+
 
 
 // ======================================================

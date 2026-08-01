@@ -130,6 +130,8 @@ const createBrigadistaFunction =
 
   
 
+
+  
 // ======================================================
 // CARGAR PERFIL DEL USUARIO
 // ======================================================
@@ -159,14 +161,24 @@ async function loadCurrentUserProfile(user) {
     );
   }
 
-  if (profile.role !== "admin") {
+  const allowedManagementRoles = [
+    "admin",
+    "coordinador"
+  ];
+
+  if (
+    !allowedManagementRoles.includes(
+      profile.role
+    )
+  ) {
     throw new Error(
-      "Esta sección es exclusiva para administradores."
+      "Esta sección es exclusiva para administradores y coordinadores."
     );
   }
 
   return profile;
 }
+
 
 
 // ======================================================
