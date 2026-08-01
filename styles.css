@@ -375,3 +375,11 @@ background:white;
 }
 
 
+
+/* =====================================================
+   OCULTAR ELEMENTOS SEGÚN PERMISOS
+===================================================== */
+
+[hidden] {
+  display: none !important;
+}
