@@ -96,7 +96,12 @@ const longitudeInput = document.querySelector("#longitude");
 const saveVisitButton = document.querySelector("#saveVisitButton");
 const visitMessage = document.querySelector("#visitMessage");
 
+const photoButton =
+  document.querySelector("#photoButton");
+
 const photoInput = document.querySelector("#photo");
+
+
 
 const photoPreview = document.querySelector("#photoPreview");
 
@@ -1279,7 +1284,7 @@ observations:
     });
 
     visitMessage.textContent =
-      `Visita guardada correctamente. ID: ${visitId}`;
+      `✅ Visita registrada correctamente. Gracias por contribuir al levantamiento territorial. ID: ${visitId}`;
 
     visitForm.reset();
 
@@ -1821,5 +1826,14 @@ territoryFilters.forEach((button) => {
 
 
 
+
+
+// ======================================================
+// ABRIR CÁMARA / SELECTOR DE FOTOGRAFÍA
+// ======================================================
+
+photoButton.addEventListener("click", () => {
+  photoInput.click();
+});
 
 
