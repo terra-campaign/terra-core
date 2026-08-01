@@ -181,8 +181,10 @@ async function loadCurrentUserProfile(user) {
 
 
 
+
+
 // ======================================================
-// CONSULTAR BRIGADISTAS
+// CONSULTAR BRIGADISTAS SEGÚN EL ROL
 // ======================================================
 
 function listenBrigadistas() {
@@ -193,155 +195,116 @@ function listenBrigadistas() {
 
   let brigadistasQuery;
 
-if (
-  currentUserProfile.role === "admin"
-) {
+  // ----------------------------------------------------
+  // ADMINISTRADOR
+  // Ve todos los brigadistas de su campaña
+  // ----------------------------------------------------
 
-  brigadistasQuery = query(
-    collection(db, "usuarios"),
+  if (
+    currentUserProfile.role === "admin"
+  ) {
 
-    where(
-      "campaignId",
-      "==",
-      currentUserProfile.campaignId
-    ),
+    brigadistasQuery = query(
+      collection(db, "usuarios"),
 
-    where(
-      "role",
-      "==",
-      "brigadista"
-    ),
+      where(
+        "campaignId",
+        "==",
+        currentUserProfile.campaignId
+      ),
 
-    orderBy(
-      "name",
-      "asc"
-    )
-  );
+      where(
+        "role",
+        "==",
+        "brigadista"
+      ),
 
-} else if (
-  currentUserProfile.role === "coordinador"
-) {
+      orderBy(
+        "name",
+        "asc"
+      )
+    );
 
-  const assignedBrigades =
-    Array.isArray(
-      currentUserProfile.brigadeIds
-    )
-      ? currentUserProfile.brigadeIds
-      : [];
+  // ----------------------------------------------------
+  // COORDINADOR
+  // Ve únicamente la brigada principal asignada
+  // ----------------------------------------------------
 
-  if (!assignedBrigades.length) {
+  } else if (
+    currentUserProfile.role === "coordinador"
+  ) {
 
-    brigadistasMessage.textContent =
-      "El coordinador no tiene brigadas asignadas.";
+    const assignedBrigades =
+      Array.isArray(
+        currentUserProfile.brigadeIds
+      )
+        ? currentUserProfile.brigadeIds
+        : [];
 
-    brigadistasList.innerHTML = `
-      <p>
-        No existen brigadas asignadas para consultar.
-      </p>
-    `;
+    if (!assignedBrigades.length) {
 
-    totalBrigadistasElement.textContent =
-      "0";
+      brigadistasMessage.textContent =
+        "El coordinador no tiene brigadas asignadas.";
 
-    activeBrigadistasElement.textContent =
-      "0";
+      brigadistasList.innerHTML = `
+        <p>
+          No existen brigadas asignadas para consultar.
+        </p>
+      `;
 
-    return;
+      totalBrigadistasElement.textContent =
+        "0";
+
+      activeBrigadistasElement.textContent =
+        "0";
+
+      return;
+    }
+
+    const primaryBrigadeId =
+      assignedBrigades[0];
+
+    brigadistasQuery = query(
+      collection(db, "usuarios"),
+
+      where(
+        "campaignId",
+        "==",
+        currentUserProfile.campaignId
+      ),
+
+      where(
+        "role",
+        "==",
+        "brigadista"
+      ),
+
+      where(
+        "brigadeId",
+        "==",
+        primaryBrigadeId
+      ),
+
+      orderBy(
+        "name",
+        "asc"
+      )
+    );
+
+  } else {
+
+    throw new Error(
+      "Rol sin autorización para consultar brigadistas."
+    );
   }
 
-  const primaryBrigadeId =
-    assignedBrigades[0];
-
-  brigadistasQuery = query(
-    collection(db, "usuarios"),
-
-    where(
-      "campaignId",
-      "==",
-      currentUserProfile.campaignId
-    ),
-
-    where(
-      "role",
-      "==",
-      "brigadista"
-    ),
-
-    where(
-      "brigadeId",
-      "==",
-      primaryBrigadeId
-    ),
-
-    orderBy(
-      "name",
-      "asc"
-    )
-  );
-
-}
-
-  const assignedBrigades =
-    currentUserProfile.brigadeIds || [];
-
-  if (!assignedBrigades.length) {
-
-    brigadistasMessage.textContent =
-      "El coordinador no tiene brigadas asignadas.";
-
-    brigadistasList.innerHTML = `
-      <p>
-        No existen brigadas asignadas para consultar.
-      </p>
-    `;
-
-    totalBrigadistasElement.textContent =
-      "0";
-
-    activeBrigadistasElement.textContent =
-      "0";
-
-    return;
-  }
-
-  brigadistasQuery = query(
-    collection(db, "usuarios"),
-
-    where(
-      "campaignId",
-      "==",
-      currentUserProfile.campaignId
-    ),
-
-    where(
-      "role",
-      "==",
-      "brigadista"
-    ),
-
-    where(
-      "brigadeId",
-      "in",
-      assignedBrigades
-    ),
-
-    orderBy(
-      "name",
-      "asc"
-    )
-  );
-
-} else {
-
-  throw new Error(
-    "Rol sin autorización para consultar brigadistas."
-  );
-}
-
-
+  // ----------------------------------------------------
+  // ESCUCHA EN TIEMPO REAL
+  // ----------------------------------------------------
 
   stopBrigadistasListener =
     onSnapshot(
+
       brigadistasQuery,
 
       (snapshot) => {
@@ -366,6 +329,9 @@ if (
         renderBrigadistas(
           brigadistas
         );
+
+        brigadistasMessage.textContent =
+          "";
 
       },
 
