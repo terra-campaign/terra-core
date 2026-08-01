@@ -55,6 +55,9 @@ import {
 
 const logoutButton = document.querySelector("#logoutButton");
 
+const brigadistasAdminButton =
+  document.querySelector("#brigadistasAdminButton");
+
 const visitForm = document.querySelector("#visitForm");
 
 const streetInput = document.querySelector("#street");
@@ -130,8 +133,7 @@ const visitsList = document.querySelector("#visitsList");
 const territoryFilters =
   document.querySelectorAll(".territory-filter");
 
-const brigadistasAdminButton =
-  document.querySelector("#brigadistasAdminButton");
+
 
 
 
@@ -290,7 +292,6 @@ async function loadCurrentUserProfile(user) {
 
 
 // ======================================================
-// ======================================================
 // BUILD-110 — INTERFAZ SEGÚN ROL
 // ======================================================
 
@@ -306,12 +307,14 @@ function applyRoleInterface() {
   const isReadOnly =
     currentUserProfile.role === "consulta";
 
-  // Mostrar acceso al panel de brigadistas
+  // El acceso al módulo de brigadistas
+  // solamente se muestra al administrador.
   if (brigadistasAdminButton) {
     brigadistasAdminButton.hidden =
       !isAdmin;
   }
 
+  // El usuario de consulta no puede capturar visitas.
   if (isReadOnly) {
 
     visitForm.hidden = true;
@@ -320,12 +323,11 @@ function applyRoleInterface() {
       "Acceso de consulta: solo lectura.";
 
     return;
-
   }
 
   visitForm.hidden = false;
-
 }
+
 
 // ======================================================
 // INICIO DE SESIÓN Y MAPA
