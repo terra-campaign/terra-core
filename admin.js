@@ -130,7 +130,8 @@ const visitsList = document.querySelector("#visitsList");
 const territoryFilters =
   document.querySelectorAll(".territory-filter");
 
-
+const brigadistasAdminButton =
+  document.querySelector("#brigadistasAdminButton");
 
 
 
@@ -289,7 +290,8 @@ async function loadCurrentUserProfile(user) {
 
 
 // ======================================================
-// BUILD-104C — INTERFAZ SEGÚN ROL
+// ======================================================
+// BUILD-110 — INTERFAZ SEGÚN ROL
 // ======================================================
 
 function applyRoleInterface() {
@@ -298,22 +300,32 @@ function applyRoleInterface() {
     return;
   }
 
+  const isAdmin =
+    currentUserProfile.role === "admin";
+
   const isReadOnly =
     currentUserProfile.role === "consulta";
 
+  // Mostrar acceso al panel de brigadistas
+  if (brigadistasAdminButton) {
+    brigadistasAdminButton.hidden =
+      !isAdmin;
+  }
+
   if (isReadOnly) {
+
     visitForm.hidden = true;
 
     visitMessage.textContent =
       "Acceso de consulta: solo lectura.";
 
     return;
+
   }
 
   visitForm.hidden = false;
+
 }
-
-
 
 // ======================================================
 // INICIO DE SESIÓN Y MAPA
