@@ -120,6 +120,16 @@ const createBrigadistaFunction =
   );
 
 
+
+  const updateBrigadistaStatusFunction =
+  httpsCallable(
+    functions,
+    "updateBrigadistaStatus"
+  );
+
+
+  
+
 // ======================================================
 // CARGAR PERFIL DEL USUARIO
 // ======================================================
@@ -296,6 +306,7 @@ function renderBrigadistas(
           <th>Teléfono</th>
           <th>Brigada</th>
           <th>Estado</th>
+          <th>Acciones</th>
         </tr>
 
       </thead>
@@ -353,6 +364,35 @@ function renderBrigadistas(
                   </span>
                 </td>
 
+<td>
+  <button
+    type="button"
+    class="button button--small ${
+      brigadista.active === true
+        ? "button--danger"
+        : ""
+    }"
+    data-brigadista-status
+    data-uid="${escapeHtml(brigadista.uid)}"
+    data-name="${escapeHtml(
+      brigadista.name || "Brigadista"
+    )}"
+    data-active="${
+      brigadista.active === true
+        ? "true"
+        : "false"
+    }"
+  >
+    ${
+      brigadista.active === true
+        ? "Desactivar"
+        : "Activar"
+    }
+  </button>
+</td>
+
+
+
               </tr>
 
             `;
@@ -365,7 +405,111 @@ function renderBrigadistas(
     </table>
 
   `;
+
+connectBrigadistaStatusButtons();
+
 }
+
+
+// ======================================================
+// BUILD-109 — BOTONES ACTIVAR / DESACTIVAR
+// ======================================================
+
+function connectBrigadistaStatusButtons() {
+
+  const statusButtons =
+    document.querySelectorAll(
+      "[data-brigadista-status]"
+    );
+
+  statusButtons.forEach((button) => {
+
+    button.addEventListener(
+      "click",
+      async () => {
+
+        const uid =
+          button.dataset.uid;
+
+        const name =
+          button.dataset.name ||
+          "el brigadista";
+
+        const currentlyActive =
+          button.dataset.active === "true";
+
+        const newActiveStatus =
+          !currentlyActive;
+
+        const actionText =
+          newActiveStatus
+            ? "activar"
+            : "desactivar";
+
+        const confirmed =
+          window.confirm(
+            `¿Desea ${actionText} a ${name}?`
+          );
+
+        if (!confirmed) {
+          return;
+        }
+
+        button.disabled = true;
+
+        button.textContent =
+          newActiveStatus
+            ? "Activando..."
+            : "Desactivando...";
+
+        brigadistasMessage.textContent =
+          `Procesando cambio de estado de ${name}...`;
+
+        try {
+
+          const response =
+            await updateBrigadistaStatusFunction({
+              uid,
+              active: newActiveStatus
+            });
+
+          const result =
+            response.data;
+
+          brigadistasMessage.textContent =
+            result.message ||
+            "Estado actualizado correctamente.";
+
+          // La tabla se actualizará automáticamente
+          // mediante onSnapshot.
+
+        } catch (error) {
+
+          console.error(
+            "Error al actualizar brigadista:",
+            error
+          );
+
+          brigadistasMessage.textContent =
+            error.message ||
+            "No fue posible actualizar el estado.";
+
+          button.disabled = false;
+
+          button.textContent =
+            currentlyActive
+              ? "Desactivar"
+              : "Activar";
+
+        }
+
+      }
+    );
+
+  });
+}
+
+
 
 
 // ======================================================
