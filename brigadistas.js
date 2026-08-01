@@ -23,6 +23,12 @@ import {
   where
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
+import {
+  getFunctions,
+  httpsCallable
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
+
+
 
 // ======================================================
 // ELEMENTOS DE PANTALLA
@@ -46,6 +52,55 @@ const totalBrigadistasElement =
 const activeBrigadistasElement =
   document.querySelector("#activeBrigadistas");
 
+const newBrigadistaModal =
+  document.querySelector("#newBrigadistaModal");
+
+const closeBrigadistaModalButton =
+  document.querySelector(
+    "#closeBrigadistaModalButton"
+  );
+
+const cancelBrigadistaButton =
+  document.querySelector(
+    "#cancelBrigadistaButton"
+  );
+
+const newBrigadistaForm =
+  document.querySelector(
+    "#newBrigadistaForm"
+  );
+
+const brigadistaNameInput =
+  document.querySelector(
+    "#brigadistaName"
+  );
+
+const brigadistaEmailInput =
+  document.querySelector(
+    "#brigadistaEmail"
+  );
+
+const brigadistaPhoneInput =
+  document.querySelector(
+    "#brigadistaPhone"
+  );
+
+const brigadistaTemporaryPasswordInput =
+  document.querySelector(
+    "#brigadistaTemporaryPassword"
+  );
+
+const newBrigadistaMessage =
+  document.querySelector(
+    "#newBrigadistaMessage"
+  );
+
+const saveBrigadistaButton =
+  document.querySelector(
+    "#saveBrigadistaButton"
+  );
+
+
 
 // ======================================================
 // ESTADO
@@ -54,6 +109,15 @@ const activeBrigadistasElement =
 let currentUser = null;
 let currentUserProfile = null;
 let stopBrigadistasListener = null;
+
+const functions =
+  getFunctions(undefined, "us-central1");
+
+const createBrigadistaFunction =
+  httpsCallable(
+    functions,
+    "createBrigadista"
+  );
 
 
 // ======================================================
@@ -309,15 +373,57 @@ function renderBrigadistas(
 // Próxima etapa: formulario y Cloud Function
 // ======================================================
 
+function openNewBrigadistaModal() {
+  newBrigadistaForm.reset();
+
+  newBrigadistaMessage.textContent = "";
+
+  newBrigadistaModal.hidden = false;
+
+  document.body.classList.add(
+    "modal-open"
+  );
+
+  setTimeout(() => {
+    brigadistaNameInput.focus();
+  }, 50);
+}
+
+function closeNewBrigadistaModal() {
+  newBrigadistaModal.hidden = true;
+
+  document.body.classList.remove(
+    "modal-open"
+  );
+
+  newBrigadistaMessage.textContent = "";
+}
+
 newBrigadistaButton.addEventListener(
   "click",
-  () => {
-
-    brigadistasMessage.textContent =
-      "El alta automática se conectará en el siguiente paso.";
-
-  }
+  openNewBrigadistaModal
 );
+
+closeBrigadistaModalButton.addEventListener(
+  "click",
+  closeNewBrigadistaModal
+);
+
+cancelBrigadistaButton.addEventListener(
+  "click",
+  closeNewBrigadistaModal
+);
+
+document
+  .querySelectorAll(
+    "[data-close-brigadista-modal]"
+  )
+  .forEach((element) => {
+    element.addEventListener(
+      "click",
+      closeNewBrigadistaModal
+    );
+  });
 
 
 // ======================================================
