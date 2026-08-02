@@ -17,11 +17,18 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   where
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+
+import {
+  getFunctions,
+  httpsCallable
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
 
 
 // ======================================================
@@ -88,6 +95,13 @@ const newBrigadeMessage =
   );
 
 
+const saveBrigadeButton =
+  document.querySelector(
+    "#saveBrigadeButton"
+  );
+
+
+
 // ======================================================
 // ESTADO
 // ======================================================
@@ -95,6 +109,19 @@ const newBrigadeMessage =
 let currentUser = null;
 let currentUserProfile = null;
 let stopBrigadesListener = null;
+
+
+const functions =
+  getFunctions(
+    undefined,
+    "us-central1"
+  );
+
+const createBrigadaFunction =
+  httpsCallable(
+    functions,
+    "createBrigada"
+  );
 
 
 // ======================================================
@@ -134,6 +161,77 @@ async function loadCurrentUserProfile(user) {
 
   return profile;
 }
+
+
+
+// ======================================================
+// CARGAR COORDINADORES DE LA CAMPAÑA
+// ======================================================
+
+async function loadCoordinators() {
+
+  const coordinatorsQuery = query(
+    collection(db, "usuarios"),
+
+    where(
+      "campaignId",
+      "==",
+      currentUserProfile.campaignId
+    ),
+
+    where(
+      "role",
+      "==",
+      "coordinador"
+    ),
+
+    where(
+      "active",
+      "==",
+      true
+    ),
+
+    orderBy(
+      "name",
+      "asc"
+    )
+  );
+
+  const snapshot =
+    await getDocs(coordinatorsQuery);
+
+  const coordinators = [];
+
+  snapshot.forEach(
+    (documentSnapshot) => {
+
+      coordinators.push({
+        uid: documentSnapshot.id,
+        ...documentSnapshot.data()
+      });
+
+    }
+  );
+
+  brigadeCoordinatorInput.innerHTML = `
+    <option value="">
+      Sin coordinador asignado
+    </option>
+
+    ${coordinators
+      .map((coordinator) => `
+        <option value="${escapeHtml(coordinator.uid)}">
+          ${escapeHtml(
+            coordinator.name ||
+            coordinator.email ||
+            "Coordinador"
+          )}
+        </option>
+      `)
+      .join("")}
+  `;
+}
+
 
 
 // ======================================================
@@ -403,21 +501,162 @@ document
   });
 
 
+
 // ======================================================
-// FORMULARIO PROVISIONAL
+// BUILD-112B — CREAR BRIGADA
 // ======================================================
 
 newBrigadeForm.addEventListener(
   "submit",
-  (event) => {
+  async (event) => {
 
     event.preventDefault();
 
+    const name =
+      brigadeNameInput.value.trim();
+
+    const municipality =
+      brigadeMunicipalityInput.value.trim();
+
+    const coordinatorId =
+      brigadeCoordinatorInput.value.trim();
+
+    if (!name) {
+      newBrigadeMessage.textContent =
+        "Ingrese el nombre de la brigada.";
+
+      brigadeNameInput.focus();
+
+      return;
+    }
+
+    if (!municipality) {
+      newBrigadeMessage.textContent =
+        "Ingrese el municipio.";
+
+      brigadeMunicipalityInput.focus();
+
+      return;
+    }
+
+    saveBrigadeButton.disabled =
+      true;
+
+    saveBrigadeButton.textContent =
+      "Creando brigada...";
+
     newBrigadeMessage.textContent =
-      "La creación automática de brigadas se conectará en el siguiente paso.";
+      "Procesando registro...";
+
+    try {
+
+      const response =
+        await createBrigadaFunction({
+          name,
+          municipality,
+          coordinatorId
+        });
+
+      const result =
+        response.data;
+
+      newBrigadeMessage.textContent =
+        result.message ||
+        "Brigada creada correctamente.";
+
+      newBrigadeForm.reset();
+
+      await loadCoordinators();
+
+      setTimeout(
+        () => {
+
+          closeNewBrigadeModal();
+
+        },
+        1200
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Error al crear brigada:",
+        error
+      );
+
+      newBrigadeMessage.textContent =
+        getCreateBrigadeErrorMessage(
+          error
+        );
+
+    } finally {
+
+      saveBrigadeButton.disabled =
+        false;
+
+      saveBrigadeButton.textContent =
+        "Crear brigada";
+
+    }
 
   }
 );
+
+
+function getCreateBrigadeErrorMessage(
+  error
+) {
+
+  const code =
+    String(error?.code || "");
+
+  if (
+    code.includes(
+      "already-exists"
+    )
+  ) {
+    return "Ya existe una brigada con ese nombre.";
+  }
+
+  if (
+    code.includes(
+      "permission-denied"
+    )
+  ) {
+    return "No tiene autorización para crear brigadas.";
+  }
+
+  if (
+    code.includes(
+      "invalid-argument"
+    )
+  ) {
+    return error.message ||
+      "Revise los datos capturados.";
+  }
+
+  if (
+    code.includes(
+      "not-found"
+    )
+  ) {
+    return "El coordinador seleccionado no existe.";
+  }
+
+  if (
+    code.includes(
+      "failed-precondition"
+    )
+  ) {
+    return error.message ||
+      "El coordinador seleccionado no es válido.";
+  }
+
+  return error.message ||
+    "No fue posible crear la brigada.";
+}
+
+
 
 
 // ======================================================
@@ -488,9 +727,14 @@ onAuthStateChanged(
     try {
 
       currentUserProfile =
-        await loadCurrentUserProfile(user);
 
-      listenBrigades();
+
+  await loadCurrentUserProfile(user);
+
+await loadCoordinators();
+
+listenBrigades();
+
 
     } catch (error) {
 

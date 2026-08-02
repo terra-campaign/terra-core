@@ -640,5 +640,341 @@ exports.updateBrigadistaStatus = onCall(
 );
 
 
+// ======================================================
+// BUILD-112B — CREAR BRIGADA
+// ======================================================
+
+exports.createBrigada = onCall(
+  {
+    region: "us-central1"
+  },
+
+  async (request) => {
+
+    // --------------------------------------------------
+    // 1. VALIDAR AUTENTICACIÓN
+    // --------------------------------------------------
+
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Debe iniciar sesión para realizar esta operación."
+      );
+    }
+
+    const adminUid =
+      request.auth.uid;
+
+    const adminReference =
+      db
+        .collection("usuarios")
+        .doc(adminUid);
+
+    const adminSnapshot =
+      await adminReference.get();
+
+    if (!adminSnapshot.exists) {
+      throw new HttpsError(
+        "permission-denied",
+        "El usuario no tiene un perfil autorizado."
+      );
+    }
+
+    const adminProfile =
+      adminSnapshot.data();
+
+    if (
+      adminProfile.active !== true ||
+      adminProfile.role !== "admin"
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "Esta operación es exclusiva para administradores activos."
+      );
+    }
+
+    if (!adminProfile.campaignId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El administrador no tiene una campaña asignada."
+      );
+    }
+
+    // --------------------------------------------------
+    // 2. NORMALIZAR DATOS
+    // --------------------------------------------------
+
+    const data =
+      request.data || {};
+
+    const name =
+      cleanText(data.name);
+
+    const municipality =
+      cleanText(data.municipality);
+
+    const coordinatorId =
+      cleanText(data.coordinatorId);
+
+    if (name.length < 3) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un nombre válido para la brigada."
+      );
+    }
+
+    if (name.length > 120) {
+      throw new HttpsError(
+        "invalid-argument",
+        "El nombre de la brigada no puede superar 120 caracteres."
+      );
+    }
+
+    if (municipality.length < 2) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un municipio válido."
+      );
+    }
+
+    if (municipality.length > 120) {
+      throw new HttpsError(
+        "invalid-argument",
+        "El municipio no puede superar 120 caracteres."
+      );
+    }
+
+    const campaignId =
+      adminProfile.campaignId;
+
+    const normalizedName =
+      name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    // --------------------------------------------------
+    // 3. EVITAR NOMBRE DUPLICADO
+    // --------------------------------------------------
+
+    const duplicateSnapshot =
+      await db
+        .collection("brigadas")
+        .where(
+          "campaignId",
+          "==",
+          campaignId
+        )
+        .where(
+          "normalizedName",
+          "==",
+          normalizedName
+        )
+        .limit(1)
+        .get();
+
+    if (!duplicateSnapshot.empty) {
+      throw new HttpsError(
+        "already-exists",
+        "Ya existe una brigada con ese nombre dentro de la campaña."
+      );
+    }
+
+    // --------------------------------------------------
+    // 4. VALIDAR COORDINADOR OPCIONAL
+    // --------------------------------------------------
+
+    let coordinatorReference = null;
+    let coordinatorName = "";
+
+    if (coordinatorId) {
+
+      coordinatorReference =
+        db
+          .collection("usuarios")
+          .doc(coordinatorId);
+
+      const coordinatorSnapshot =
+        await coordinatorReference.get();
+
+      if (!coordinatorSnapshot.exists) {
+        throw new HttpsError(
+          "not-found",
+          "El coordinador seleccionado no existe."
+        );
+      }
+
+      const coordinatorProfile =
+        coordinatorSnapshot.data();
+
+      if (
+        coordinatorProfile.active !== true ||
+        coordinatorProfile.role !== "coordinador"
+      ) {
+        throw new HttpsError(
+          "failed-precondition",
+          "El usuario seleccionado no es un coordinador activo."
+        );
+      }
+
+      if (
+        coordinatorProfile.campaignId !==
+        campaignId
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "El coordinador pertenece a otra campaña."
+        );
+      }
+
+      coordinatorName =
+        cleanText(
+          coordinatorProfile.name ||
+          coordinatorProfile.email ||
+          "Coordinador"
+        );
+    }
+
+    // --------------------------------------------------
+    // 5. GENERAR ID Y CREAR BRIGADA
+    // --------------------------------------------------
+
+    const sequenceReference =
+      db
+        .collection("secuencias")
+        .doc(`${campaignId}_BRIGADAS`);
+
+    let createdBrigade = null;
+
+    await db.runTransaction(
+      async (transaction) => {
+
+        const sequenceSnapshot =
+          await transaction.get(
+            sequenceReference
+          );
+
+        /*
+         * BRIG-001 ya existe manualmente.
+         * Si la secuencia todavía no existe,
+         * comenzamos desde 1 para generar BRIG-002.
+         */
+        const currentNumber =
+          sequenceSnapshot.exists
+            ? Number(
+                sequenceSnapshot.data()
+                  .lastNumber || 1
+              )
+            : 1;
+
+        const nextNumber =
+          currentNumber + 1;
+
+        const brigadeId =
+          `BRIG-${String(nextNumber).padStart(3, "0")}`;
+
+        const brigadeReference =
+          db
+            .collection("brigadas")
+            .doc(brigadeId);
+
+        const now =
+          FieldValue.serverTimestamp();
+
+        const brigadeData = {
+          id: brigadeId,
+
+          campaignId,
+
+          name,
+          normalizedName,
+
+          municipality,
+
+          coordinatorId:
+            coordinatorId || null,
+
+          coordinatorName:
+            coordinatorName || "",
+
+          active: true,
+
+          createdAt: now,
+          updatedAt: now,
+
+          createdBy:
+            adminUid,
+
+          version: 1
+        };
+
+        transaction.set(
+          brigadeReference,
+          brigadeData
+        );
+
+        transaction.set(
+          sequenceReference,
+          {
+            campaignId,
+            type: "brigadas",
+            lastNumber:
+              nextNumber,
+            updatedAt:
+              FieldValue.serverTimestamp()
+          },
+          {
+            merge: true
+          }
+        );
+
+        if (
+          coordinatorReference &&
+          coordinatorId
+        ) {
+          transaction.update(
+            coordinatorReference,
+            {
+              brigadeIds:
+                FieldValue.arrayUnion(
+                  brigadeId
+                ),
+
+              updatedAt:
+                FieldValue.serverTimestamp(),
+
+              updatedBy:
+                adminUid
+            }
+          );
+        }
+
+        createdBrigade = {
+          ...brigadeData,
+          createdAt: null,
+          updatedAt: null
+        };
+      }
+    );
+
+    // --------------------------------------------------
+    // 6. RESPUESTA
+    // --------------------------------------------------
+
+    return {
+      success: true,
+
+      brigade:
+        createdBrigade,
+
+      message:
+        `${createdBrigade.id} creada correctamente.`
+    };
+  }
+);
+
+
 
 
