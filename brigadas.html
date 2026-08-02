@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="es-MX">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <meta
+    name="theme-color"
+    content="#17324d"
+  >
+
+  <title>
+    Administración de brigadas | TERRA Campaign
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css?v=112A"
+  >
+
+</head>
+
+<body>
+
+  <header class="topbar">
+
+    <div>
+
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1>
+        Administración de brigadas
+      </h1>
+
+    </div>
+
+    <div class="actions">
+
+      <a
+        class="button button--secondary"
+        href="./admin.html"
+      >
+        Volver a operación
+      </a>
+
+      <button
+        id="logoutButton"
+        class="button button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+  <main class="shell">
+
+    <section class="card">
+
+      <div class="section-heading">
+
+        <div>
+
+          <p class="eyebrow">
+            ORGANIZACIÓN TERRITORIAL
+          </p>
+
+          <h2>
+            Brigadas
+          </h2>
+
+          <p>
+            Consulta, crea y administra las brigadas
+            asignadas a la campaña activa.
+          </p>
+
+        </div>
+
+        <button
+          id="newBrigadeButton"
+          class="button"
+          type="button"
+        >
+          + Nueva brigada
+        </button>
+
+      </div>
+
+    </section>
+
+    <section class="grid">
+
+      <article class="card">
+
+        <strong>
+          Brigadas registradas
+        </strong>
+
+        <span id="totalBrigades">
+          0
+        </span>
+
+      </article>
+
+      <article class="card">
+
+        <strong>
+          Brigadas activas
+        </strong>
+
+        <span id="activeBrigades">
+          0
+        </span>
+
+      </article>
+
+      <article class="card">
+
+        <strong>
+          Coordinadores asignados
+        </strong>
+
+        <span id="assignedCoordinators">
+          0
+        </span>
+
+      </article>
+
+    </section>
+
+    <section class="card">
+
+      <div class="section-heading">
+
+        <div>
+
+          <p class="eyebrow">
+            ESTRUCTURA
+          </p>
+
+          <h2>
+            Brigadas registradas
+          </h2>
+
+        </div>
+
+      </div>
+
+      <div
+        id="brigadesMessage"
+        class="message"
+        aria-live="polite"
+      ></div>
+
+      <div
+        id="brigadesList"
+        class="table-wrapper"
+      >
+
+        <p>
+          Cargando brigadas...
+        </p>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- =====================================================
+       BUILD-112A — MODAL NUEVA BRIGADA
+  ====================================================== -->
+
+  <div
+    id="newBrigadeModal"
+    class="modal"
+    hidden
+  >
+
+    <div
+      class="modal__backdrop"
+      data-close-brigade-modal
+    ></div>
+
+    <section
+      class="modal__content"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="newBrigadeTitle"
+    >
+
+      <div class="modal__header">
+
+        <div>
+
+          <p class="eyebrow">
+            NUEVA ESTRUCTURA
+          </p>
+
+          <h2 id="newBrigadeTitle">
+            Nueva brigada
+          </h2>
+
+        </div>
+
+        <button
+          id="closeBrigadeModalButton"
+          class="modal__close"
+          type="button"
+          aria-label="Cerrar formulario"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <form id="newBrigadeForm">
+
+        <label>
+
+          Nombre de la brigada *
+
+          <input
+            id="brigadeName"
+            type="text"
+            maxlength="120"
+            required
+            placeholder="Ejemplo: Brigada Acaponeta"
+          >
+
+        </label>
+
+        <label>
+
+          Municipio *
+
+          <input
+            id="brigadeMunicipality"
+            type="text"
+            maxlength="120"
+            required
+            placeholder="Ejemplo: Acaponeta"
+          >
+
+        </label>
+
+        <label>
+
+          Coordinador
+
+          <select id="brigadeCoordinator">
+
+            <option value="">
+              Sin coordinador asignado
+            </option>
+
+          </select>
+
+        </label>
+
+        <p class="form-help">
+          La brigada quedará registrada dentro de la campaña activa.
+        </p>
+
+        <div
+          id="newBrigadeMessage"
+          class="message"
+          aria-live="polite"
+        ></div>
+
+        <div class="modal__actions">
+
+          <button
+            id="cancelBrigadeButton"
+            class="button button--secondary"
+            type="button"
+          >
+            Cancelar
+          </button>
+
+          <button
+            id="saveBrigadeButton"
+            class="button"
+            type="submit"
+          >
+            Crear brigada
+          </button>
+
+        </div>
+
+      </form>
+
+    </section>
+
+  </div>
+
+  <script
+    type="module"
+    src="./brigadas.js?v=112A"
+  ></script>
+
+</body>
+
+</html>
