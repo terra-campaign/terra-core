@@ -58,6 +58,11 @@ const logoutButton = document.querySelector("#logoutButton");
 const brigadistasAdminButton =
   document.querySelector("#brigadistasAdminButton");
 
+const brigadasAdminButton =
+  document.querySelector(
+    "#brigadasAdminButton"
+  );
+
 const visitForm = document.querySelector("#visitForm");
 
 const streetInput = document.querySelector("#street");
@@ -293,7 +298,8 @@ async function loadCurrentUserProfile(user) {
 
 // ======================================================
 // ======================================================
-// BUILD-111 — INTERFAZ SEGÚN ROL
+// ======================================================
+// BUILD-113 — INTERFAZ SEGÚN ROL
 // ======================================================
 
 function applyRoleInterface() {
@@ -302,18 +308,28 @@ function applyRoleInterface() {
     return;
   }
 
+  const isAdmin =
+    currentUserProfile.role === "admin";
+
   const canManageBrigadistas =
-    currentUserProfile.role === "admin" ||
+    isAdmin ||
     currentUserProfile.role === "coordinador";
 
   const isReadOnly =
     currentUserProfile.role === "consulta";
 
-  // Administrador y coordinador pueden entrar
-  // al módulo de brigadistas.
+  // Administrador y coordinador
+  // pueden administrar brigadistas.
   if (brigadistasAdminButton) {
     brigadistasAdminButton.hidden =
       !canManageBrigadistas;
+  }
+
+  // Únicamente el administrador
+  // puede administrar brigadas.
+  if (brigadasAdminButton) {
+    brigadasAdminButton.hidden =
+      !isAdmin;
   }
 
   // El usuario de consulta no puede capturar visitas.
