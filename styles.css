@@ -383,3 +383,64 @@ background:white;
 [hidden] {
   display: none !important;
 }
+
+
+
+/* =====================================================
+   BUILD-112F — TABLA DE BRIGADAS
+===================================================== */
+
+.brigadistas-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.brigadistas-table th,
+.brigadistas-table td {
+  padding: 12px 16px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid #dbe3ea;
+}
+
+.brigadistas-table th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.brigadistas-table th:nth-child(1),
+.brigadistas-table td:nth-child(1) {
+  width: 34%;
+}
+
+.brigadistas-table th:nth-child(2),
+.brigadistas-table td:nth-child(2) {
+  width: 22%;
+}
+
+.brigadistas-table th:nth-child(3),
+.brigadistas-table td:nth-child(3) {
+  width: 26%;
+}
+
+.brigadistas-table th:nth-child(4),
+.brigadistas-table td:nth-child(4) {
+  width: 18%;
+  white-space: nowrap;
+}
+
+.brigadistas-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+@media (max-width: 760px) {
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  .brigadistas-table {
+    min-width: 720px;
+  }
+}
+
+
