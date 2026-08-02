@@ -201,10 +201,10 @@ async function loadCoordinators() {
   snapshot.forEach(
     (documentSnapshot) => {
 
-      coordinators.push({
-        uid: documentSnapshot.id,
-        ...documentSnapshot.data()
-      });
+    coordinators.push({
+  ...documentSnapshot.data(),
+  uid: documentSnapshot.id
+});
 
     }
   );
@@ -529,8 +529,17 @@ newBrigadeForm.addEventListener(
     const municipality =
       brigadeMunicipalityInput.value.trim();
 
+
+
     const coordinatorId =
-      brigadeCoordinatorInput.value.trim();
+  brigadeCoordinatorInput.value.trim();
+
+console.log(
+  "Coordinador enviado:",
+  coordinatorId
+);
+
+
 
     if (!name) {
       newBrigadeMessage.textContent =
