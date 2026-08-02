@@ -399,10 +399,10 @@ function renderBrigades(brigades) {
                 ? "Activa"
                 : "Inactiva";
 
-            const coordinatorText =
-              brigade.coordinatorId
-                ? brigade.coordinatorId
-                : "Sin coordinador";
+          const coordinatorText =
+  brigade.coordinatorName ||
+  brigade.coordinatorId ||
+  "Sin coordinador";
 
             return `
 
@@ -533,11 +533,6 @@ newBrigadeForm.addEventListener(
 
     const coordinatorId =
   brigadeCoordinatorInput.value.trim();
-
-console.log(
-  "Coordinador enviado:",
-  coordinatorId
-);
 
 
 
