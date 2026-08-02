@@ -170,32 +170,28 @@ async function loadCurrentUserProfile(user) {
 
 async function loadCoordinators() {
 
-  const coordinatorsQuery = query(
-    collection(db, "usuarios"),
+ const coordinatorsQuery = query(
+  collection(db, "usuarios"),
 
-    where(
-      "campaignId",
-      "==",
-      currentUserProfile.campaignId
-    ),
+  where(
+    "campaignId",
+    "==",
+    currentUserProfile.campaignId
+  ),
 
-    where(
-      "role",
-      "==",
-      "coordinador"
-    ),
+  where(
+    "role",
+    "==",
+    "coordinador"
+  ),
 
-    where(
-      "active",
-      "==",
-      true
-    ),
+  where(
+    "active",
+    "==",
+    true
+  )
+);
 
-    orderBy(
-      "name",
-      "asc"
-    )
-  );
 
   const snapshot =
     await getDocs(coordinatorsQuery);
@@ -212,6 +208,21 @@ async function loadCoordinators() {
 
     }
   );
+
+
+coordinators.sort(
+  (a, b) =>
+    String(a.name || a.email || "")
+      .localeCompare(
+        String(b.name || b.email || ""),
+        "es",
+        {
+          sensitivity: "base"
+        }
+      )
+);
+
+
 
   brigadeCoordinatorInput.innerHTML = `
     <option value="">
