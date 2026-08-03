@@ -720,6 +720,103 @@ closeEditBrigadeModal
 });
 
 
+
+// ======================================================
+// BUILD-114A
+// GUARDAR CAMBIOS DE BRIGADA
+// ======================================================
+
+editBrigadeForm.addEventListener(
+
+"submit",
+
+async(event)=>{
+
+event.preventDefault();
+
+const brigadeId =
+editBrigadeId.value.trim();
+
+const name =
+editBrigadeName.value.trim();
+
+const municipality =
+editBrigadeMunicipality.value.trim();
+
+if(!name){
+
+editBrigadeMessage.textContent =
+"Ingrese el nombre.";
+
+editBrigadeName.focus();
+
+return;
+
+}
+
+if(!municipality){
+
+editBrigadeMessage.textContent =
+"Ingrese el municipio.";
+
+editBrigadeMunicipality.focus();
+
+return;
+
+}
+
+saveEditBrigadeButton.disabled=true;
+
+saveEditBrigadeButton.textContent=
+"Guardando...";
+
+editBrigadeMessage.textContent=
+"Actualizando brigada...";
+
+try{
+
+const response =
+await updateBrigadaFunction({
+
+brigadeId,
+
+name,
+
+municipality
+
+});
+
+editBrigadeMessage.textContent=
+response.data.message;
+
+setTimeout(()=>{
+
+closeEditBrigadeModal();
+
+},800);
+
+}catch(error){
+
+console.error(error);
+
+editBrigadeMessage.textContent=
+error.message ||
+"No fue posible actualizar.";
+
+}
+
+finally{
+
+saveEditBrigadeButton.disabled=false;
+
+saveEditBrigadeButton.textContent=
+"Guardar cambios";
+
+}
+
+});
+
+
 // ======================================================
 // BUILD-112B — CREAR BRIGADA
 // ======================================================
