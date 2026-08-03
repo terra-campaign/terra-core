@@ -101,6 +101,57 @@ const saveBrigadeButton =
   );
 
 
+// ======================================================
+// BUILD-114A
+// ELEMENTOS MODAL EDITAR
+// ======================================================
+
+const editBrigadeModal =
+  document.querySelector(
+    "#editBrigadeModal"
+  );
+
+const editBrigadeForm =
+  document.querySelector(
+    "#editBrigadeForm"
+  );
+
+const editBrigadeId =
+  document.querySelector(
+    "#editBrigadeId"
+  );
+
+const editBrigadeName =
+  document.querySelector(
+    "#editBrigadeName"
+  );
+
+const editBrigadeMunicipality =
+  document.querySelector(
+    "#editBrigadeMunicipality"
+  );
+
+const editBrigadeMessage =
+  document.querySelector(
+    "#editBrigadeMessage"
+  );
+
+const saveEditBrigadeButton =
+  document.querySelector(
+    "#saveEditBrigadeButton"
+  );
+
+const closeEditBrigadeButton =
+  document.querySelector(
+    "#closeEditBrigadeButton"
+  );
+
+const cancelEditBrigadeButton =
+  document.querySelector(
+    "#cancelEditBrigadeButton"
+  );
+
+
 
 // ======================================================
 // ESTADO
@@ -500,15 +551,25 @@ button.addEventListener(
 
 ()=>{
 
-alert(
 
-"BUILD-114A\n\nEditar Brigada:\n\n"
+const brigade = {
 
-+
+id:
+button.dataset.id,
 
-button.dataset.name
+name:
+button.dataset.name,
 
+municipality:
+button.dataset.municipality
+
+};
+
+openEditBrigadeModal(
+brigade
 );
+
+
 
 }
 
@@ -586,6 +647,77 @@ document
 
   });
 
+
+// ======================================================
+// BUILD-114A
+// MODAL EDITAR BRIGADA
+// ======================================================
+
+function openEditBrigadeModal(brigade){
+
+  editBrigadeId.value =
+    brigade.id;
+
+  editBrigadeName.value =
+    brigade.name || "";
+
+  editBrigadeMunicipality.value =
+    brigade.municipality || "";
+
+  editBrigadeMessage.textContent =
+    "";
+
+  editBrigadeModal.hidden =
+    false;
+
+  document.body.classList.add(
+    "modal-open"
+  );
+
+  setTimeout(()=>{
+
+    editBrigadeName.focus();
+
+  },50);
+
+}
+
+function closeEditBrigadeModal(){
+
+  editBrigadeModal.hidden =
+    true;
+
+  document.body.classList.remove(
+    "modal-open"
+  );
+
+  editBrigadeMessage.textContent =
+    "";
+
+}
+
+closeEditBrigadeButton.addEventListener(
+  "click",
+  closeEditBrigadeModal
+);
+
+cancelEditBrigadeButton.addEventListener(
+  "click",
+  closeEditBrigadeModal
+);
+
+document
+.querySelectorAll(
+"[data-close-edit-modal]"
+)
+.forEach((element)=>{
+
+element.addEventListener(
+"click",
+closeEditBrigadeModal
+);
+
+});
 
 
 // ======================================================

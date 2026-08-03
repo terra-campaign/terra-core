@@ -304,6 +304,124 @@
 
   </div>
 
+
+<!-- =====================================================
+BUILD-114A
+MODAL EDITAR BRIGADA
+====================================================== -->
+
+<div
+  id="editBrigadeModal"
+  class="modal"
+  hidden
+>
+
+  <div
+    class="modal__backdrop"
+    data-close-edit-modal
+  ></div>
+
+  <section
+    class="modal__content"
+    role="dialog"
+    aria-modal="true"
+  >
+
+    <div class="modal__header">
+
+      <div>
+
+        <p class="eyebrow">
+          BUILD-114A
+        </p>
+
+        <h2>
+          Editar brigada
+        </h2>
+
+      </div>
+
+      <button
+        id="closeEditBrigadeButton"
+        class="modal__close"
+        type="button"
+      >
+        ×
+      </button>
+
+    </div>
+
+    <form id="editBrigadeForm">
+
+      <input
+        id="editBrigadeId"
+        type="hidden"
+      >
+
+      <label>
+
+        Nombre
+
+        <input
+          id="editBrigadeName"
+          type="text"
+          maxlength="120"
+          required
+        >
+
+      </label>
+
+      <label>
+
+        Municipio
+
+        <input
+          id="editBrigadeMunicipality"
+          type="text"
+          maxlength="120"
+          required
+        >
+
+      </label>
+
+      <div
+        id="editBrigadeMessage"
+        class="message"
+      ></div>
+
+      <div class="modal__actions">
+
+        <button
+          type="button"
+          id="cancelEditBrigadeButton"
+          class="button button--secondary"
+        >
+
+          Cancelar
+
+        </button>
+
+        <button
+          type="submit"
+          id="saveEditBrigadeButton"
+          class="button"
+        >
+
+          Guardar cambios
+
+        </button>
+
+      </div>
+
+    </form>
+
+  </section>
+
+</div>
+
+
+
+
   <script
     type="module"
   
