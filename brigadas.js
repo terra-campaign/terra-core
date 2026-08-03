@@ -117,10 +117,17 @@ const functions =
     "us-central1"
   );
 
-const createBrigadaFunction =
+
+  const createBrigadaFunction =
   httpsCallable(
     functions,
     "createBrigada"
+  );
+
+const updateBrigadaFunction =
+  httpsCallable(
+    functions,
+    "updateBrigada"
   );
 
 
@@ -361,6 +368,11 @@ function updateBrigadesMetrics(brigades) {
 // MOSTRAR BRIGADAS
 // ======================================================
 
+// ======================================================
+// MOSTRAR BRIGADAS
+// BUILD-114A
+// ======================================================
+
 function renderBrigades(brigades) {
 
   if (!brigades.length) {
@@ -372,79 +384,142 @@ function renderBrigades(brigades) {
     `;
 
     return;
+
   }
 
   brigadesList.innerHTML = `
 
-    <table class="brigadistas-table">
+<table class="brigadistas-table">
 
-      <thead>
+<thead>
 
-        <tr>
-          <th>Brigada</th>
-          <th>Municipio</th>
-          <th>Coordinador</th>
-          <th>Estado</th>
-        </tr>
+<tr>
 
-      </thead>
+<th>Brigada</th>
 
-      <tbody>
+<th>Municipio</th>
 
-        ${brigades
-          .map((brigade) => {
+<th>Coordinador</th>
 
-            const statusText =
-              brigade.active === true
-                ? "Activa"
-                : "Inactiva";
+<th>Estado</th>
 
-          const coordinatorText =
-  brigade.coordinatorName ||
-  brigade.coordinatorId ||
-  "Sin coordinador";
+<th style="width:170px">
 
-            return `
+Acciones
 
-              <tr>
+</th>
 
-                <td>
-                  ${escapeHtml(
-                    brigade.name ||
-                    brigade.id
-                  )}
-                </td>
+</tr>
 
-                <td>
-                  ${escapeHtml(
-                    brigade.municipality ||
-                    "Sin municipio"
-                  )}
-                </td>
+</thead>
 
-                <td>
-                  ${escapeHtml(
-                    coordinatorText
-                  )}
-                </td>
+<tbody>
 
-                <td>
-                  ${statusText}
-                </td>
+${brigades.map((brigade)=>{
 
-              </tr>
+const statusText =
+brigade.active
+? "🟢 Activa"
+: "🔴 Inactiva";
 
-            `;
+const coordinatorText =
+brigade.coordinatorName ||
+"Sin coordinador";
 
-          })
-          .join("")}
+return `
 
-      </tbody>
+<tr>
 
-    </table>
+<td>
 
-  `;
+${escapeHtml(brigade.name)}
+
+</td>
+
+<td>
+
+${escapeHtml(brigade.municipality)}
+
+</td>
+
+<td>
+
+${escapeHtml(coordinatorText)}
+
+</td>
+
+<td>
+
+${statusText}
+
+</td>
+
+<td>
+
+<button
+class="button button--secondary edit-brigade-button"
+
+data-id="${brigade.id}"
+
+data-name="${escapeHtml(brigade.name)}"
+
+data-municipality="${escapeHtml(brigade.municipality)}"
+
+>
+
+✏️ Editar
+
+</button>
+
+</td>
+
+</tr>
+
+`;
+
+}).join("")}
+
+</tbody>
+
+</table>
+
+`;
+
+document
+.querySelectorAll(
+".edit-brigade-button"
+)
+
+.forEach(
+
+(button)=>{
+
+button.addEventListener(
+
+"click",
+
+()=>{
+
+alert(
+
+"BUILD-114A\n\nEditar Brigada:\n\n"
+
++
+
+button.dataset.name
+
+);
+
 }
+
+);
+
+}
+
+);
+
+}
+
 
 
 // ======================================================

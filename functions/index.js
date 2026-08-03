@@ -66,6 +66,22 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+// ======================================================
+// NORMALIZAR NOMBRE
+// ======================================================
+
+function normalizeName(value) {
+
+  return cleanText(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+}
+
+
 
 // ======================================================
 // CREAR BRIGADISTA
@@ -974,6 +990,273 @@ exports.createBrigada = onCall(
     };
   }
 );
+
+
+// ======================================================
+// BUILD-114A
+// EDITAR BRIGADA
+// ======================================================
+
+exports.updateBrigada = onCall(
+{
+  region: "us-central1"
+},
+
+async (request) => {
+
+  //----------------------------------------------------
+  // 1. VALIDAR AUTENTICACIÓN
+  //----------------------------------------------------
+
+  if (!request.auth) {
+
+    throw new HttpsError(
+      "unauthenticated",
+      "Debe iniciar sesión."
+    );
+
+  }
+
+  const adminUid =
+    request.auth.uid;
+
+  //----------------------------------------------------
+  // 2. CONSULTAR ADMINISTRADOR
+  //----------------------------------------------------
+
+  const adminReference =
+    db.collection("usuarios")
+      .doc(adminUid);
+
+  const adminSnapshot =
+    await adminReference.get();
+
+  if (!adminSnapshot.exists) {
+
+    throw new HttpsError(
+      "permission-denied",
+      "Usuario no autorizado."
+    );
+
+  }
+
+  const adminProfile =
+    adminSnapshot.data();
+
+  if (
+    adminProfile.active !== true ||
+    adminProfile.role !== "admin"
+  ) {
+
+    throw new HttpsError(
+      "permission-denied",
+      "Operación exclusiva para administradores."
+    );
+
+  }
+
+  //----------------------------------------------------
+  // 3. RECIBIR DATOS
+  //----------------------------------------------------
+
+  const data =
+    request.data || {};
+
+  const brigadeId =
+    cleanText(data.brigadeId);
+
+  const name =
+    cleanText(data.name);
+
+  const municipality =
+    cleanText(data.municipality);
+
+  if (!brigadeId) {
+
+    throw new HttpsError(
+      "invalid-argument",
+      "No se recibió la brigada."
+    );
+
+  }
+
+  if (name.length < 3) {
+
+    throw new HttpsError(
+      "invalid-argument",
+      "Nombre inválido."
+    );
+
+  }
+
+  if (municipality.length < 2) {
+
+    throw new HttpsError(
+      "invalid-argument",
+      "Municipio inválido."
+    );
+
+  }
+
+  //----------------------------------------------------
+  // 4. CONSULTAR BRIGADA
+  //----------------------------------------------------
+
+  const brigadeReference =
+    db.collection("brigadas")
+      .doc(brigadeId);
+
+  const brigadeSnapshot =
+    await brigadeReference.get();
+
+  if (!brigadeSnapshot.exists) {
+
+    throw new HttpsError(
+      "not-found",
+      "La brigada no existe."
+    );
+
+  }
+
+  const brigade =
+    brigadeSnapshot.data();
+
+  //----------------------------------------------------
+  // VALIDAR CAMPAÑA
+  //----------------------------------------------------
+
+  if (
+    brigade.campaignId !==
+    adminProfile.campaignId
+  ) {
+
+    throw new HttpsError(
+      "permission-denied",
+      "La brigada pertenece a otra campaña."
+    );
+
+  }
+
+  //----------------------------------------------------
+  // NORMALIZAR
+  //----------------------------------------------------
+
+  const normalizedName =
+    normalizeName(name);
+
+  //----------------------------------------------------
+  // EVITAR DUPLICADOS
+  //----------------------------------------------------
+
+  const duplicateSnapshot =
+    await db
+      .collection("brigadas")
+      .where(
+        "campaignId",
+        "==",
+        adminProfile.campaignId
+      )
+      .where(
+        "normalizedName",
+        "==",
+        normalizedName
+      )
+      .get();
+
+  for (const document of duplicateSnapshot.docs) {
+
+    if (document.id !== brigadeId) {
+
+      throw new HttpsError(
+        "already-exists",
+        "Ya existe otra brigada con ese nombre."
+      );
+
+    }
+
+  }
+
+  //----------------------------------------------------
+  // GUARDAR
+  //----------------------------------------------------
+
+  await brigadeReference.update({
+
+    name,
+
+    normalizedName,
+
+    municipality,
+
+    updatedAt:
+      FieldValue.serverTimestamp(),
+
+    updatedBy:
+      adminUid,
+
+    version:
+      FieldValue.increment(1)
+
+  });
+
+  //----------------------------------------------------
+  // AUDITORÍA
+  //----------------------------------------------------
+
+  await db
+    .collection("logs")
+    .add({
+
+      action:
+        "UPDATE_BRIGADA",
+
+      brigadeId,
+
+      campaignId:
+        adminProfile.campaignId,
+
+      userUid:
+        adminUid,
+
+      createdAt:
+        FieldValue.serverTimestamp(),
+
+      before: {
+
+        name:
+          brigade.name,
+
+        municipality:
+          brigade.municipality
+
+      },
+
+      after: {
+
+        name,
+
+        municipality
+
+      }
+
+    });
+
+  //----------------------------------------------------
+  // RESPUESTA
+  //----------------------------------------------------
+
+  return {
+
+    success: true,
+
+    brigadeId,
+
+    message:
+      "Brigada actualizada correctamente."
+
+  };
+
+});
 
 
 
