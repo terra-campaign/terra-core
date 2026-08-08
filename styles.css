@@ -97,6 +97,50 @@ h1, h2, p { margin-top: 0; }
 
 }
 
+.auth-card{
+
+  display:none;
+
+    width:min(430px,100%);
+
+    background:rgba(255,255,255,.12);
+
+    backdrop-filter:blur(14px);
+
+    -webkit-backdrop-filter:blur(14px);
+
+    border:1px solid rgba(255,255,255,.18);
+
+    border-radius:22px;
+
+    padding:34px;
+
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+
+    visibility:hidden;
+
+    opacity:0;
+
+    transform:translateY(25px) scale(.96);
+
+    transition:
+        opacity .8s ease,
+        transform .8s ease;
+
+}
+
+/* ← AGREGA ESTO INMEDIATAMENTE DEBAJO */
+
+.auth-card.show{
+
+    visibility:visible;
+
+    opacity:1;
+
+    transform:translateY(0) scale(1);
+
+}
+
 .auth-card.show{
 
     visibility:visible;
