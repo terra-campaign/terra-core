@@ -21,17 +21,11 @@ const submitButton = form.querySelector('button[type="submit"]');
 // Animación de entrada del formulario
 //========================================
 
-const authCard = document.querySelector(".auth-card");
-
-authCard.style.visibility = "hidden";
-
 window.addEventListener("load", () => {
 
     setTimeout(() => {
 
-        authCard.style.visibility = "visible";
-
-        authCard.classList.add("show");
+        document.querySelector(".auth-card").style.display = "block";
 
     }, 2000);
 
