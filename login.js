@@ -25,13 +25,9 @@ window.addEventListener("load", () => {
 
     setTimeout(() => {
 
-        const card = document.querySelector(".auth-card");
+        document.querySelector(".auth-card").style.display = "block";
 
-        card.style.display = "block";
-
-        card.style.animation = "loginFade .8s ease forwards";
-
-    }, 2000);
+    },2000);
 
 });
 
