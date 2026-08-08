@@ -23,9 +23,13 @@ const submitButton = form.querySelector('button[type="submit"]');
 
 const authCard = document.querySelector(".auth-card");
 
+authCard.style.visibility = "hidden";
+
 window.addEventListener("load", () => {
 
     setTimeout(() => {
+
+        authCard.style.visibility = "visible";
 
         authCard.classList.add("show");
 
