@@ -65,7 +65,7 @@ h1, h2, p { margin-top: 0; }
             rgba(10,20,35,.55),
             rgba(10,20,35,.55)
         ),
-       url("./images/login-background.png");
+       url("images/login-background.png");
 
     background-size:cover;
 
