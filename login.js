@@ -16,6 +16,24 @@ const passwordInput = document.querySelector("#password");
 const message = document.querySelector("#loginMessage");
 const submitButton = form.querySelector('button[type="submit"]');
 
+
+//========================================
+// Animación de entrada del formulario
+//========================================
+
+const authCard = document.querySelector(".auth-card");
+
+window.addEventListener("load", () => {
+
+    setTimeout(() => {
+
+        authCard.classList.add("show");
+
+    }, 2000);
+
+});
+
+
 // Si el usuario ya inició sesión, enviarlo al panel.
 onAuthStateChanged(auth, (user) => {
   if (user) {
