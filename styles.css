@@ -79,27 +79,7 @@ h1, h2, p { margin-top: 0; }
 
 .auth-card{
 
-    width:min(430px,100%);
-
-    visibility:hidden;
-
-    opacity:0;
-
-    transform:translateY(25px) scale(.96);
-
-    transition:
-        opacity .8s ease,
-        transform .8s ease;
-
-    /* ...el resto de las propiedades que ya tienes... */
-
-}
-
-}
-
-.auth-card{
-
-  display:none;
+    display:none;
 
     width:min(430px,100%);
 
@@ -117,44 +97,19 @@ h1, h2, p { margin-top: 0; }
 
     box-shadow:0 20px 60px rgba(0,0,0,.35);
 
-    visibility:hidden;
-
-    opacity:0;
-
-    transform:translateY(25px) scale(.96);
-
-    transition:
-        opacity .8s ease,
-        transform .8s ease;
-
 }
 
-/* ← AGREGA ESTO INMEDIATAMENTE DEBAJO */
-
-.auth-card.show{
-
-    visibility:visible;
-
-    opacity:1;
-
-    transform:translateY(0) scale(1);
-
+form{
+    display:grid;
+    gap:1rem;
 }
 
-.auth-card.show{
-
-    visibility:visible;
-
-    opacity:1;
-
-    transform:translateY(0) scale(1);
-
+label{
+    display:grid;
+    gap:.4rem;
+    font-weight:700;
 }
 
-
-
-form { display: grid; gap: 1rem; }
-label { display: grid; gap: .4rem; font-weight: 700; }
 input{
 
     width:100%;
@@ -170,11 +125,32 @@ input{
     backdrop-filter:blur(4px);
 
 }
-input:focus { outline: 3px solid rgba(23,50,77,.15); border-color: #17324d; }
-.message { min-height: 1.2rem; margin-bottom: 0; }
-.text-link { display: inline-block; margin-top: 1rem; color: #17324d; }
 
+input:focus{
 
+    outline:3px solid rgba(23,50,77,.15);
+
+    border-color:#17324d;
+
+}
+
+.message{
+
+    min-height:1.2rem;
+
+    margin-bottom:0;
+
+}
+
+.text-link{
+
+    display:inline-block;
+
+    margin-top:1rem;
+
+    color:#17324d;
+
+}
 
 /* ======================================================
    TERRA CAMPAIGN — MAP ENGINE
