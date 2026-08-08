@@ -555,3 +555,77 @@ background:white;
 }
 
 
+
+/*======================================================
+SPLASH ANIMATION
+======================================================*/
+
+.splash-title{
+
+    opacity:0;
+
+    transform:translateY(-20px);
+
+    animation:
+
+        splashTitle .9s ease forwards;
+
+    animation-delay:1.1s;
+
+}
+
+.login-title{
+
+    opacity:0;
+
+    transform:translateY(18px);
+
+    animation:
+
+        loginTitle .8s ease forwards;
+
+    animation-delay:2s;
+
+}
+
+@keyframes splashTitle{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(-20px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+@keyframes loginTitle{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(18px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+
