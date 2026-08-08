@@ -93,10 +93,33 @@ h1, h2, p { margin-top: 0; }
 
     padding:34px;
 
-    box-shadow:
-        0 20px 60px rgba(0,0,0,.35);
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+
+    /* NUEVO */
+
+    opacity:0;
+
+    transform:translateY(25px) scale(.96);
+
+    transition:
+
+        opacity .8s ease,
+
+        transform .8s ease;
 
 }
+
+
+.auth-card.show{
+
+    opacity:1;
+
+    transform:translateY(0) scale(1);
+
+}
+
+
+
 form { display: grid; gap: 1rem; }
 label { display: grid; gap: .4rem; font-weight: 700; }
 input{
