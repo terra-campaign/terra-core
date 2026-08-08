@@ -519,3 +519,27 @@ background:white;
 }
 
 
+
+
+
+ .support-contact{
+    margin-top:24px;
+    text-align:center;
+    font-size:.9rem;
+    color:#d7dde5;
+    line-height:1.6;
+}
+
+.support-contact a{
+    color:#6cc04a;
+    text-decoration:none;
+    font-weight:600;
+    transition:.2s;
+}
+
+.support-contact a:hover{
+    color:#8fe86a;
+    text-decoration:underline;
+}
+
+
