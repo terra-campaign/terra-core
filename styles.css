@@ -728,3 +728,13 @@ ANIMACIÓN LOGIN
 
 }
 
+@media (max-width:768px){
+
+    body{
+
+        border:12px solid red !important;
+
+    }
+
+}
+
