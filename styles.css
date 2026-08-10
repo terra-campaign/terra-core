@@ -97,7 +97,7 @@ LOGIN MÓVIL
             ),
             url("./images/login-mobile-background.png");
 
-        background-size:contain;
+      background-size:100% auto;
 
         background-position:center top;
 
