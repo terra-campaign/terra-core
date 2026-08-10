@@ -84,21 +84,22 @@ h1, h2, p { margin-top: 0; }
 /*=====================================
 LOGIN MÓVIL
 =====================================*/
-
 @media (max-width:768px){
 
     .auth-shell{
 
+        background-color:#06111d;
+
         background-image:
             linear-gradient(
-                rgba(8,15,25,.20),
-                rgba(8,15,25,.20)
+                rgba(8,15,25,.15),
+                rgba(8,15,25,.15)
             ),
             url("./images/login-mobile-background.png");
 
-        background-size:cover;
+        background-size:contain;
 
-        background-position:center;
+        background-position:center top;
 
         background-repeat:no-repeat;
 
