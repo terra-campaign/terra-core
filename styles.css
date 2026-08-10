@@ -740,3 +740,55 @@ ANIMACIÓN LOGIN
 
 }
 
+
+
+
+/*=====================================
+LOGIN SOCIAL
+=====================================*/
+
+.login-social{
+
+    margin-top:22px;
+
+    padding-top:18px;
+
+    border-top:1px solid rgba(255,255,255,.12);
+
+    text-align:center;
+
+}
+
+.login-social p{
+
+    margin:0 0 10px;
+
+    color:rgba(255,255,255,.75);
+
+    font-size:.88rem;
+
+    line-height:1.4;
+
+}
+
+.login-social a{
+
+    color:#8fe65d;
+
+    font-weight:700;
+
+    text-decoration:none;
+
+    transition:.25s;
+
+}
+
+.login-social a:hover{
+
+    color:#b8ff86;
+
+    text-decoration:underline;
+
+}
+
+
