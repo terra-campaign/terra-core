@@ -27,7 +27,7 @@ window.addEventListener("load", () => {
 
         document.querySelector(".auth-card").style.display = "block";
 
-    },2000);
+    },3000);
 
 });
 
