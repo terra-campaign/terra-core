@@ -52,7 +52,7 @@ h1, h2, p { margin-top: 0; }
 .status--pending { background: #f7e9bd; color: #755b00; }
 
 
-.auth-shell {
+.auth-shell{
 
     min-height:100vh;
 
@@ -67,7 +67,7 @@ h1, h2, p { margin-top: 0; }
             rgba(10,20,35,.45),
             rgba(10,20,35,.45)
         ),
-        url("./login-background.png");
+        url("./images/login-background.png");
 
     background-size:cover;
 
@@ -78,6 +78,7 @@ h1, h2, p { margin-top: 0; }
     background-attachment:fixed;
 
 }
+
 
 
 /*=====================================
@@ -93,11 +94,11 @@ LOGIN MÓVIL
                 rgba(8,15,25,.20),
                 rgba(8,15,25,.20)
             ),
-            url("./login-mobile-background.png");
+            url("./images/login-mobile-background.png");
 
         background-size:cover;
 
-        background-position:center top;
+        background-position:center;
 
         background-repeat:no-repeat;
 
