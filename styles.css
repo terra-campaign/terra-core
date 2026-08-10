@@ -50,6 +50,8 @@ h1, h2, p { margin-top: 0; }
 .status--online { background: #d7f5e5; color: #16613a; }
 .status--offline { background: #ffe1e1; color: #8b2222; }
 .status--pending { background: #f7e9bd; color: #755b00; }
+
+
 .auth-shell {
 
     min-height:100vh;
@@ -62,10 +64,10 @@ h1, h2, p { margin-top: 0; }
 
     background-image:
         linear-gradient(
-            rgba(10,20,35,.55),
-            rgba(10,20,35,.55)
+            rgba(10,20,35,.45),
+            rgba(10,20,35,.45)
         ),
-       url("images/login-background.png");
+        url("./login-background.png");
 
     background-size:cover;
 
@@ -76,6 +78,36 @@ h1, h2, p { margin-top: 0; }
     background-attachment:fixed;
 
 }
+
+
+/*=====================================
+LOGIN MÓVIL
+=====================================*/
+
+@media (max-width:768px){
+
+    .auth-shell{
+
+        background-image:
+            linear-gradient(
+                rgba(8,15,25,.20),
+                rgba(8,15,25,.20)
+            ),
+            url("./login-mobile-background.png");
+
+        background-size:cover;
+
+        background-position:center top;
+
+        background-repeat:no-repeat;
+
+        background-attachment:scroll;
+
+    }
+
+}
+
+
 
 .auth-card{
 
