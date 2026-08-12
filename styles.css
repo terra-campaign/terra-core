@@ -859,3 +859,67 @@ TOPBAR RESPONSIVE ADMIN
 }
 
 
+
+
+/*=====================================
+TOPBAR ADMIN RESPONSIVE
+=====================================*/
+
+.topbar-title{
+
+    display:flex;
+
+    flex-direction:column;
+
+}
+
+.topbar-actions{
+
+    display:flex;
+
+    gap:12px;
+
+    align-items:center;
+
+}
+
+@media (max-width:768px){
+
+    .topbar{
+
+        flex-direction:column;
+
+        align-items:stretch;
+
+        gap:16px;
+
+    }
+
+    .topbar-actions{
+
+        width:100%;
+
+        display:grid;
+
+        grid-template-columns:1fr 1fr 1fr;
+
+        gap:10px;
+
+    }
+
+    .topbar-actions .button{
+
+        width:100%;
+
+        justify-content:center;
+
+        padding:.75rem .5rem;
+
+        font-size:.90rem;
+
+    }
+
+}
+
+
+
