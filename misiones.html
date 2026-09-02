@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="es-MX">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
+
+  <meta
+    name="theme-color"
+    content="#17324d"
+  >
+
+  <title>Misiones | TERRA Campaign</title>
+
+  <link
+    rel="icon"
+    type="image/png"
+    href="./icons/icon-192.png"
+  >
+
+  <link
+    rel="stylesheet"
+    href="./styles.css?v=missions-001"
+  >
+</head>
+
+
+<body>
+
+  <!-- =====================================================
+       TERRA CAMPAIGN
+       MÓDULO PRIVADO DE MISIONES
+  ====================================================== -->
+
+  <header class="topbar">
+
+    <div class="topbar-title">
+
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1>
+        Misiones
+      </h1>
+
+    </div>
+
+
+    <div class="topbar-actions">
+
+      <a
+        class="button button--secondary"
+        href="./admin.html"
+      >
+        Operación territorial
+      </a>
+
+      <button
+        id="logoutButton"
+        class="button button--small button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <main class="shell">
+
+    <!-- =====================================================
+         ENCABEZADO
+    ====================================================== -->
+
+    <section class="card">
+
+      <div class="section-heading">
+
+        <div>
+
+          <p class="eyebrow">
+            CENTRO DE OPERACIONES
+          </p>
+
+          <h2>
+            Misiones de estructura
+          </h2>
+
+        </div>
+
+        <button
+          id="newMissionButton"
+          class="button"
+          type="button"
+          hidden
+        >
+          + Nueva misión
+        </button>
+
+      </div>
+
+
+      <p class="message">
+        Las misiones permiten organizar y resguardar
+        evidencias operativas enviadas por la estructura.
+        La información de este módulo es privada.
+      </p>
+
+    </section>
+
+
+    <!-- =====================================================
+         INDICADORES
+    ====================================================== -->
+
+    <section class="grid metrics">
+
+      <article class="card">
+
+        <span>
+          Misiones
+        </span>
+
+        <strong id="totalMissions">
+          0
+        </strong>
+
+      </article>
+
+
+      <article class="card">
+
+        <span>
+          Misiones activas
+        </span>
+
+        <strong id="activeMissions">
+          0
+        </strong>
+
+      </article>
+
+
+      <article class="card">
+
+        <span>
+          Evidencias recibidas
+        </span>
+
+        <strong id="totalEvidence">
+          0
+        </strong>
+
+      </article>
+
+
+      <article class="card">
+
+        <span>
+          Última actividad
+        </span>
+
+        <strong
+          id="lastActivity"
+          style="font-size:1rem;"
+        >
+          Sin actividad
+        </strong>
+
+      </article>
+
+    </section>
+
+
+    <!-- =====================================================
+         LISTADO DE MISIONES
+    ====================================================== -->
+
+    <section class="card">
+
+      <div class="section-heading">
+
+        <div>
+
+          <p class="eyebrow">
+            OPERACIÓN
+          </p>
+
+          <h2>
+            Misiones registradas
+          </h2>
+
+        </div>
+
+        <button
+          id="refreshMissionsButton"
+          class="button button--small button--secondary"
+          type="button"
+        >
+          Actualizar
+        </button>
+
+      </div>
+
+
+      <p
+        id="missionsMessage"
+        class="message"
+        aria-live="polite"
+      >
+        Cargando misiones...
+      </p>
+
+
+      <div id="missionsList">
+
+        <p>
+          Todavía no existen misiones registradas.
+        </p>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- =====================================================
+       MODAL — NUEVA MISIÓN
+  ====================================================== -->
+
+  <div
+    id="missionModal"
+    class="modal"
+    hidden
+  >
+
+    <div
+      class="modal__backdrop"
+      data-close-mission-modal
+    ></div>
+
+
+    <section
+      class="modal__content"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="missionModalTitle"
+    >
+
+      <h2 id="missionModalTitle">
+        Nueva misión
+      </h2>
+
+
+      <form id="missionForm">
+
+        <label>
+
+          Nombre de la misión *
+
+          <input
+            id="missionTitle"
+            type="text"
+            maxlength="150"
+            required
+            placeholder="Ejemplo: Actividad territorial Compostela"
+          >
+
+        </label>
+
+
+        <label>
+
+          Descripción / objetivo
+
+          <textarea
+            id="missionDescription"
+            rows="5"
+            maxlength="1500"
+            placeholder="Describe el objetivo y las instrucciones principales."
+          ></textarea>
+
+        </label>
+
+
+        <label>
+
+          Fecha de la misión
+
+          <input
+            id="missionDate"
+            type="date"
+          >
+
+        </label>
+
+
+        <label>
+
+          Localidad o zona
+
+          <input
+            id="missionLocality"
+            type="text"
+            maxlength="120"
+            placeholder="Ejemplo: Compostela"
+          >
+
+        </label>
+
+
+        <div class="modal__actions">
+
+          <button
+            id="cancelMissionButton"
+            class="button button--secondary"
+            type="button"
+          >
+            Cancelar
+          </button>
+
+
+          <button
+            id="saveMissionButton"
+            class="button"
+            type="submit"
+          >
+            Guardar misión
+          </button>
+
+        </div>
+
+
+        <p
+          id="missionFormMessage"
+          class="message"
+          aria-live="polite"
+        ></p>
+
+      </form>
+
+    </section>
+
+  </div>
+
+
+  <!-- =====================================================
+       JS
+  ====================================================== -->
+
+  <script
+    type="module"
+    src="./misiones.js?v=001"
+  ></script>
+
+</body>
+
+</html>
