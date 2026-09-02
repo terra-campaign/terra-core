@@ -58,10 +58,13 @@ const logoutButton = document.querySelector("#logoutButton");
 const brigadistasAdminButton =
   document.querySelector("#brigadistasAdminButton");
 
+
 const brigadasAdminButton =
   document.querySelector(
     "#brigadasAdminButton"
   );
+const missionsButton =
+  document.querySelector("#missionsButton");
 
 const visitForm = document.querySelector("#visitForm");
 
