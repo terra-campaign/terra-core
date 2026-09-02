@@ -318,6 +318,11 @@ function applyRoleInterface() {
     isAdmin ||
     currentUserProfile.role === "coordinador";
 
+  const canAccessMissions =
+  isAdmin ||
+  currentUserProfile.role === "coordinador";
+
+
   const isReadOnly =
     currentUserProfile.role === "consulta";
 
@@ -335,6 +340,13 @@ function applyRoleInterface() {
       !isAdmin;
   }
 
+  // Administrador y coordinador
+// pueden acceder al módulo privado de Misiones.
+if (missionsButton) {
+  missionsButton.hidden =
+    !canAccessMissions;
+}
+  
   // El usuario de consulta no puede capturar visitas.
   if (isReadOnly) {
 
