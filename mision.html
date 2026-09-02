@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="es-MX">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
+
+  <meta
+    name="theme-color"
+    content="#17324d"
+  >
+
+  <title>Detalle de misión | TERRA Campaign</title>
+
+  <link
+    rel="icon"
+    type="image/png"
+    href="./icons/icon-192.png"
+  >
+
+  <link
+    rel="stylesheet"
+    href="./styles.css?v=mission-detail-001"
+  >
+</head>
+
+
+<body>
+
+  <!-- =====================================================
+       TERRA CAMPAIGN
+       DETALLE PRIVADO DE MISIÓN
+  ====================================================== -->
+
+  <header class="topbar">
+
+    <div class="topbar-title">
+
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1>
+        Detalle de misión
+      </h1>
+
+    </div>
+
+
+    <div class="topbar-actions">
+
+      <a
+        class="button button--secondary"
+        href="./misiones.html"
+      >
+        Misiones
+      </a>
+
+      <a
+        class="button button--secondary"
+        href="./admin.html"
+      >
+        Operación territorial
+      </a>
+
+      <button
+        id="logoutButton"
+        class="button button--small button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <main class="shell">
+
+    <!-- =====================================================
+         INFORMACIÓN DE LA MISIÓN
+    ====================================================== -->
+
+    <section class="card">
+
+      <p class="eyebrow">
+        MISIÓN
+      </p>
+
+      <h2 id="missionTitle">
+        Cargando misión...
+      </h2>
+
+      <p id="missionDescription">
+      </p>
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+          gap:16px;
+          margin-top:22px;
+        "
+      >
+
+        <div>
+
+          <span>
+            Localidad
+          </span>
+
+          <strong
+            id="missionLocality"
+            style="display:block;margin-top:4px;"
+          >
+            -
+          </strong>
+
+        </div>
+
+
+        <div>
+
+          <span>
+            Fecha
+          </span>
+
+          <strong
+            id="missionDate"
+            style="display:block;margin-top:4px;"
+          >
+            -
+          </strong>
+
+        </div>
+
+
+        <div>
+
+          <span>
+            Brigada
+          </span>
+
+          <strong
+            id="missionBrigade"
+            style="display:block;margin-top:4px;"
+          >
+            -
+          </strong>
+
+        </div>
+
+
+        <div>
+
+          <span>
+            Estado
+          </span>
+
+          <strong
+            id="missionStatus"
+            style="display:block;margin-top:4px;"
+          >
+            -
+          </strong>
+
+        </div>
+
+      </div>
+
+      <p
+        id="missionMessage"
+        class="message"
+        aria-live="polite"
+      ></p>
+
+    </section>
+
+
+    <!-- =====================================================
+         INDICADORES
+    ====================================================== -->
+
+    <section class="grid metrics">
+
+      <article class="card">
+
+        <span>
+          Evidencias recibidas
+        </span>
+
+        <strong id="missionEvidenceCount">
+          0
+        </strong>
+
+      </article>
+
+
+      <article class="card">
+
+        <span>
+          Última evidencia
+        </span>
+
+        <strong
+          id="lastEvidenceDate"
+          style="font-size:1rem;"
+        >
+          Sin actividad
+        </strong>
+
+      </article>
+
+    </section>
+
+
+    <!-- =====================================================
+         CARGAR EVIDENCIA
+    ====================================================== -->
+
+    <section class="card">
+
+      <div class="section-heading">
+
+        <div>
+
+          <p class="eyebrow">
+            EVIDENCIA PRIVADA
+          </p>
+
+          <h2>
+            Registrar evidencia
+          </h2>
+
+        </div>
+
+      </div>
+
+
+      <p class="message">
+        Utilice esta sección para guardar capturas,
+        fotografías u otras imágenes recibidas
+        como evidencia de cumplimiento de la misión.
+      </p>
+
+
+      <form id="evidenceForm">
+
+        <label>
+
+          Persona que reportó
+
+          <input
+            id="reportedByName"
+            type="text"
+            maxlength="120"
+            placeholder="Ejemplo: Juan Pérez"
+          >
+
+        </label>
+
+
+        <label>
+
+          Descripción / nota
+
+          <textarea
+            id="evidenceDescription"
+            rows="4"
+            maxlength="1000"
+            placeholder="Ejemplo: Captura recibida por WhatsApp."
+          ></textarea>
+
+        </label>
+
+
+        <div class="form-group">
+
+          <label>
+            Captura o fotografía *
+          </label>
+
+
+          <button
+            id="evidencePhotoButton"
+            type="button"
+            class="button button--secondary"
+          >
+            Seleccionar imagen
+          </button>
+
+
+          <input
+            id="evidencePhoto"
+            type="file"
+            accept="image/*"
+            hidden
+          >
+
+
+          <img
+            id="evidencePhotoPreview"
+            alt="Vista previa de evidencia"
+            style="
+              display:none;
+              width:100%;
+              max-width:420px;
+              margin-top:14px;
+              border-radius:10px;
+            "
+          >
+
+
+          <p
+            id="evidencePhotoStatus"
+            class="message"
+          >
+            Ninguna imagen seleccionada.
+          </p>
+
+        </div>
+
+
+        <button
+          id="saveEvidenceButton"
+          class="button"
+          type="submit"
+        >
+          Guardar evidencia
+        </button>
+
+
+        <p
+          id="evidenceFormMessage"
+          class="message"
+          aria-live="polite"
+        ></p>
+
+      </form>
+
+    </section>
+
+
+    <!-- =====================================================
+         GALERÍA
+    ====================================================== -->
+
+    <section class="card">
+
+      <div class="section-heading">
+
+        <div>
+
+          <p class="eyebrow">
+            HISTORIAL
+          </p>
+
+          <h2>
+            Evidencias de la misión
+          </h2>
+
+        </div>
+
+        <button
+          id="refreshEvidenceButton"
+          class="button button--small button--secondary"
+          type="button"
+        >
+          Actualizar
+        </button>
+
+      </div>
+
+
+      <p
+        id="evidenceListMessage"
+        class="message"
+      >
+        Cargando evidencias...
+      </p>
+
+
+      <div id="evidenceList">
+
+        <p>
+          Todavía no existen evidencias.
+        </p>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <script
+    type="module"
+    src="./mision.js?v=001"
+  ></script>
+
+</body>
+
+</html>
