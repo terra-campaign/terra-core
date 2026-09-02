@@ -994,9 +994,8 @@ missionsList.addEventListener(
     // En el siguiente BUILD este botón
     // abrirá la galería privada de evidencias.
 
-    alert(
-      `Misión seleccionada:\n${missionId}`
-    );
+    window.location.href =
+  `./mision.html?id=${encodeURIComponent(missionId)}`;
   }
 );
 
