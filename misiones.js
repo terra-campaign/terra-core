@@ -496,6 +496,10 @@ async function loadMissions() {
   missionsMessage.textContent =
     "Cargando misiones...";
 
+  const campaignId =
+    currentUserProfile.campaignId ||
+    "CAM-001";
+
   let missionsQuery;
 
   if (
@@ -512,7 +516,7 @@ async function loadMissions() {
       where(
         "campaignId",
         "==",
-        currentUserProfile.campaignId
+        campaignId
       ),
 
       orderBy(
@@ -523,6 +527,28 @@ async function loadMissions() {
 
   } else {
 
+    const assignedBrigades =
+      currentUserProfile.brigadeIds ||
+      (
+        currentUserProfile.brigadeId
+          ? [currentUserProfile.brigadeId]
+          : []
+      );
+
+    if (!assignedBrigades.length) {
+
+      missions = [];
+
+      renderMissions();
+
+      updateMissionMetrics();
+
+      missionsMessage.textContent =
+        "Tu usuario todavía no tiene brigadas asignadas.";
+
+      return;
+    }
+
     missionsQuery = query(
       collection(
         db,
@@ -532,13 +558,13 @@ async function loadMissions() {
       where(
         "campaignId",
         "==",
-        currentUserProfile.campaignId
+        campaignId
       ),
 
       where(
         "brigadeId",
         "in",
-        currentUserProfile.brigadeIds || []
+        assignedBrigades
       ),
 
       orderBy(
@@ -584,6 +610,17 @@ async function loadMissions() {
       "Error al cargar misiones:",
       error
     );
+
+    if (
+      error.code ===
+      "failed-precondition"
+    ) {
+
+      missionsMessage.textContent =
+        "Firestore requiere un índice para consultar las misiones.";
+
+      return;
+    }
 
     missionsMessage.textContent =
       "No fue posible consultar las misiones.";
