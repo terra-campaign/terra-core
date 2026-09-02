@@ -83,6 +83,9 @@ const missionDateInput =
 const missionLocalityInput =
   document.querySelector("#missionLocality");
 
+const missionBrigadeInput =
+  document.querySelector("#missionBrigade");
+
 const cancelMissionButton =
   document.querySelector("#cancelMissionButton");
 
@@ -177,6 +180,160 @@ function applyRoleInterface() {
     !(isAdmin || isCoordinator);
 }
 
+// ======================================================
+// CARGAR BRIGADAS DISPONIBLES
+// ======================================================
+
+async function loadAvailableBrigades() {
+
+  if (!currentUserProfile) {
+    return;
+  }
+
+  missionBrigadeInput.innerHTML = `
+    <option value="">
+      Seleccione una brigada...
+    </option>
+  `;
+
+  const campaignId =
+    currentUserProfile.campaignId ||
+    "CAM-001";
+
+  try {
+
+    let brigades = [];
+
+    if (
+      currentUserProfile.role ===
+      "admin"
+    ) {
+
+      const brigadesQuery =
+        query(
+          collection(db, "brigadas"),
+          where(
+            "campaignId",
+            "==",
+            campaignId
+          )
+        );
+
+      const snapshot =
+        await getDocs(
+          brigadesQuery
+        );
+
+      snapshot.forEach(
+        (documentSnapshot) => {
+
+          brigades.push({
+            id:
+              documentSnapshot.id,
+
+            ...documentSnapshot.data()
+          });
+        }
+      );
+
+    } else {
+
+      const assignedBrigades =
+        currentUserProfile.brigadeIds ||
+        (
+          currentUserProfile.brigadeId
+            ? [currentUserProfile.brigadeId]
+            : []
+        );
+
+      if (!assignedBrigades.length) {
+        return;
+      }
+
+      for (
+        const brigadeId
+        of assignedBrigades
+      ) {
+
+        const brigadeRef =
+          doc(
+            db,
+            "brigadas",
+            brigadeId
+          );
+
+        const brigadeSnapshot =
+          await getDoc(
+            brigadeRef
+          );
+
+        if (
+          brigadeSnapshot.exists()
+        ) {
+
+          const brigadeData =
+            brigadeSnapshot.data();
+
+          if (
+            brigadeData.campaignId ===
+            campaignId
+          ) {
+
+            brigades.push({
+              id:
+                brigadeSnapshot.id,
+
+              ...brigadeData
+            });
+          }
+        }
+      }
+    }
+
+    brigades.sort(
+      (a, b) =>
+        String(
+          a.name || ""
+        ).localeCompare(
+          String(
+            b.name || ""
+          ),
+          "es"
+        )
+    );
+
+    brigades.forEach(
+      (brigade) => {
+
+        const option =
+          document.createElement(
+            "option"
+          );
+
+        option.value =
+          brigade.id;
+
+        option.textContent =
+          brigade.name ||
+          brigade.id;
+
+        missionBrigadeInput.appendChild(
+          option
+        );
+      }
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Error al cargar brigadas:",
+      error
+    );
+
+    missionFormMessage.textContent =
+      "No fue posible cargar las brigadas.";
+  }
+}
 
 // ======================================================
 // INICIO DE SESIÓN
@@ -205,7 +362,7 @@ onAuthStateChanged(
       );
 
       applyRoleInterface();
-
+await loadAvailableBrigades();
       await loadMissions();
 
     } catch (error) {
@@ -362,6 +519,9 @@ missionForm.addEventListener(
     const locality =
       missionLocalityInput.value.trim();
 
+    const brigadeId =
+  missionBrigadeInput.value;
+    
     if (!title) {
 
       missionFormMessage.textContent =
@@ -372,6 +532,16 @@ missionForm.addEventListener(
       return;
     }
 
+if (!brigadeId) {
+
+  missionFormMessage.textContent =
+    "Seleccione la brigada responsable de la misión.";
+
+  missionBrigadeInput.focus();
+
+  return;
+}
+    
     saveMissionButton.disabled = true;
 
     saveMissionButton.textContent =
@@ -424,11 +594,8 @@ missionForm.addEventListener(
           createdByRole:
             currentUserProfile.role,
 
-          brigadeId:
-            currentUserProfile.brigadeId ||
-            currentUserProfile.brigadeIds?.[0] ||
-            null,
-
+          brigadeId,
+          
           createdAt:
             serverTimestamp(),
 
