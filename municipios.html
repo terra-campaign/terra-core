@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Municipios | TERRA Campaign</title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  >
+</head>
+
+<body>
+
+  <!-- ============================================= -->
+  <!-- TOPBAR                                        -->
+  <!-- ============================================= -->
+
+  <header class="topbar">
+
+    <div>
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1>
+        Municipios
+      </h1>
+    </div>
+
+    <div class="topbar__actions">
+
+      <a
+        class="button button--secondary"
+        href="./admin.html"
+      >
+        Volver
+      </a>
+
+      <button
+        id="logoutButton"
+        class="button button--small button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <!-- ============================================= -->
+  <!-- CONTENIDO                                     -->
+  <!-- ============================================= -->
+
+  <main class="workspace">
+
+    <section class="card">
+
+      <div class="section-header">
+
+        <div>
+          <p class="eyebrow">
+            ESTRUCTURA TERRITORIAL
+          </p>
+
+          <h2>
+            Municipios de la campaña
+          </h2>
+
+          <p class="muted">
+            Administra la división territorial de TERRA Campaign.
+          </p>
+        </div>
+
+        <button
+          id="newMunicipalityButton"
+          class="button"
+          type="button"
+        >
+          + Nuevo municipio
+        </button>
+
+      </div>
+
+
+      <!-- ESTADO -->
+
+      <div
+        id="municipalityStatus"
+        class="status"
+        hidden
+      ></div>
+
+
+      <!-- LISTADO -->
+
+      <div
+        id="municipalityList"
+        class="stack"
+      >
+
+        <p class="muted">
+          Cargando municipios...
+        </p>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- ============================================= -->
+  <!-- MODAL NUEVO MUNICIPIO                         -->
+  <!-- ============================================= -->
+
+  <div
+    id="municipalityModal"
+    class="modal"
+    hidden
+  >
+
+    <div class="modal__backdrop"></div>
+
+    <section
+      class="modal__panel card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="municipalityModalTitle"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            TERRITORIO
+          </p>
+
+          <h2 id="municipalityModalTitle">
+            Nuevo municipio
+          </h2>
+
+        </div>
+
+        <button
+          id="closeMunicipalityModalButton"
+          class="button button--small button--secondary"
+          type="button"
+        >
+          Cerrar
+        </button>
+
+      </div>
+
+
+      <form id="municipalityForm">
+
+        <label>
+          Nombre del municipio *
+
+          <input
+            id="municipalityName"
+            type="text"
+            maxlength="120"
+            autocomplete="off"
+            placeholder="Ej. Compostela"
+            required
+          >
+        </label>
+
+
+        <div class="form-actions">
+
+          <button
+            id="saveMunicipalityButton"
+            class="button"
+            type="submit"
+          >
+            Guardar municipio
+          </button>
+
+        </div>
+
+      </form>
+
+
+      <div
+        id="formStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+  </div>
+
+
+  <!-- ============================================= -->
+  <!-- JAVASCRIPT                                    -->
+  <!-- ============================================= -->
+
+  <script
+    type="module"
+    src="./municipios.js?v=001"
+  ></script>
+
+</body>
+</html>
