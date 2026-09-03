@@ -324,37 +324,50 @@ function renderMunicipalities(
               : "Inactivo";
 
           return `
-            <article class="card">
+  <article class="card">
 
-              <div class="section-header">
+    <div class="section-header">
 
-                <div>
+      <div>
 
-                  <p class="eyebrow">
-                    ${escapeHtml(
-                      municipality.id
-                    )}
-                  </p>
+        <p class="eyebrow">
+          ${escapeHtml(
+            municipality.id
+          )}
+        </p>
 
-                  <h3>
-                    ${escapeHtml(
-                      municipality.name
-                    )}
-                  </h3>
+        <h3>
+          ${escapeHtml(
+            municipality.name
+          )}
+        </h3>
 
-                  <p class="muted">
-                    Estado:
-                    ${escapeHtml(
-                      statusText
-                    )}
-                  </p>
+        <p class="muted">
+          Estado:
+          ${escapeHtml(
+            statusText
+          )}
+        </p>
 
-                </div>
+      </div>
 
-              </div>
+      <div class="topbar__actions">
 
-            </article>
-          `;
+        <a
+          class="button button--secondary"
+          href="./municipio.html?id=${encodeURIComponent(
+            municipality.id
+          )}"
+        >
+          Administrar
+        </a>
+
+      </div>
+
+    </div>
+
+  </article>
+`;
         }
       )
       .join("");
