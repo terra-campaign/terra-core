@@ -556,7 +556,11 @@ closeMunicipalityModalButton?.addEventListener(
 
 municipalityForm?.addEventListener(
   "submit",
-  handleCreateMunicipality
+  (event) => {
+    event.preventDefault();
+    console.log("SUBMIT MUNICIPIO DETECTADO");
+    handleCreateMunicipality(event);
+  }
 );
 
 
