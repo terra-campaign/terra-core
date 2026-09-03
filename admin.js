@@ -66,6 +66,9 @@ const brigadasAdminButton =
 const missionsButton =
   document.querySelector("#missionsButton");
 
+const municipalitiesButton =
+  document.querySelector("#municipalitiesButton");
+
 const visitForm = document.querySelector("#visitForm");
 
 const streetInput = document.querySelector("#street");
@@ -333,14 +336,21 @@ function applyRoleInterface() {
       !canManageBrigadistas;
   }
 
-  // Únicamente el administrador
-  // puede administrar brigadas.
-  if (brigadasAdminButton) {
-    brigadasAdminButton.hidden =
-      !isAdmin;
-  }
+ // Únicamente el administrador
+// puede administrar brigadas.
+if (brigadasAdminButton) {
+  brigadasAdminButton.hidden =
+    !isAdmin;
+}
 
-  // Administrador y coordinador
+// Únicamente el administrador
+// puede administrar municipios.
+if (municipalitiesButton) {
+  municipalitiesButton.hidden =
+    !isAdmin;
+}
+
+// Administrador y coordinador
 // pueden acceder al módulo privado de Misiones.
 if (missionsButton) {
   missionsButton.hidden =
