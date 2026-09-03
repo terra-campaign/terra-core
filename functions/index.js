@@ -1260,4 +1260,297 @@ async (request) => {
 
 
 
+// ======================================================
+// TERRA CAMPAIGN
+// CREAR MUNICIPIO
+// Alta territorial base para estructura jerárquica
+// ======================================================
+
+exports.createMunicipality = onCall(
+  {
+    region: "us-central1"
+  },
+
+  async (request) => {
+
+    // --------------------------------------------------
+    // 1. VALIDAR AUTENTICACIÓN
+    // --------------------------------------------------
+
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Debe iniciar sesión para realizar esta operación."
+      );
+    }
+
+    const adminUid =
+      request.auth.uid;
+
+    // --------------------------------------------------
+    // 2. CONSULTAR PERFIL DEL USUARIO
+    // --------------------------------------------------
+
+    const adminReference =
+      db
+        .collection("usuarios")
+        .doc(adminUid);
+
+    const adminSnapshot =
+      await adminReference.get();
+
+    if (!adminSnapshot.exists) {
+      throw new HttpsError(
+        "permission-denied",
+        "El usuario no tiene un perfil autorizado."
+      );
+    }
+
+    const adminProfile =
+      adminSnapshot.data();
+
+    if (
+      adminProfile.active !== true ||
+      adminProfile.role !== "admin"
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "Esta operación es exclusiva para administradores activos."
+      );
+    }
+
+    if (!adminProfile.campaignId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El administrador no tiene una campaña asignada."
+      );
+    }
+
+
+    // --------------------------------------------------
+    // 3. RECIBIR DATOS
+    // --------------------------------------------------
+
+    const data =
+      request.data || {};
+
+    const name =
+      cleanText(
+        data.name
+      );
+
+    if (name.length < 2) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un nombre válido para el municipio."
+      );
+    }
+
+    if (name.length > 120) {
+      throw new HttpsError(
+        "invalid-argument",
+        "El nombre del municipio no puede superar 120 caracteres."
+      );
+    }
+
+
+    // --------------------------------------------------
+    // 4. NORMALIZAR
+    // --------------------------------------------------
+
+    const normalizedName =
+      normalizeName(
+        name
+      );
+
+    const campaignId =
+      adminProfile.campaignId;
+
+
+    // --------------------------------------------------
+    // 5. EVITAR MUNICIPIO DUPLICADO
+    // --------------------------------------------------
+
+    const duplicateSnapshot =
+      await db
+        .collection("municipios")
+        .where(
+          "campaignId",
+          "==",
+          campaignId
+        )
+        .where(
+          "normalizedName",
+          "==",
+          normalizedName
+        )
+        .limit(1)
+        .get();
+
+    if (!duplicateSnapshot.empty) {
+      throw new HttpsError(
+        "already-exists",
+        "Ese municipio ya está registrado en la campaña."
+      );
+    }
+
+
+    // --------------------------------------------------
+    // 6. GENERAR ID CONSECUTIVO
+    // --------------------------------------------------
+
+    const sequenceReference =
+      db
+        .collection("secuencias")
+        .doc(
+          `${campaignId}_MUNICIPIOS`
+        );
+
+    let createdMunicipality =
+      null;
+
+    await db.runTransaction(
+      async (transaction) => {
+
+        const sequenceSnapshot =
+          await transaction.get(
+            sequenceReference
+          );
+
+        const currentNumber =
+          sequenceSnapshot.exists
+            ? Number(
+                sequenceSnapshot
+                  .data()
+                  .lastNumber || 0
+              )
+            : 0;
+
+        const nextNumber =
+          currentNumber + 1;
+
+        const municipalityId =
+          `MUN-${String(nextNumber).padStart(3, "0")}`;
+
+        const municipalityReference =
+          db
+            .collection("municipios")
+            .doc(municipalityId);
+
+        const now =
+          FieldValue.serverTimestamp();
+
+        const municipalityData = {
+
+          id:
+            municipalityId,
+
+          campaignId,
+
+          name,
+
+          normalizedName,
+
+          active:
+            true,
+
+          createdBy:
+            adminUid,
+
+          createdAt:
+            now,
+
+          updatedAt:
+            now,
+
+          version:
+            1
+        };
+
+        transaction.set(
+          municipalityReference,
+          municipalityData
+        );
+
+        transaction.set(
+          sequenceReference,
+          {
+            campaignId,
+
+            type:
+              "municipios",
+
+            lastNumber:
+              nextNumber,
+
+            updatedAt:
+              FieldValue.serverTimestamp()
+          },
+          {
+            merge: true
+          }
+        );
+
+        createdMunicipality = {
+          ...municipalityData,
+
+          createdAt:
+            null,
+
+          updatedAt:
+            null
+        };
+      }
+    );
+
+
+    // --------------------------------------------------
+    // 7. AUDITORÍA
+    // --------------------------------------------------
+
+    await db
+      .collection("logs")
+      .add({
+
+        action:
+          "CREATE_MUNICIPALITY",
+
+        municipalityId:
+          createdMunicipality.id,
+
+        campaignId,
+
+        userUid:
+          adminUid,
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        data: {
+          name:
+            createdMunicipality.name
+        }
+      });
+
+
+    // --------------------------------------------------
+    // 8. RESPUESTA
+    // --------------------------------------------------
+
+    return {
+
+      success:
+        true,
+
+      municipality:
+        createdMunicipality,
+
+      message:
+        `${createdMunicipality.name} registrado correctamente.`
+    };
+  }
+);
+
+
+
 
