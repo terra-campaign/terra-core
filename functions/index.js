@@ -1554,3 +1554,424 @@ exports.createMunicipality = onCall(
 
 
 
+// ======================================================
+// CREATE MUNICIPAL COORDINATOR
+// ======================================================
+
+exports.createMunicipalCoordinator = onCall(
+  {
+    region: "us-central1"
+  },
+
+  async (request) => {
+
+    // ==================================================
+    // AUTH
+    // ==================================================
+
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Debe iniciar sesión."
+      );
+    }
+
+    const adminUid =
+      request.auth.uid;
+
+    const db =
+      getFirestore();
+
+    const auth =
+      getAuth();
+
+
+    // ==================================================
+    // ADMIN PROFILE
+    // ==================================================
+
+    const adminRef =
+      db.collection("usuarios").doc(adminUid);
+
+    const adminSnapshot =
+      await adminRef.get();
+
+    if (!adminSnapshot.exists) {
+      throw new HttpsError(
+        "permission-denied",
+        "El usuario no tiene un perfil autorizado."
+      );
+    }
+
+    const adminProfile =
+      adminSnapshot.data();
+
+
+    if (adminProfile.active !== true) {
+      throw new HttpsError(
+        "permission-denied",
+        "El administrador está desactivado."
+      );
+    }
+
+
+    if (adminProfile.role !== "admin") {
+      throw new HttpsError(
+        "permission-denied",
+        "Solo el administrador puede crear coordinadores municipales."
+      );
+    }
+
+
+    const campaignId =
+      adminProfile.campaignId;
+
+
+    if (!campaignId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El administrador no tiene campaña asignada."
+      );
+    }
+
+
+    // ==================================================
+    // INPUT
+    // ==================================================
+
+    const data =
+      request.data || {};
+
+
+    const name =
+      cleanText(
+        data.name || ""
+      );
+
+
+    const email =
+      normalizeEmail(
+        data.email || ""
+      );
+
+
+    const phone =
+      normalizePhone(
+        data.phone || ""
+      );
+
+
+    const password =
+      String(
+        data.password || ""
+      );
+
+
+    const municipalityId =
+      cleanText(
+        data.municipalityId || ""
+      );
+
+
+    // ==================================================
+    // VALIDACIONES
+    // ==================================================
+
+    if (
+      name.length < 2 ||
+      name.length > 120
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un nombre válido."
+      );
+    }
+
+
+    if (!isValidEmail(email)) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un correo electrónico válido."
+      );
+    }
+
+
+    if (password.length < 6) {
+      throw new HttpsError(
+        "invalid-argument",
+        "La contraseña temporal debe tener al menos 6 caracteres."
+      );
+    }
+
+
+    if (!municipalityId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Debe seleccionar un municipio."
+      );
+    }
+
+
+    // ==================================================
+    // VALIDAR MUNICIPIO
+    // ==================================================
+
+    const municipalityRef =
+      db
+        .collection("municipios")
+        .doc(municipalityId);
+
+
+    const municipalitySnapshot =
+      await municipalityRef.get();
+
+
+    if (!municipalitySnapshot.exists) {
+      throw new HttpsError(
+        "not-found",
+        "El municipio seleccionado no existe."
+      );
+    }
+
+
+    const municipality =
+      municipalitySnapshot.data();
+
+
+    if (
+      municipality.campaignId !== campaignId
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "El municipio no pertenece a esta campaña."
+      );
+    }
+
+
+    if (
+      municipality.active !== true
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El municipio está desactivado."
+      );
+    }
+
+
+    // ==================================================
+    // CREAR USUARIO AUTH
+    // ==================================================
+
+    let authUser = null;
+
+
+    try {
+
+      authUser =
+        await auth.createUser({
+          email,
+          password,
+          displayName: name,
+          disabled: false
+        });
+
+
+      // ================================================
+      // PERFIL FIRESTORE
+      // ================================================
+
+      const userProfile = {
+
+        uid:
+          authUser.uid,
+
+        name,
+
+        email,
+
+        phone,
+
+        role:
+          "coordinador_municipal",
+
+        active:
+          true,
+
+        campaignId,
+
+        municipalityId,
+
+        municipalityName:
+          municipality.name || "",
+
+        parentUserId:
+          adminUid,
+
+        createdBy:
+          adminUid,
+
+        mustChangePassword:
+          true,
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        updatedAt:
+          FieldValue.serverTimestamp(),
+
+        version:
+          1
+      };
+
+
+      await db
+        .collection("usuarios")
+        .doc(authUser.uid)
+        .set(userProfile);
+
+
+      // ================================================
+      // LOG
+      // ================================================
+
+      await db
+        .collection("logs")
+        .add({
+
+          action:
+            "CREATE_MUNICIPAL_COORDINATOR",
+
+          campaignId,
+
+          municipalityId,
+
+          municipalityName:
+            municipality.name || "",
+
+          targetUserId:
+            authUser.uid,
+
+          targetUserName:
+            name,
+
+          targetUserEmail:
+            email,
+
+          createdBy:
+            adminUid,
+
+          createdAt:
+            FieldValue.serverTimestamp()
+        });
+
+
+      // ================================================
+      // RESPONSE
+      // ================================================
+
+      return {
+
+        success:
+          true,
+
+        user: {
+
+          uid:
+            authUser.uid,
+
+          name,
+
+          email,
+
+          phone,
+
+          role:
+            "coordinador_municipal",
+
+          campaignId,
+
+          municipalityId,
+
+          municipalityName:
+            municipality.name || "",
+
+          active:
+            true,
+
+          mustChangePassword:
+            true
+        }
+      };
+
+
+    } catch (error) {
+
+      // ================================================
+      // ROLLBACK
+      // ================================================
+
+      if (authUser?.uid) {
+
+        try {
+
+          await auth.deleteUser(
+            authUser.uid
+          );
+
+        } catch (
+          rollbackError
+        ) {
+
+          console.error(
+            "Error al revertir usuario Auth:",
+            rollbackError
+          );
+        }
+      }
+
+
+      console.error(
+        "Error al crear coordinador municipal:",
+        error
+      );
+
+
+      if (
+        error instanceof HttpsError
+      ) {
+        throw error;
+      }
+
+
+      if (
+        error?.code ===
+        "auth/email-already-exists"
+      ) {
+        throw new HttpsError(
+          "already-exists",
+          "Ya existe un usuario registrado con ese correo."
+        );
+      }
+
+
+      if (
+        error?.code ===
+        "auth/invalid-password"
+      ) {
+        throw new HttpsError(
+          "invalid-argument",
+          "La contraseña temporal no es válida."
+        );
+      }
+
+
+      throw new HttpsError(
+        "internal",
+        "No fue posible crear el coordinador municipal."
+      );
+    }
+  }
+);
+
+
+
