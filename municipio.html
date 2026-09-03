@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Municipio | TERRA Campaign</title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  >
+</head>
+
+<body>
+
+  <!-- ============================================= -->
+  <!-- TOPBAR                                        -->
+  <!-- ============================================= -->
+
+  <header class="topbar">
+
+    <div>
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1 id="municipalityTitle">
+        Municipio
+      </h1>
+    </div>
+
+    <div class="topbar__actions">
+
+      <a
+        class="button button--secondary"
+        href="./municipios.html"
+      >
+        Volver
+      </a>
+
+      <button
+        id="logoutButton"
+        class="button button--small button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <!-- ============================================= -->
+  <!-- CONTENIDO                                     -->
+  <!-- ============================================= -->
+
+  <main class="workspace">
+
+    <!-- DATOS DEL MUNICIPIO -->
+
+    <section class="card">
+
+      <p class="eyebrow">
+        ESTRUCTURA TERRITORIAL
+      </p>
+
+      <h2 id="municipalityName">
+        Cargando municipio...
+      </h2>
+
+      <p
+        id="municipalityId"
+        class="muted"
+      ></p>
+
+      <div
+        id="municipalityStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+
+    <!-- COORDINADORES MUNICIPALES -->
+
+    <section class="card">
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            EQUIPO MUNICIPAL
+          </p>
+
+          <h2>
+            Coordinadores municipales
+          </h2>
+
+          <p class="muted">
+            Administra los coordinadores responsables de este municipio.
+          </p>
+
+        </div>
+
+
+        <button
+          id="newCoordinatorButton"
+          class="button"
+          type="button"
+        >
+          + Nuevo coordinador
+        </button>
+
+      </div>
+
+
+      <div
+        id="coordinatorStatus"
+        class="status"
+        hidden
+      ></div>
+
+
+      <div
+        id="coordinatorList"
+        class="stack"
+      >
+
+        <p class="muted">
+          Cargando coordinadores...
+        </p>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- ============================================= -->
+  <!-- MODAL NUEVO COORDINADOR                       -->
+  <!-- ============================================= -->
+
+  <div
+    id="coordinatorModal"
+    class="modal"
+    hidden
+  >
+
+    <div class="modal__backdrop"></div>
+
+
+    <section
+      class="modal__content card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="coordinatorModalTitle"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            EQUIPO MUNICIPAL
+          </p>
+
+          <h2 id="coordinatorModalTitle">
+            Nuevo coordinador municipal
+          </h2>
+
+        </div>
+
+
+        <button
+          id="closeCoordinatorModalButton"
+          class="button button--small button--secondary"
+          type="button"
+        >
+          Cerrar
+        </button>
+
+      </div>
+
+
+      <form id="coordinatorForm">
+
+        <label>
+          Nombre completo *
+
+          <input
+            id="coordinatorName"
+            type="text"
+            maxlength="120"
+            autocomplete="name"
+            required
+          >
+        </label>
+
+
+        <label>
+          Correo electrónico *
+
+          <input
+            id="coordinatorEmail"
+            type="email"
+            maxlength="160"
+            autocomplete="email"
+            required
+          >
+        </label>
+
+
+        <label>
+          Teléfono
+
+          <input
+            id="coordinatorPhone"
+            type="tel"
+            maxlength="30"
+            autocomplete="tel"
+          >
+        </label>
+
+
+        <label>
+          Contraseña temporal *
+
+          <input
+            id="coordinatorPassword"
+            type="password"
+            minlength="6"
+            autocomplete="new-password"
+            required
+          >
+        </label>
+
+
+        <div class="form-actions">
+
+          <button
+            id="saveCoordinatorButton"
+            class="button"
+            type="submit"
+          >
+            Guardar coordinador
+          </button>
+
+        </div>
+
+      </form>
+
+
+      <div
+        id="formStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+  </div>
+
+
+  <!-- ============================================= -->
+  <!-- JAVASCRIPT                                    -->
+  <!-- ============================================= -->
+
+  <script
+    type="module"
+    src="./municipio.js?v=001"
+  ></script>
+
+</body>
+</html>
