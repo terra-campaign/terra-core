@@ -525,6 +525,104 @@ function renderCoordinators(
 
 
 // ======================================================
+// SELECTOR DE COORDINADORES
+// ======================================================
+
+function renderCoordinatorOptions() {
+
+  if (!structureCoordinatorSelect) {
+    return;
+  }
+
+  const previousValue =
+    structureCoordinatorSelect.value;
+
+  structureCoordinatorSelect.innerHTML = `
+    <option value="">
+      Seleccione un coordinador
+    </option>
+  `;
+
+
+  currentCoordinators.forEach(
+    (coordinator) => {
+
+      const option =
+        document.createElement(
+          "option"
+        );
+
+      option.value =
+        coordinator.uid;
+
+      option.textContent =
+        coordinator.name || coordinator.email || coordinator.uid;
+
+      structureCoordinatorSelect.appendChild(
+        option
+      );
+    }
+  );
+
+
+  if (
+    previousValue &&
+    currentCoordinators.some(
+      (coordinator) =>
+        coordinator.uid === previousValue
+    )
+  ) {
+    structureCoordinatorSelect.value =
+      previousValue;
+  }
+}
+
+
+// ======================================================
+// MODAL ESTRUCTURA
+// ======================================================
+
+function openStructureModal() {
+
+  structureForm?.reset();
+
+  showStatus(
+    structureFormStatus,
+    ""
+  );
+
+  renderCoordinatorOptions();
+
+  if (structureModal) {
+    structureModal.hidden =
+      false;
+  }
+
+  setTimeout(
+    () => {
+      structureNameInput?.focus();
+    },
+    50
+  );
+}
+
+
+function closeStructureModal() {
+
+  if (structureModal) {
+    structureModal.hidden =
+      true;
+  }
+
+  structureForm?.reset();
+
+  showStatus(
+    structureFormStatus,
+    ""
+  );
+}
+
+// ======================================================
 // ESCUCHAR COORDINADORES
 // ======================================================
 
@@ -575,25 +673,29 @@ function listenCoordinators() {
       coordinatorsQuery,
 
       (snapshot) => {
+const coordinators =
+  [];
 
-        const coordinators =
-          [];
+snapshot.forEach(
+  (documentSnapshot) => {
 
-        snapshot.forEach(
-          (documentSnapshot) => {
+    coordinators.push({
+      uid:
+        documentSnapshot.id,
 
-            coordinators.push({
-              uid:
-                documentSnapshot.id,
+      ...documentSnapshot.data()
+    });
+  }
+);
 
-              ...documentSnapshot.data()
-            });
-          }
-        );
+currentCoordinators =
+  coordinators;
 
-        renderCoordinators(
-          coordinators
-        );
+renderCoordinators(
+  coordinators
+);
+
+renderCoordinatorOptions();
 
         showStatus(
           coordinatorStatus,
