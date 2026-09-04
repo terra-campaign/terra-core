@@ -84,7 +84,35 @@ const saveCoordinatorButton =
 
 const formStatus =
   document.querySelector("#formStatus");
+const newStructureButton =
+  document.querySelector("#newStructureButton");
 
+const structureStatus =
+  document.querySelector("#structureStatus");
+
+const structureList =
+  document.querySelector("#structureList");
+
+const structureModal =
+  document.querySelector("#structureModal");
+
+const closeStructureModalButton =
+  document.querySelector("#closeStructureModalButton");
+
+const structureForm =
+  document.querySelector("#structureForm");
+
+const structureNameInput =
+  document.querySelector("#structureName");
+
+const structureCoordinatorSelect =
+  document.querySelector("#structureCoordinator");
+
+const saveStructureButton =
+  document.querySelector("#saveStructureButton");
+
+const structureFormStatus =
+  document.querySelector("#structureFormStatus");
 
 // ======================================================
 // ESTADO
@@ -93,7 +121,11 @@ const formStatus =
 let currentUser = null;
 let currentUserProfile = null;
 let currentMunicipality = null;
+
+let currentCoordinators = [];
+
 let stopCoordinatorsListener = null;
+let stopStructuresListener = null;
 
 
 // ======================================================
@@ -127,6 +159,11 @@ const createMunicipalCoordinatorFunction =
     "createMunicipalCoordinator"
   );
 
+const createStructureFunction =
+  httpsCallable(
+    functions,
+    "createStructure"
+  );
 
 // ======================================================
 // UTILIDADES
