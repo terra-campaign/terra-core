@@ -201,7 +201,7 @@ if (
     const email =
       normalizeEmail(data.email);
 
-    const phone =
+   const phone =
   normalizePhone(
     data.phone || ""
   );
@@ -3915,55 +3915,65 @@ exports.createParticipant = onCall(
       );
 
 
-    // ==================================================
-    // 4. VALIDACIONES BÁSICAS
-    // ==================================================
+   // ==================================================
+// 4. VALIDACIONES BÁSICAS
+// ==================================================
 
-    if (
-      name.length < 2 ||
-      name.length > 120
-    ) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Ingrese un nombre válido."
-      );
-    }
+if (
+  name.length < 2 ||
+  name.length > 120
+) {
+  throw new HttpsError(
+    "invalid-argument",
+    "Ingrese un nombre válido."
+  );
+}
 
-    if (!isValidEmail(email)) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Ingrese un correo electrónico válido."
-      );
-    }
+if (!isValidEmail(email)) {
+  throw new HttpsError(
+    "invalid-argument",
+    "Ingrese un correo electrónico válido."
+  );
+}
 
-    if (
-      phone &&
-      (
-        phone.length < 10 ||
-        phone.length > 15
-      )
-    ) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Ingrese un teléfono válido de entre 10 y 15 dígitos."
-      );
-    }
+if (
+  phone &&
+  (
+    phone.length < 10 ||
+    phone.length > 15
+  )
+) {
+  throw new HttpsError(
+    "invalid-argument",
+    "Ingrese un teléfono válido de entre 10 y 15 dígitos."
+  );
+}
 
-    if (
-      password.length < 6
-    ) {
-      throw new HttpsError(
-        "invalid-argument",
-        "La contraseña temporal debe tener al menos 6 caracteres."
-      );
-    }
+if (
+  locality.length < 2 ||
+  locality.length > 120
+) {
+  throw new HttpsError(
+    "invalid-argument",
+    "Ingrese una localidad válida."
+  );
+}
 
-    if (!parentUserId) {
-      throw new HttpsError(
-        "invalid-argument",
-        "No se recibió el integrante responsable."
-      );
-    }
+if (
+  password.length < 6
+) {
+  throw new HttpsError(
+    "invalid-argument",
+    "La contraseña temporal debe tener al menos 6 caracteres."
+  );
+}
+
+if (!parentUserId) {
+  throw new HttpsError(
+    "invalid-argument",
+    "No se recibió el integrante responsable."
+  );
+}
 
 
     // ==================================================
