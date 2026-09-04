@@ -881,6 +881,313 @@ async function handleCreateCoordinator(
   }
 }
 
+// ======================================================
+// RENDER ESTRUCTURAS
+// ======================================================
+
+function renderStructures(
+  structures
+) {
+
+  if (!structureList) {
+    return;
+  }
+
+
+  if (
+    structures.length === 0
+  ) {
+
+    structureList.innerHTML = `
+      <div class="card">
+        <p class="muted">
+          Todavía no hay estructuras registradas.
+        </p>
+      </div>
+    `;
+
+    return;
+  }
+
+
+  structureList.innerHTML =
+    structures
+      .map(
+        (structure) => {
+
+          const statusText =
+            structure.active === true
+              ? "Activa"
+              : "Inactiva";
+
+
+          return `
+            <article class="card">
+
+              <div class="section-header">
+
+                <div>
+
+                  <p class="eyebrow">
+                    ${escapeHtml(
+                      structure.id
+                    )}
+                  </p>
+
+                  <h3>
+                    ${escapeHtml(
+                      structure.name
+                    )}
+                  </h3>
+
+                  <p class="muted">
+                    Coordinador:
+                    ${escapeHtml(
+                      structure.coordinatorName || ""
+                    )}
+                  </p>
+
+                  <p class="muted">
+                    Estado:
+                    ${escapeHtml(
+                      statusText
+                    )}
+                  </p>
+
+                </div>
+
+              </div>
+
+            </article>
+          `;
+        }
+      )
+      .join("");
+}
+
+
+// ======================================================
+// ESCUCHAR ESTRUCTURAS
+// ======================================================
+
+function listenStructures() {
+
+  if (
+    stopStructuresListener
+  ) {
+    stopStructuresListener();
+  }
+
+
+  const structuresQuery =
+    query(
+      collection(
+        db,
+        "estructuras"
+      ),
+
+      where(
+        "campaignId",
+        "==",
+        currentUserProfile.campaignId
+      ),
+
+      where(
+        "municipalityId",
+        "==",
+        municipalityId
+      ),
+
+      orderBy(
+        "name",
+        "asc"
+      )
+    );
+
+
+  stopStructuresListener =
+    onSnapshot(
+
+      structuresQuery,
+
+      (snapshot) => {
+
+        const structures =
+          [];
+
+
+        snapshot.forEach(
+          (documentSnapshot) => {
+
+            structures.push({
+              firestoreId:
+                documentSnapshot.id,
+
+              ...documentSnapshot.data()
+            });
+          }
+        );
+
+
+        renderStructures(
+          structures
+        );
+
+
+        showStatus(
+          structureStatus,
+          ""
+        );
+      },
+
+
+      (error) => {
+
+        console.error(
+          "Error al consultar estructuras:",
+          error
+        );
+
+
+        showStatus(
+          structureStatus,
+          "No fue posible consultar las estructuras.",
+          "error"
+        );
+      }
+    );
+}
+
+
+// ======================================================
+// CREAR ESTRUCTURA
+// ======================================================
+
+async function handleCreateStructure(
+  event
+) {
+
+  event.preventDefault();
+
+
+  const name =
+    String(
+      structureNameInput?.value ||
+      ""
+    )
+      .trim()
+      .replace(/\s+/g, " ");
+
+
+  const coordinatorId =
+    String(
+      structureCoordinatorSelect?.value ||
+      ""
+    )
+      .trim();
+
+
+  if (
+    name.length < 2
+  ) {
+
+    showStatus(
+      structureFormStatus,
+      "Ingrese un nombre válido para la estructura.",
+      "error"
+    );
+
+    structureNameInput?.focus();
+
+    return;
+  }
+
+
+  if (!coordinatorId) {
+
+    showStatus(
+      structureFormStatus,
+      "Seleccione un coordinador municipal.",
+      "error"
+    );
+
+    structureCoordinatorSelect?.focus();
+
+    return;
+  }
+
+
+  saveStructureButton.disabled =
+    true;
+
+
+  saveStructureButton.textContent =
+    "Guardando...";
+
+
+  showStatus(
+    structureFormStatus,
+    "Registrando estructura..."
+  );
+
+
+  try {
+
+    const result =
+      await createStructureFunction({
+        name,
+        municipalityId,
+        coordinatorId
+      });
+
+
+    const structure =
+      result?.data?.structure;
+
+
+    showStatus(
+      structureFormStatus,
+      structure?.name
+        ? `${structure.name} registrada correctamente.`
+        : "Estructura registrada correctamente.",
+      "success"
+    );
+
+
+    setTimeout(
+      () => {
+        closeStructureModal();
+      },
+      900
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Error al crear estructura:",
+      error
+    );
+
+
+    showStatus(
+      structureFormStatus,
+      getErrorMessage(error),
+      "error"
+    );
+
+
+  } finally {
+
+    saveStructureButton.disabled =
+      false;
+
+
+    saveStructureButton.textContent =
+      "Guardar estructura";
+  }
+}
+
 
 // ======================================================
 // EVENTOS
