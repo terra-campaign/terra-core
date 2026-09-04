@@ -2498,3 +2498,661 @@ exports.createStructure = onCall(
     };
   }
 );
+
+
+
+// ======================================================
+// CREATE STRUCTURE CHIEF
+// JEFE DE ESTRUCTURA
+// ======================================================
+
+exports.createStructureChief = onCall(
+  {
+    region: "us-central1"
+  },
+
+  async (request) => {
+
+    // ==================================================
+    // 1. AUTENTICACIÓN
+    // ==================================================
+
+    if (!request.auth) {
+
+      throw new HttpsError(
+        "unauthenticated",
+        "Debe iniciar sesión."
+      );
+    }
+
+
+    const creatorUid =
+      request.auth.uid;
+
+
+    // ==================================================
+    // 2. PERFIL DEL CREADOR
+    // ==================================================
+
+    const creatorRef =
+      db
+        .collection("usuarios")
+        .doc(creatorUid);
+
+
+    const creatorSnapshot =
+      await creatorRef.get();
+
+
+    if (!creatorSnapshot.exists) {
+
+      throw new HttpsError(
+        "permission-denied",
+        "El usuario no tiene un perfil autorizado."
+      );
+    }
+
+
+    const creatorProfile =
+      creatorSnapshot.data();
+
+
+    if (
+      creatorProfile.active !== true
+    ) {
+
+      throw new HttpsError(
+        "permission-denied",
+        "El usuario está desactivado."
+      );
+    }
+
+
+    const allowedRoles = [
+      "admin",
+      "coordinador_municipal"
+    ];
+
+
+    if (
+      !allowedRoles.includes(
+        creatorProfile.role
+      )
+    ) {
+
+      throw new HttpsError(
+        "permission-denied",
+        "No tiene permisos para crear jefes de estructura."
+      );
+    }
+
+
+    const campaignId =
+      creatorProfile.campaignId;
+
+
+    if (!campaignId) {
+
+      throw new HttpsError(
+        "failed-precondition",
+        "El usuario no tiene campaña asignada."
+      );
+    }
+
+
+    // ==================================================
+    // 3. DATOS RECIBIDOS
+    // ==================================================
+
+    const data =
+      request.data || {};
+
+
+    const name =
+      cleanText(
+        data.name || ""
+      );
+
+
+    const email =
+      normalizeEmail(
+        data.email || ""
+      );
+
+
+    const phone =
+      normalizePhone(
+        data.phone || ""
+      );
+
+
+    const password =
+      String(
+        data.password || ""
+      );
+
+
+    const structureDocumentId =
+      cleanText(
+        data.structureDocumentId || ""
+      );
+
+
+    // ==================================================
+    // 4. VALIDACIONES
+    // ==================================================
+
+    if (
+      name.length < 2 ||
+      name.length > 120
+    ) {
+
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un nombre válido."
+      );
+    }
+
+
+    if (!isValidEmail(email)) {
+
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un correo electrónico válido."
+      );
+    }
+
+
+    if (
+      phone &&
+      (
+        phone.length < 10 ||
+        phone.length > 15
+      )
+    ) {
+
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un teléfono válido de entre 10 y 15 dígitos."
+      );
+    }
+
+
+    if (
+      password.length < 6
+    ) {
+
+      throw new HttpsError(
+        "invalid-argument",
+        "La contraseña temporal debe tener al menos 6 caracteres."
+      );
+    }
+
+
+    if (!structureDocumentId) {
+
+      throw new HttpsError(
+        "invalid-argument",
+        "No se recibió la estructura."
+      );
+    }
+
+
+    // ==================================================
+    // 5. VALIDAR ESTRUCTURA
+    // ==================================================
+
+    const structureRef =
+      db
+        .collection("estructuras")
+        .doc(structureDocumentId);
+
+
+    const structureSnapshot =
+      await structureRef.get();
+
+
+    if (!structureSnapshot.exists) {
+
+      throw new HttpsError(
+        "not-found",
+        "La estructura seleccionada no existe."
+      );
+    }
+
+
+    const structure =
+      structureSnapshot.data();
+
+
+    if (
+      structure.active !== true
+    ) {
+
+      throw new HttpsError(
+        "failed-precondition",
+        "La estructura está desactivada."
+      );
+    }
+
+
+    if (
+      structure.campaignId !==
+      campaignId
+    ) {
+
+      throw new HttpsError(
+        "permission-denied",
+        "La estructura pertenece a otra campaña."
+      );
+    }
+
+
+    // ==================================================
+    // 6. RESTRICCIÓN DEL COORDINADOR MUNICIPAL
+    // ==================================================
+
+    if (
+      creatorProfile.role ===
+      "coordinador_municipal"
+    ) {
+
+      if (
+        structure.coordinatorId !==
+        creatorUid
+      ) {
+
+        throw new HttpsError(
+          "permission-denied",
+          "El coordinador municipal solo puede administrar sus propias estructuras."
+        );
+      }
+
+
+      if (
+        structure.municipalityId !==
+        creatorProfile.municipalityId
+      ) {
+
+        throw new HttpsError(
+          "permission-denied",
+          "La estructura no pertenece al municipio del coordinador."
+        );
+      }
+    }
+
+
+    // ==================================================
+    // 7. SOLO UN JEFE ACTIVO POR ESTRUCTURA
+    // ==================================================
+
+    const existingChiefSnapshot =
+      await db
+        .collection("usuarios")
+        .where(
+          "campaignId",
+          "==",
+          campaignId
+        )
+        .where(
+          "structureId",
+          "==",
+          structure.id
+        )
+        .where(
+          "role",
+          "==",
+          "jefe_estructura"
+        )
+        .limit(1)
+        .get();
+
+
+    if (
+      !existingChiefSnapshot.empty
+    ) {
+
+      throw new HttpsError(
+        "already-exists",
+        "Esta estructura ya tiene un jefe asignado."
+      );
+    }
+
+
+    // ==================================================
+    // 8. CREAR CUENTA EN FIREBASE AUTH
+    // ==================================================
+
+    let authUser =
+      null;
+
+
+    try {
+
+      authUser =
+        await auth.createUser({
+
+          email,
+
+          password,
+
+          displayName:
+            name,
+
+          disabled:
+            false
+        });
+
+
+    } catch (error) {
+
+      console.error(
+        "Error al crear jefe de estructura en Authentication:",
+        error
+      );
+
+
+      if (
+        error?.code ===
+        "auth/email-already-exists"
+      ) {
+
+        throw new HttpsError(
+          "already-exists",
+          "Ya existe un usuario registrado con ese correo."
+        );
+      }
+
+
+      if (
+        error?.code ===
+        "auth/invalid-email"
+      ) {
+
+        throw new HttpsError(
+          "invalid-argument",
+          "El correo electrónico no es válido."
+        );
+      }
+
+
+      if (
+        error?.code ===
+        "auth/invalid-password"
+      ) {
+
+        throw new HttpsError(
+          "invalid-argument",
+          "La contraseña temporal no cumple los requisitos."
+        );
+      }
+
+
+      throw new HttpsError(
+        "internal",
+        "No fue posible crear la cuenta del jefe de estructura."
+      );
+    }
+
+
+    // ==================================================
+    // 9. CREAR PERFIL EN FIRESTORE
+    // ==================================================
+
+    const chiefRef =
+      db
+        .collection("usuarios")
+        .doc(authUser.uid);
+
+
+    try {
+
+      const chiefProfile = {
+
+        uid:
+          authUser.uid,
+
+        name,
+
+        email,
+
+        phone,
+
+        role:
+          "jefe_estructura",
+
+        active:
+          true,
+
+        campaignId,
+
+        municipalityId:
+          structure.municipalityId,
+
+        municipalityName:
+          structure.municipalityName || "",
+
+        coordinatorId:
+          structure.coordinatorId,
+
+        coordinatorName:
+          structure.coordinatorName || "",
+
+        structureId:
+          structure.id,
+
+        structureDocumentId:
+          structureSnapshot.id,
+
+        structureName:
+          structure.name || "",
+
+        parentUserId:
+          structure.coordinatorId,
+
+        createdBy:
+          creatorUid,
+
+        createdByRole:
+          creatorProfile.role,
+
+        mustChangePassword:
+          true,
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        updatedAt:
+          FieldValue.serverTimestamp(),
+
+        version:
+          1
+      };
+
+
+      await chiefRef.set(
+        chiefProfile
+      );
+
+
+      // ==================================================
+      // 10. ACTUALIZAR ESTRUCTURA
+      // ==================================================
+
+      await structureRef.update({
+
+        chiefId:
+          authUser.uid,
+
+        chiefName:
+          name,
+
+        updatedAt:
+          FieldValue.serverTimestamp(),
+
+        updatedBy:
+          creatorUid,
+
+        version:
+          FieldValue.increment(1)
+      });
+
+
+      // ==================================================
+      // 11. AUDITORÍA
+      // ==================================================
+
+      await db
+        .collection("logs")
+        .add({
+
+          action:
+            "CREATE_STRUCTURE_CHIEF",
+
+          campaignId,
+
+          municipalityId:
+            structure.municipalityId,
+
+          municipalityName:
+            structure.municipalityName || "",
+
+          coordinatorId:
+            structure.coordinatorId,
+
+          coordinatorName:
+            structure.coordinatorName || "",
+
+          structureId:
+            structure.id,
+
+          structureDocumentId:
+            structureSnapshot.id,
+
+          structureName:
+            structure.name || "",
+
+          targetUserId:
+            authUser.uid,
+
+          targetUserName:
+            name,
+
+          targetUserEmail:
+            email,
+
+          createdBy:
+            creatorUid,
+
+          createdByRole:
+            creatorProfile.role,
+
+          createdAt:
+            FieldValue.serverTimestamp()
+        });
+
+
+      // ==================================================
+      // 12. RESPUESTA
+      // ==================================================
+
+      return {
+
+        success:
+          true,
+
+        user: {
+
+          uid:
+            authUser.uid,
+
+          name,
+
+          email,
+
+          phone,
+
+          role:
+            "jefe_estructura",
+
+          active:
+            true,
+
+          campaignId,
+
+          municipalityId:
+            structure.municipalityId,
+
+          municipalityName:
+            structure.municipalityName || "",
+
+          coordinatorId:
+            structure.coordinatorId,
+
+          coordinatorName:
+            structure.coordinatorName || "",
+
+          structureId:
+            structure.id,
+
+          structureDocumentId:
+            structureSnapshot.id,
+
+          structureName:
+            structure.name || "",
+
+          mustChangePassword:
+            true
+        },
+
+        message:
+          `${name} fue asignado como jefe de ${structure.name}.`
+      };
+
+
+    } catch (error) {
+
+      console.error(
+        "Error al crear perfil del jefe de estructura:",
+        error
+      );
+
+
+      // ==================================================
+      // ROLLBACK AUTH
+      // ==================================================
+
+      try {
+
+        await auth.deleteUser(
+          authUser.uid
+        );
+
+      } catch (
+        rollbackError
+      ) {
+
+        console.error(
+          "No fue posible revertir Authentication:",
+          rollbackError
+        );
+      }
+
+
+      if (
+        error instanceof HttpsError
+      ) {
+
+        throw error;
+      }
+
+
+      throw new HttpsError(
+        "internal",
+        "No fue posible guardar el jefe de estructura."
+      );
+    }
+  }
+);
+
+
