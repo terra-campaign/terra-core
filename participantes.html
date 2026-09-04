@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Participantes | TERRA Campaign</title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  >
+</head>
+
+<body>
+
+  <header class="topbar">
+
+    <div>
+
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1 id="memberTitle">
+        Participantes
+      </h1>
+
+    </div>
+
+    <div class="topbar__actions">
+
+      <button
+        id="backButton"
+        class="button button--secondary"
+        type="button"
+      >
+        Volver
+      </button>
+
+      <button
+        id="logoutButton"
+        class="button button--small button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <main class="workspace">
+
+    <!-- INTEGRANTE RESPONSABLE -->
+
+    <section class="card">
+
+      <p class="eyebrow">
+        INTEGRANTE
+      </p>
+
+      <h2 id="memberName">
+        Cargando integrante...
+      </h2>
+
+      <p
+        id="memberEmail"
+        class="muted"
+      ></p>
+
+      <p
+        id="memberPhone"
+        class="muted"
+      ></p>
+
+      <p
+        id="memberStructure"
+        class="muted"
+      ></p>
+
+      <p
+        id="memberMunicipality"
+        class="muted"
+      ></p>
+
+      <div
+        id="memberInfoStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+
+    <!-- PARTICIPANTES -->
+
+    <section class="card">
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            BASE DE PARTICIPANTES
+          </p>
+
+          <h2>
+            Participantes
+          </h2>
+
+          <p class="muted">
+            Personas registradas bajo este integrante.
+          </p>
+
+        </div>
+
+        <button
+          id="newParticipantButton"
+          class="button"
+          type="button"
+        >
+          + Nuevo participante
+        </button>
+
+      </div>
+
+
+      <div
+        id="participantStatus"
+        class="status"
+        hidden
+      ></div>
+
+
+      <div
+        id="participantList"
+        class="stack"
+      >
+
+        <p class="muted">
+          Todavía no hay participantes registrados.
+        </p>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- MODAL NUEVO PARTICIPANTE -->
+
+  <div
+    id="participantModal"
+    class="modal"
+    hidden
+  >
+
+    <div class="modal__backdrop"></div>
+
+
+    <section
+      class="modal__content card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="participantModalTitle"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            BASE DE PARTICIPANTES
+          </p>
+
+          <h2 id="participantModalTitle">
+            Nuevo participante
+          </h2>
+
+        </div>
+
+
+        <button
+          id="closeParticipantModalButton"
+          class="button button--small button--secondary"
+          type="button"
+        >
+          Cerrar
+        </button>
+
+      </div>
+
+
+      <form id="participantForm">
+
+        <label>
+          Nombre completo *
+
+          <input
+            id="participantName"
+            type="text"
+            maxlength="120"
+            autocomplete="name"
+            required
+          >
+        </label>
+
+
+        <label>
+          Correo electrónico *
+
+          <input
+            id="participantEmail"
+            type="email"
+            maxlength="160"
+            autocomplete="email"
+            required
+          >
+        </label>
+
+
+        <label>
+          Teléfono
+
+          <input
+            id="participantPhone"
+            type="tel"
+            maxlength="30"
+            autocomplete="tel"
+          >
+        </label>
+
+
+        <label>
+          Contraseña temporal *
+
+          <input
+            id="participantPassword"
+            type="password"
+            minlength="6"
+            autocomplete="new-password"
+            required
+          >
+        </label>
+
+
+        <div class="form-actions">
+
+          <button
+            id="saveParticipantButton"
+            class="button"
+            type="submit"
+          >
+            Guardar participante
+          </button>
+
+        </div>
+
+      </form>
+
+
+      <div
+        id="participantFormStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+  </div>
+
+
+  <script
+    type="module"
+    src="./participantes.js?v=001"
+  ></script>
+
+</body>
+</html>
