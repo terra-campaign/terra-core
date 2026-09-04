@@ -2639,22 +2639,20 @@ exports.createStructureChief = onCall(
       );
 
 
-    const phone =
-      normalizePhone(
-        data.phone || ""
-      );
+ const phone =
+  normalizePhone(
+    data.phone || ""
+  );
 
+const password =
+  String(
+    data.password || ""
+  );
 
-    const password =
-      String(
-        data.password || ""
-      );
-
-
-    const structureDocumentId =
-      cleanText(
-        data.structureDocumentId || ""
-      );
+const structureDocumentId =
+  cleanText(
+    data.structureDocumentId || ""
+  );
 
 
     // ==================================================
