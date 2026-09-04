@@ -531,6 +531,19 @@ function renderStructureChief(
         )}
       </p>
 
+            <div class="form-actions">
+
+        <a
+          class="button button--secondary button--small"
+          href="./persona.html?id=${encodeURIComponent(
+            chief.uid
+          )}"
+        >
+          Ver perfil
+        </a>
+
+      </div>
+
     </article>
   `;
 
