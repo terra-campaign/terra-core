@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Perfil operativo | TERRA Campaign</title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  />
+</head>
+
+<body>
+
+  <!-- ==================================================
+       TERRA CAMPAIGN
+       BUILD-115
+       PERFIL OPERATIVO DE PERSONA
+       ================================================== -->
+
+  <header class="topbar">
+
+    <div>
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1 id="pageTitle">
+        Perfil operativo
+      </h1>
+    </div>
+
+    <div class="topbar__actions">
+
+      <button
+        id="backButton"
+        class="button button--secondary button--small"
+        type="button"
+      >
+        Volver
+      </button>
+
+      <button
+        id="logoutButton"
+        class="button button--secondary button--small"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <main class="workspace">
+
+    <!-- ==================================================
+         ESTADO DE CARGA
+         ================================================== -->
+
+    <section
+      id="loadingSection"
+      class="panel"
+    >
+
+      <p class="eyebrow">
+        PERFIL OPERATIVO
+      </p>
+
+      <h2>
+        Cargando información...
+      </h2>
+
+      <p class="muted">
+        Consultando los datos de la persona.
+      </p>
+
+    </section>
+
+
+    <!-- ==================================================
+         ERROR
+         ================================================== -->
+
+    <section
+      id="errorSection"
+      class="panel"
+      hidden
+    >
+
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h2>
+        No fue posible cargar el perfil
+      </h2>
+
+      <p
+        id="errorMessage"
+        class="muted"
+      >
+        Ocurrió un problema al consultar la información.
+      </p>
+
+    </section>
+
+
+    <!-- ==================================================
+         PERFIL
+         ================================================== -->
+
+    <section
+      id="profileSection"
+      hidden
+    >
+
+      <!-- ==================================================
+           DATOS GENERALES
+           ================================================== -->
+
+      <section class="panel">
+
+        <p class="eyebrow">
+          PERFIL OPERATIVO
+        </p>
+
+        <h2 id="personName">
+          —
+        </h2>
+
+        <div class="form-grid">
+
+          <div>
+            <p class="muted">
+              Correo
+            </p>
+
+            <p id="personEmail">
+              —
+            </p>
+          </div>
+
+          <div>
+            <p class="muted">
+              Teléfono
+            </p>
+
+            <p id="personPhone">
+              —
+            </p>
+          </div>
+
+          <div>
+            <p class="muted">
+              Localidad
+            </p>
+
+            <p id="personLocality">
+              —
+            </p>
+          </div>
+
+          <div>
+            <p class="muted">
+              Estado
+            </p>
+
+            <p id="personStatus">
+              —
+            </p>
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ==================================================
+           ORGANIZACIÓN
+           ================================================== -->
+
+      <section class="panel">
+
+        <p class="eyebrow">
+          ORGANIZACIÓN
+        </p>
+
+        <h2>
+          Ubicación dentro de la estructura
+        </h2>
+
+        <div class="form-grid">
+
+          <div>
+            <p class="muted">
+              Rol
+            </p>
+
+            <p id="personRole">
+              —
+            </p>
+          </div>
+
+          <div>
+            <p class="muted">
+              Municipio
+            </p>
+
+            <p id="personMunicipality">
+              —
+            </p>
+          </div>
+
+          <div>
+            <p class="muted">
+              Estructura
+            </p>
+
+            <p id="personStructure">
+              —
+            </p>
+          </div>
+
+          <div>
+            <p class="muted">
+              Responsable de estructura
+            </p>
+
+            <p id="personStructureChief">
+              —
+            </p>
+          </div>
+
+          <div>
+            <p class="muted">
+              Responsable directo
+            </p>
+
+            <p id="personParent">
+              —
+            </p>
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ==================================================
+           ACTIVIDAD
+           ================================================== -->
+
+      <section class="panel">
+
+        <p class="eyebrow">
+          ACTIVIDAD
+        </p>
+
+        <h2>
+          Resumen operativo
+        </h2>
+
+        <div class="stats-grid">
+
+          <article class="stat-card">
+
+            <p class="muted">
+              Misiones asignadas
+            </p>
+
+            <strong id="missionsAssigned">
+              0
+            </strong>
+
+          </article>
+
+
+          <article class="stat-card">
+
+            <p class="muted">
+              Misiones cumplidas
+            </p>
+
+            <strong id="missionsCompleted">
+              0
+            </strong>
+
+          </article>
+
+
+          <article class="stat-card">
+
+            <p class="muted">
+              Evidencias
+            </p>
+
+            <strong id="evidenceCount">
+              0
+            </strong>
+
+          </article>
+
+
+          <article class="stat-card">
+
+            <p class="muted">
+              Eventos
+            </p>
+
+            <strong id="eventsCount">
+              0
+            </strong>
+
+          </article>
+
+        </div>
+
+        <p class="muted">
+          Los indicadores operativos serán conectados progresivamente
+          conforme se integren Misiones V2, evidencias y eventos.
+        </p>
+
+      </section>
+
+
+      <!-- ==================================================
+           IDENTIFICACIÓN TÉCNICA
+           ================================================== -->
+
+      <section class="panel">
+
+        <p class="eyebrow">
+          TRAZABILIDAD
+        </p>
+
+        <h2>
+          Identificación del registro
+        </h2>
+
+        <div class="form-grid">
+
+          <div>
+            <p class="muted">
+              UID
+            </p>
+
+            <p id="personUid">
+              —
+            </p>
+          </div>
+
+          <div>
+            <p class="muted">
+              Campaña
+            </p>
+
+            <p id="personCampaign">
+              —
+            </p>
+          </div>
+
+        </div>
+
+      </section>
+
+    </section>
+
+  </main>
+
+
+  <script
+    type="module"
+    src="./persona.js?v=001"
+  ></script>
+
+</body>
+</html>
