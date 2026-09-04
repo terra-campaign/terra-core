@@ -1,7 +1,7 @@
 // ======================================================
 // TERRA CAMPAIGN
 // ADMINISTRACIÓN DE ESTRUCTURA
-// JEFE DE ESTRUCTURA + INTEGRANTES
+// RESPONSABLE DE ESTRUCTURA + INTEGRANTES
 // ======================================================
 
 import {
@@ -59,7 +59,7 @@ const logoutButton =
 
 
 // ======================================================
-// JEFE DE ESTRUCTURA
+// RESPONSABLE DE ESTRUCTURA
 // ======================================================
 
 const newStructureChiefButton =
@@ -452,7 +452,7 @@ async function loadStructure() {
 
 
 // ======================================================
-// RENDER JEFE DE ESTRUCTURA
+// RENDER RESPONSABLE DE ESTRUCTURA
 // ======================================================
 
 function renderStructureChief(
@@ -471,7 +471,7 @@ function renderStructureChief(
     structureChiefContainer.innerHTML = `
       <div class="card">
         <p class="muted">
-          Todavía no hay jefe de estructura asignado.
+          Todavía no hay RESPONSABLE DE ESTRUCTURA asignado.
         </p>
       </div>
     `;
@@ -496,7 +496,7 @@ function renderStructureChief(
     <article class="card">
 
       <p class="eyebrow">
-        JEFE DE ESTRUCTURA
+        RESPONSABLE DE ESTRUCTURA
       </p>
 
       <h3>
@@ -743,7 +743,7 @@ function listenStructureUsers() {
 
 
 // ======================================================
-// MODAL JEFE DE ESTRUCTURA
+// MODAL RESPONSABLE DE ESTRUCTURA
 // ======================================================
 
 function openStructureChiefModal() {
@@ -792,7 +792,7 @@ function closeStructureChiefModal() {
 
 
 // ======================================================
-// CREAR JEFE DE ESTRUCTURA
+// CREAR RESPONSABLE DE ESTRUCTURA
 // ======================================================
 
 async function handleCreateStructureChief(
@@ -881,7 +881,7 @@ async function handleCreateStructureChief(
 
   showStatus(
     structureChiefFormStatus,
-    "Registrando jefe de estructura..."
+    "Registrando RESPONSABLE DE ESTRUCTURA..."
   );
 
   try {
@@ -902,7 +902,7 @@ async function handleCreateStructureChief(
       structureChiefFormStatus,
       chief?.name
         ? `${chief.name} registrado correctamente.`
-        : "Jefe de estructura registrado correctamente.",
+        : "RESPONSABLE DE ESTRUCTURA registrado correctamente.",
       "success"
     );
 
@@ -916,7 +916,7 @@ async function handleCreateStructureChief(
   } catch (error) {
 
     console.error(
-      "Error al crear jefe de estructura:",
+      "Error al crear RESPONSABLE DE ESTRUCTURA:",
       error
     );
 
@@ -932,7 +932,7 @@ async function handleCreateStructureChief(
       false;
 
     saveStructureChiefButton.textContent =
-      "Guardar jefe de estructura";
+      "Guardar RESPONSABLE DE ESTRUCTURA";
   }
 }
 
