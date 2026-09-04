@@ -634,6 +634,14 @@ function renderMembers(
         Administrar participantes
       </a>
 
+<a
+  class="button button--secondary button--small"
+  href="./persona.html?id=${encodeURIComponent(
+    member.uid
+  )}"
+>
+  Ver perfil
+</a>
     </div>
 
   </article>
