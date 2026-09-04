@@ -1,7 +1,7 @@
 // ======================================================
 // TERRA CAMPAIGN
 // ADMINISTRACIÓN DE MUNICIPIO
-// COORDINADORES MUNICIPALES
+// COORDINADORES MUNICIPALES + ESTRUCTURAS
 // ======================================================
 
 import {
@@ -49,6 +49,11 @@ const municipalityIdElement =
 const municipalityStatus =
   document.querySelector("#municipalityStatus");
 
+
+// ------------------------------------------------------
+// COORDINADORES
+// ------------------------------------------------------
+
 const newCoordinatorButton =
   document.querySelector("#newCoordinatorButton");
 
@@ -84,6 +89,12 @@ const saveCoordinatorButton =
 
 const formStatus =
   document.querySelector("#formStatus");
+
+
+// ------------------------------------------------------
+// ESTRUCTURAS
+// ------------------------------------------------------
+
 const newStructureButton =
   document.querySelector("#newStructureButton");
 
@@ -113,6 +124,7 @@ const saveStructureButton =
 
 const structureFormStatus =
   document.querySelector("#structureFormStatus");
+
 
 // ======================================================
 // ESTADO
@@ -165,6 +177,7 @@ const createStructureFunction =
     "createStructure"
   );
 
+
 // ======================================================
 // UTILIDADES
 // ======================================================
@@ -214,12 +227,17 @@ function getErrorMessage(error) {
     error?.details ||
     "";
 
+
   if (
     error?.code ===
     "functions/already-exists"
   ) {
-    return "Ya existe un usuario registrado con ese correo.";
+    return (
+      message ||
+      "Ya existe un registro con esos datos."
+    );
   }
+
 
   if (
     error?.code ===
@@ -228,6 +246,7 @@ function getErrorMessage(error) {
     return "No tiene permisos para realizar esta operación.";
   }
 
+
   if (
     error?.code ===
     "functions/unauthenticated"
@@ -235,19 +254,39 @@ function getErrorMessage(error) {
     return "La sesión no es válida. Inicie sesión nuevamente.";
   }
 
+
   if (
     error?.code ===
     "functions/not-found"
   ) {
-    return "El municipio seleccionado no existe.";
+    return (
+      message ||
+      "No se encontró el registro solicitado."
+    );
   }
+
 
   if (
     error?.code ===
     "functions/invalid-argument"
   ) {
-    return message || "Revise los datos ingresados.";
+    return (
+      message ||
+      "Revise los datos ingresados."
+    );
   }
+
+
+  if (
+    error?.code ===
+    "functions/failed-precondition"
+  ) {
+    return (
+      message ||
+      "No se cumplen las condiciones necesarias para realizar esta operación."
+    );
+  }
+
 
   return (
     message ||
@@ -257,7 +296,7 @@ function getErrorMessage(error) {
 
 
 // ======================================================
-// PERFIL
+// PERFIL DEL USUARIO
 // ======================================================
 
 async function loadCurrentUserProfile(
@@ -271,47 +310,59 @@ async function loadCurrentUserProfile(
       user.uid
     );
 
+
   const snapshot =
     await getDoc(
       reference
     );
 
+
   if (!snapshot.exists()) {
+
     throw new Error(
       "El usuario no tiene un perfil autorizado."
     );
   }
 
+
   const profile = {
+
     uid:
       snapshot.id,
 
     ...snapshot.data()
   };
 
+
   if (
     profile.active !== true
   ) {
+
     throw new Error(
       "El usuario está desactivado."
     );
   }
 
+
   if (
     profile.role !== "admin"
   ) {
+
     throw new Error(
       "Esta sección es exclusiva para administradores."
     );
   }
 
+
   if (
     !profile.campaignId
   ) {
+
     throw new Error(
       "El administrador no tiene campaña asignada."
     );
   }
+
 
   return profile;
 }
@@ -324,10 +375,12 @@ async function loadCurrentUserProfile(
 async function loadMunicipality() {
 
   if (!municipalityId) {
+
     throw new Error(
       "No se especificó un municipio."
     );
   }
+
 
   const reference =
     doc(
@@ -336,50 +389,67 @@ async function loadMunicipality() {
       municipalityId
     );
 
+
   const snapshot =
     await getDoc(
       reference
     );
 
+
   if (!snapshot.exists()) {
+
     throw new Error(
       "El municipio no existe."
     );
   }
 
+
   const municipality = {
+
     id:
       snapshot.id,
 
     ...snapshot.data()
   };
 
+
   if (
     municipality.campaignId !==
     currentUserProfile.campaignId
   ) {
+
     throw new Error(
       "El municipio no pertenece a esta campaña."
     );
   }
 
+
   currentMunicipality =
     municipality;
 
+
   if (municipalityTitle) {
+
     municipalityTitle.textContent =
-      municipality.name || "Municipio";
+      municipality.name ||
+      "Municipio";
   }
+
 
   if (municipalityNameElement) {
+
     municipalityNameElement.textContent =
-      municipality.name || "Municipio";
+      municipality.name ||
+      "Municipio";
   }
 
+
   if (municipalityIdElement) {
+
     municipalityIdElement.textContent =
       municipality.id;
   }
+
 
   showStatus(
     municipalityStatus,
@@ -389,26 +459,32 @@ async function loadMunicipality() {
 
 
 // ======================================================
-// MODAL
+// MODAL COORDINADOR
 // ======================================================
 
 function openCoordinatorModal() {
 
   coordinatorForm?.reset();
 
+
   showStatus(
     formStatus,
     ""
   );
 
+
   if (coordinatorModal) {
+
     coordinatorModal.hidden =
       false;
   }
 
+
   setTimeout(
     () => {
+
       coordinatorNameInput?.focus();
+
     },
     50
   );
@@ -418,11 +494,14 @@ function openCoordinatorModal() {
 function closeCoordinatorModal() {
 
   if (coordinatorModal) {
+
     coordinatorModal.hidden =
       true;
   }
 
+
   coordinatorForm?.reset();
+
 
   showStatus(
     formStatus,
@@ -443,15 +522,18 @@ function renderCoordinators(
     return;
   }
 
+
   if (
     coordinators.length === 0
   ) {
 
     coordinatorList.innerHTML = `
       <div class="card">
+
         <p class="muted">
           Todavía no hay coordinadores municipales registrados.
         </p>
+
       </div>
     `;
 
@@ -468,6 +550,7 @@ function renderCoordinators(
             coordinator.active === true
               ? "Activo"
               : "Inactivo";
+
 
           return `
             <article class="card">
@@ -496,20 +579,24 @@ function renderCoordinators(
                     coordinator.phone
                       ? `
                         <p class="muted">
+
                           Tel:
                           ${escapeHtml(
                             coordinator.phone
                           )}
+
                         </p>
                       `
                       : ""
                   }
 
                   <p class="muted">
+
                     Estado:
                     ${escapeHtml(
                       statusText
                     )}
+
                   </p>
 
                 </div>
@@ -534,8 +621,10 @@ function renderCoordinatorOptions() {
     return;
   }
 
+
   const previousValue =
     structureCoordinatorSelect.value;
+
 
   structureCoordinatorSelect.innerHTML = `
     <option value="">
@@ -552,11 +641,16 @@ function renderCoordinatorOptions() {
           "option"
         );
 
+
       option.value =
         coordinator.uid;
 
+
       option.textContent =
-        coordinator.name || coordinator.email || coordinator.uid;
+        coordinator.name ||
+        coordinator.email ||
+        coordinator.uid;
+
 
       structureCoordinatorSelect.appendChild(
         option
@@ -569,58 +663,16 @@ function renderCoordinatorOptions() {
     previousValue &&
     currentCoordinators.some(
       (coordinator) =>
-        coordinator.uid === previousValue
+        coordinator.uid ===
+        previousValue
     )
   ) {
+
     structureCoordinatorSelect.value =
       previousValue;
   }
 }
 
-
-// ======================================================
-// MODAL ESTRUCTURA
-// ======================================================
-
-function openStructureModal() {
-
-  structureForm?.reset();
-
-  showStatus(
-    structureFormStatus,
-    ""
-  );
-
-  renderCoordinatorOptions();
-
-  if (structureModal) {
-    structureModal.hidden =
-      false;
-  }
-
-  setTimeout(
-    () => {
-      structureNameInput?.focus();
-    },
-    50
-  );
-}
-
-
-function closeStructureModal() {
-
-  if (structureModal) {
-    structureModal.hidden =
-      true;
-  }
-
-  structureForm?.reset();
-
-  showStatus(
-    structureFormStatus,
-    ""
-  );
-}
 
 // ======================================================
 // ESCUCHAR COORDINADORES
@@ -631,12 +683,14 @@ function listenCoordinators() {
   if (
     stopCoordinatorsListener
   ) {
+
     stopCoordinatorsListener();
   }
 
 
   const coordinatorsQuery =
     query(
+
       collection(
         db,
         "usuarios"
@@ -673,29 +727,36 @@ function listenCoordinators() {
       coordinatorsQuery,
 
       (snapshot) => {
-const coordinators =
-  [];
 
-snapshot.forEach(
-  (documentSnapshot) => {
+        const coordinators =
+          [];
 
-    coordinators.push({
-      uid:
-        documentSnapshot.id,
 
-      ...documentSnapshot.data()
-    });
-  }
-);
+        snapshot.forEach(
+          (documentSnapshot) => {
 
-currentCoordinators =
-  coordinators;
+            coordinators.push({
 
-renderCoordinators(
-  coordinators
-);
+              uid:
+                documentSnapshot.id,
 
-renderCoordinatorOptions();
+              ...documentSnapshot.data()
+            });
+          }
+        );
+
+
+        currentCoordinators =
+          coordinators;
+
+
+        renderCoordinators(
+          coordinators
+        );
+
+
+        renderCoordinatorOptions();
+
 
         showStatus(
           coordinatorStatus,
@@ -703,12 +764,14 @@ renderCoordinatorOptions();
         );
       },
 
+
       (error) => {
 
         console.error(
           "Error al consultar coordinadores municipales:",
           error
         );
+
 
         showStatus(
           coordinatorStatus,
@@ -774,6 +837,7 @@ async function handleCreateCoordinator(
       "error"
     );
 
+
     coordinatorNameInput?.focus();
 
     return;
@@ -787,6 +851,7 @@ async function handleCreateCoordinator(
       "Ingrese un correo electrónico.",
       "error"
     );
+
 
     coordinatorEmailInput?.focus();
 
@@ -804,6 +869,7 @@ async function handleCreateCoordinator(
       "error"
     );
 
+
     coordinatorPasswordInput?.focus();
 
     return;
@@ -812,6 +878,7 @@ async function handleCreateCoordinator(
 
   saveCoordinatorButton.disabled =
     true;
+
 
   saveCoordinatorButton.textContent =
     "Guardando...";
@@ -827,10 +894,15 @@ async function handleCreateCoordinator(
 
     const result =
       await createMunicipalCoordinatorFunction({
+
         name,
+
         email,
+
         phone,
+
         password,
+
         municipalityId
       });
 
@@ -850,7 +922,9 @@ async function handleCreateCoordinator(
 
     setTimeout(
       () => {
+
         closeCoordinatorModal();
+
       },
       900
     );
@@ -876,10 +950,67 @@ async function handleCreateCoordinator(
     saveCoordinatorButton.disabled =
       false;
 
+
     saveCoordinatorButton.textContent =
       "Guardar coordinador";
   }
 }
+
+
+// ======================================================
+// MODAL ESTRUCTURA
+// ======================================================
+
+function openStructureModal() {
+
+  structureForm?.reset();
+
+
+  showStatus(
+    structureFormStatus,
+    ""
+  );
+
+
+  renderCoordinatorOptions();
+
+
+  if (structureModal) {
+
+    structureModal.hidden =
+      false;
+  }
+
+
+  setTimeout(
+    () => {
+
+      structureNameInput?.focus();
+
+    },
+    50
+  );
+}
+
+
+function closeStructureModal() {
+
+  if (structureModal) {
+
+    structureModal.hidden =
+      true;
+  }
+
+
+  structureForm?.reset();
+
+
+  showStatus(
+    structureFormStatus,
+    ""
+  );
+}
+
 
 // ======================================================
 // RENDER ESTRUCTURAS
@@ -900,9 +1031,11 @@ function renderStructures(
 
     structureList.innerHTML = `
       <div class="card">
+
         <p class="muted">
           Todavía no hay estructuras registradas.
         </p>
+
       </div>
     `;
 
@@ -941,17 +1074,22 @@ function renderStructures(
                   </h3>
 
                   <p class="muted">
+
                     Coordinador:
                     ${escapeHtml(
-                      structure.coordinatorName || ""
+                      structure.coordinatorName ||
+                      ""
                     )}
+
                   </p>
 
                   <p class="muted">
+
                     Estado:
                     ${escapeHtml(
                       statusText
                     )}
+
                   </p>
 
                 </div>
@@ -975,12 +1113,14 @@ function listenStructures() {
   if (
     stopStructuresListener
   ) {
+
     stopStructuresListener();
   }
 
 
   const structuresQuery =
     query(
+
       collection(
         db,
         "estructuras"
@@ -1020,6 +1160,7 @@ function listenStructures() {
           (documentSnapshot) => {
 
             structures.push({
+
               firestoreId:
                 documentSnapshot.id,
 
@@ -1097,6 +1238,7 @@ async function handleCreateStructure(
       "error"
     );
 
+
     structureNameInput?.focus();
 
     return;
@@ -1110,6 +1252,7 @@ async function handleCreateStructure(
       "Seleccione un coordinador municipal.",
       "error"
     );
+
 
     structureCoordinatorSelect?.focus();
 
@@ -1135,8 +1278,11 @@ async function handleCreateStructure(
 
     const result =
       await createStructureFunction({
+
         name,
+
         municipalityId,
+
         coordinatorId
       });
 
@@ -1156,7 +1302,9 @@ async function handleCreateStructure(
 
     setTimeout(
       () => {
+
         closeStructureModal();
+
       },
       900
     );
@@ -1190,7 +1338,7 @@ async function handleCreateStructure(
 
 
 // ======================================================
-// EVENTOS
+// EVENTOS COORDINADOR
 // ======================================================
 
 newCoordinatorButton?.addEventListener(
@@ -1220,6 +1368,42 @@ coordinatorModal
     closeCoordinatorModal
   );
 
+
+// ======================================================
+// EVENTOS ESTRUCTURA
+// ======================================================
+
+newStructureButton?.addEventListener(
+  "click",
+  openStructureModal
+);
+
+
+closeStructureModalButton?.addEventListener(
+  "click",
+  closeStructureModal
+);
+
+
+structureForm?.addEventListener(
+  "submit",
+  handleCreateStructure
+);
+
+
+structureModal
+  ?.querySelector(
+    ".modal__backdrop"
+  )
+  ?.addEventListener(
+    "click",
+    closeStructureModal
+  );
+
+
+// ======================================================
+// LOGOUT
+// ======================================================
 
 logoutButton?.addEventListener(
   "click",
@@ -1274,6 +1458,9 @@ onAuthStateChanged(
 
 
       listenCoordinators();
+
+
+      listenStructures();
 
 
     } catch (error) {
