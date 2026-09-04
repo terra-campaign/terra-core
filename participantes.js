@@ -91,6 +91,9 @@ const participantEmailInput =
 const participantPhoneInput =
   document.querySelector("#participantPhone");
 
+const participantLocalityInput =
+  document.querySelector("#participantLocality");
+
 const participantPasswordInput =
   document.querySelector("#participantPassword");
 
@@ -657,6 +660,14 @@ async function handleCreateParticipant(
     )
       .trim();
 
+  const locality =
+    String(
+      participantLocalityInput?.value ||
+      ""
+    )
+      .trim()
+      .replace(/\s+/g, " ");
+
   const password =
     String(
       participantPasswordInput?.value ||
@@ -687,6 +698,21 @@ async function handleCreateParticipant(
     );
 
     participantEmailInput?.focus();
+
+    return;
+  }
+
+  if (
+    locality.length < 2
+  ) {
+
+    showStatus(
+      participantFormStatus,
+      "Ingrese la localidad del participante.",
+      "error"
+    );
+
+    participantLocalityInput?.focus();
 
     return;
   }
@@ -724,6 +750,7 @@ async function handleCreateParticipant(
         name,
         email,
         phone,
+        locality,
         password,
         parentUserId:
           currentMember.uid
@@ -769,7 +796,6 @@ async function handleCreateParticipant(
       "Guardar participante";
   }
 }
-
 
 // ======================================================
 // EVENTOS
