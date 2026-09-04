@@ -3904,20 +3904,25 @@ exports.createParticipant = onCall(
         data.email || ""
       );
 
-    const phone =
-      normalizePhone(
-        data.phone || ""
-      );
+   const phone =
+  normalizePhone(
+    data.phone || ""
+  );
 
-    const password =
-      String(
-        data.password || ""
-      );
+const locality =
+  cleanText(
+    data.locality || ""
+  );
 
-    const parentUserId =
-      cleanText(
-        data.parentUserId || ""
-      );
+const password =
+  String(
+    data.password || ""
+  );
+
+const parentUserId =
+  cleanText(
+    data.parentUserId || ""
+  );
 
 
    // ==================================================
