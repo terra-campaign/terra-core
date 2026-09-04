@@ -180,6 +180,15 @@
 
         </div>
 
+
+        <button
+          id="newMemberButton"
+          class="button"
+          type="button"
+        >
+          + Nuevo integrante
+        </button>
+
       </div>
 
 
@@ -332,12 +341,137 @@
 
 
   <!-- ============================================= -->
+  <!-- MODAL NUEVO INTEGRANTE                        -->
+  <!-- ============================================= -->
+
+  <div
+    id="memberModal"
+    class="modal"
+    hidden
+  >
+
+    <div class="modal__backdrop"></div>
+
+
+    <section
+      class="modal__content card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="memberModalTitle"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            EQUIPO DE ESTRUCTURA
+          </p>
+
+          <h2 id="memberModalTitle">
+            Nuevo integrante
+          </h2>
+
+        </div>
+
+
+        <button
+          id="closeMemberModalButton"
+          class="button button--small button--secondary"
+          type="button"
+        >
+          Cerrar
+        </button>
+
+      </div>
+
+
+      <form id="memberForm">
+
+        <label>
+          Nombre completo *
+
+          <input
+            id="memberName"
+            type="text"
+            maxlength="120"
+            autocomplete="name"
+            required
+          >
+        </label>
+
+
+        <label>
+          Correo electrónico *
+
+          <input
+            id="memberEmail"
+            type="email"
+            maxlength="160"
+            autocomplete="email"
+            required
+          >
+        </label>
+
+
+        <label>
+          Teléfono
+
+          <input
+            id="memberPhone"
+            type="tel"
+            maxlength="30"
+            autocomplete="tel"
+          >
+        </label>
+
+
+        <label>
+          Contraseña temporal *
+
+          <input
+            id="memberPassword"
+            type="password"
+            minlength="6"
+            autocomplete="new-password"
+            required
+          >
+        </label>
+
+
+        <div class="form-actions">
+
+          <button
+            id="saveMemberButton"
+            class="button"
+            type="submit"
+          >
+            Guardar integrante
+          </button>
+
+        </div>
+
+      </form>
+
+
+      <div
+        id="memberFormStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+  </div>
+
+
+  <!-- ============================================= -->
   <!-- JAVASCRIPT                                    -->
   <!-- ============================================= -->
 
   <script
     type="module"
-    src="./estructura.js?v=001"
+    src="./estructura.js?v=002"
   ></script>
 
 </body>
