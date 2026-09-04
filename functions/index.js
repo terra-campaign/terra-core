@@ -1975,3 +1975,526 @@ exports.createMunicipalCoordinator = onCall(
 
 
 
+// ======================================================
+// CREATE STRUCTURE
+// ======================================================
+
+exports.createStructure = onCall(
+  {
+    region: "us-central1"
+  },
+
+  async (request) => {
+
+    // ==================================================
+    // AUTH
+    // ==================================================
+
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Debe iniciar sesión."
+      );
+    }
+
+    const creatorUid =
+      request.auth.uid;
+
+    const db =
+      getFirestore();
+
+
+    // ==================================================
+    // PERFIL DEL CREADOR
+    // ==================================================
+
+    const creatorRef =
+      db.collection("usuarios").doc(creatorUid);
+
+    const creatorSnapshot =
+      await creatorRef.get();
+
+    if (!creatorSnapshot.exists) {
+      throw new HttpsError(
+        "permission-denied",
+        "El usuario no tiene un perfil autorizado."
+      );
+    }
+
+    const creatorProfile =
+      creatorSnapshot.data();
+
+
+    if (creatorProfile.active !== true) {
+      throw new HttpsError(
+        "permission-denied",
+        "El usuario está desactivado."
+      );
+    }
+
+
+    const allowedRoles = [
+      "admin",
+      "coordinador_municipal"
+    ];
+
+
+    if (
+      !allowedRoles.includes(
+        creatorProfile.role
+      )
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "No tiene permisos para crear estructuras."
+      );
+    }
+
+
+    const campaignId =
+      creatorProfile.campaignId;
+
+
+    if (!campaignId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El usuario no tiene campaña asignada."
+      );
+    }
+
+
+    // ==================================================
+    // INPUT
+    // ==================================================
+
+    const data =
+      request.data || {};
+
+
+    const name =
+      cleanText(
+        data.name || ""
+      );
+
+
+    const municipalityId =
+      cleanText(
+        data.municipalityId || ""
+      );
+
+
+    const coordinatorId =
+      cleanText(
+        data.coordinatorId || ""
+      );
+
+
+    if (
+      name.length < 2 ||
+      name.length > 120
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un nombre válido para la estructura."
+      );
+    }
+
+
+    if (!municipalityId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Debe seleccionar un municipio."
+      );
+    }
+
+
+    if (!coordinatorId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Debe seleccionar un coordinador municipal."
+      );
+    }
+
+
+    // ==================================================
+    // VALIDAR MUNICIPIO
+    // ==================================================
+
+    const municipalityRef =
+      db
+        .collection("municipios")
+        .doc(municipalityId);
+
+
+    const municipalitySnapshot =
+      await municipalityRef.get();
+
+
+    if (!municipalitySnapshot.exists) {
+      throw new HttpsError(
+        "not-found",
+        "El municipio no existe."
+      );
+    }
+
+
+    const municipality =
+      municipalitySnapshot.data();
+
+
+    if (
+      municipality.campaignId !== campaignId
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "El municipio no pertenece a esta campaña."
+      );
+    }
+
+
+    if (
+      municipality.active !== true
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El municipio está desactivado."
+      );
+    }
+
+
+    // ==================================================
+    // VALIDAR COORDINADOR
+    // ==================================================
+
+    const coordinatorRef =
+      db
+        .collection("usuarios")
+        .doc(coordinatorId);
+
+
+    const coordinatorSnapshot =
+      await coordinatorRef.get();
+
+
+    if (!coordinatorSnapshot.exists) {
+      throw new HttpsError(
+        "not-found",
+        "El coordinador municipal no existe."
+      );
+    }
+
+
+    const coordinator =
+      coordinatorSnapshot.data();
+
+
+    if (
+      coordinator.role !==
+      "coordinador_municipal"
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El usuario seleccionado no es coordinador municipal."
+      );
+    }
+
+
+    if (
+      coordinator.active !== true
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El coordinador municipal está desactivado."
+      );
+    }
+
+
+    if (
+      coordinator.campaignId !== campaignId
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "El coordinador no pertenece a esta campaña."
+      );
+    }
+
+
+    if (
+      coordinator.municipalityId !==
+      municipalityId
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "El coordinador no pertenece al municipio seleccionado."
+      );
+    }
+
+
+    // ==================================================
+    // RESTRICCIÓN PARA COORDINADOR MUNICIPAL
+    // ==================================================
+
+    if (
+      creatorProfile.role ===
+      "coordinador_municipal"
+    ) {
+
+      if (
+        creatorUid !==
+        coordinatorId
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "El coordinador municipal solo puede crear estructuras bajo su propia coordinación."
+        );
+      }
+
+
+      if (
+        creatorProfile.municipalityId !==
+        municipalityId
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "El coordinador no puede crear estructuras fuera de su municipio."
+        );
+      }
+    }
+
+
+    // ==================================================
+    // NORMALIZAR NOMBRE
+    // ==================================================
+
+    const normalizedName =
+      normalizeName(
+        name
+      );
+
+
+    // ==================================================
+    // VALIDAR DUPLICADO
+    // ==================================================
+
+    const duplicateSnapshot =
+      await db
+        .collection("estructuras")
+        .where(
+          "campaignId",
+          "==",
+          campaignId
+        )
+        .where(
+          "coordinatorId",
+          "==",
+          coordinatorId
+        )
+        .where(
+          "normalizedName",
+          "==",
+          normalizedName
+        )
+        .limit(1)
+        .get();
+
+
+    if (!duplicateSnapshot.empty) {
+      throw new HttpsError(
+        "already-exists",
+        "Ya existe una estructura con ese nombre bajo este coordinador."
+      );
+    }
+
+
+    // ==================================================
+    // SECUENCIA
+    // ==================================================
+
+    const sequenceRef =
+      db
+        .collection("secuencias")
+        .doc(
+          `${campaignId}_ESTRUCTURAS`
+        );
+
+
+    const structureRef =
+      db
+        .collection("estructuras")
+        .doc();
+
+
+    let structureId = "";
+
+
+    await db.runTransaction(
+      async (transaction) => {
+
+        const sequenceSnapshot =
+          await transaction.get(
+            sequenceRef
+          );
+
+
+        let nextNumber = 1;
+
+
+        if (sequenceSnapshot.exists) {
+
+          const current =
+            Number(
+              sequenceSnapshot.data()?.lastNumber ||
+              0
+            );
+
+          nextNumber =
+            current + 1;
+        }
+
+
+        structureId =
+          `EST-${String(
+            nextNumber
+          ).padStart(
+            3,
+            "0"
+          )}`;
+
+
+        transaction.set(
+          structureRef,
+          {
+
+            id:
+              structureId,
+
+            campaignId,
+
+            municipalityId,
+
+            municipalityName:
+              municipality.name || "",
+
+            coordinatorId,
+
+            coordinatorName:
+              coordinator.name || "",
+
+            name,
+
+            normalizedName,
+
+            active:
+              true,
+
+            createdBy:
+              creatorUid,
+
+            createdByRole:
+              creatorProfile.role,
+
+            createdAt:
+              FieldValue.serverTimestamp(),
+
+            updatedAt:
+              FieldValue.serverTimestamp(),
+
+            version:
+              1
+          }
+        );
+
+
+        transaction.set(
+          sequenceRef,
+          {
+
+            lastNumber:
+              nextNumber,
+
+            updatedAt:
+              FieldValue.serverTimestamp()
+          },
+
+          {
+            merge:
+              true
+          }
+        );
+      }
+    );
+
+
+    // ==================================================
+    // LOG
+    // ==================================================
+
+    await db
+      .collection("logs")
+      .add({
+
+        action:
+          "CREATE_STRUCTURE",
+
+        campaignId,
+
+        municipalityId,
+
+        municipalityName:
+          municipality.name || "",
+
+        coordinatorId,
+
+        coordinatorName:
+          coordinator.name || "",
+
+        structureId,
+
+        structureName:
+          name,
+
+        createdBy:
+          creatorUid,
+
+        createdByRole:
+          creatorProfile.role,
+
+        createdAt:
+          FieldValue.serverTimestamp()
+      });
+
+
+    // ==================================================
+    // RESPONSE
+    // ==================================================
+
+    return {
+
+      success:
+        true,
+
+      structure: {
+
+        id:
+          structureId,
+
+        campaignId,
+
+        municipalityId,
+
+        municipalityName:
+          municipality.name || "",
+
+        coordinatorId,
+
+        coordinatorName:
+          coordinator.name || "",
+
+        name,
+
+        active:
+          true
+      }
+    };
+  }
+);
