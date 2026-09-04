@@ -3292,10 +3292,7 @@ const password =
     data.password || ""
   );
 
-const parentUserId =
-  cleanText(
-    data.parentUserId || ""
-  );
+
 
     const structureDocumentId =
       cleanText(
