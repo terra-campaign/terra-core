@@ -1092,6 +1092,19 @@ function renderStructures(
 
                   </p>
 
+                  <div class="form-actions">
+
+  <a
+    class="button button--secondary"
+    href="./estructura.html?id=${encodeURIComponent(
+      structure.firestoreId
+    )}"
+  >
+    Administrar
+  </a>
+
+</div>
+
                 </div>
 
               </div>
