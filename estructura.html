@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Estructura | TERRA Campaign</title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  >
+</head>
+
+<body>
+
+  <!-- ============================================= -->
+  <!-- TOPBAR                                        -->
+  <!-- ============================================= -->
+
+  <header class="topbar">
+
+    <div>
+
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1 id="structureTitle">
+        Estructura
+      </h1>
+
+    </div>
+
+
+    <div class="topbar__actions">
+
+      <button
+        id="backButton"
+        class="button button--secondary"
+        type="button"
+      >
+        Volver
+      </button>
+
+      <button
+        id="logoutButton"
+        class="button button--small button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <!-- ============================================= -->
+  <!-- CONTENIDO                                     -->
+  <!-- ============================================= -->
+
+  <main class="workspace">
+
+    <!-- DATOS DE LA ESTRUCTURA -->
+
+    <section class="card">
+
+      <p class="eyebrow">
+        ORGANIZACIÓN TERRITORIAL
+      </p>
+
+      <h2 id="structureName">
+        Cargando estructura...
+      </h2>
+
+      <p
+        id="structureId"
+        class="muted"
+      ></p>
+
+      <p
+        id="structureCoordinator"
+        class="muted"
+      ></p>
+
+      <p
+        id="structureMunicipality"
+        class="muted"
+      ></p>
+
+      <div
+        id="structureStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+
+    <!-- JEFE DE ESTRUCTURA -->
+
+    <section class="card">
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            RESPONSABLE OPERATIVO
+          </p>
+
+          <h2>
+            Jefe de estructura
+          </h2>
+
+          <p class="muted">
+            Administra a la persona responsable de esta estructura.
+          </p>
+
+        </div>
+
+
+        <button
+          id="newStructureChiefButton"
+          class="button"
+          type="button"
+        >
+          + Asignar jefe
+        </button>
+
+      </div>
+
+
+      <div
+        id="structureChiefStatus"
+        class="status"
+        hidden
+      ></div>
+
+
+      <div
+        id="structureChiefContainer"
+        class="stack"
+      >
+
+        <p class="muted">
+          Cargando responsable...
+        </p>
+
+      </div>
+
+    </section>
+
+
+    <!-- INTEGRANTES -->
+
+    <section class="card">
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            EQUIPO DE ESTRUCTURA
+          </p>
+
+          <h2>
+            Integrantes
+          </h2>
+
+          <p class="muted">
+            Personas registradas dentro de esta estructura.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div
+        id="memberStatus"
+        class="status"
+        hidden
+      ></div>
+
+
+      <div
+        id="memberList"
+        class="stack"
+      >
+
+        <p class="muted">
+          Todavía no hay integrantes registrados.
+        </p>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- ============================================= -->
+  <!-- MODAL JEFE DE ESTRUCTURA                      -->
+  <!-- ============================================= -->
+
+  <div
+    id="structureChiefModal"
+    class="modal"
+    hidden
+  >
+
+    <div class="modal__backdrop"></div>
+
+
+    <section
+      class="modal__content card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="structureChiefModalTitle"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            RESPONSABLE OPERATIVO
+          </p>
+
+          <h2 id="structureChiefModalTitle">
+            Nuevo jefe de estructura
+          </h2>
+
+        </div>
+
+
+        <button
+          id="closeStructureChiefModalButton"
+          class="button button--small button--secondary"
+          type="button"
+        >
+          Cerrar
+        </button>
+
+      </div>
+
+
+      <form id="structureChiefForm">
+
+        <label>
+          Nombre completo *
+
+          <input
+            id="structureChiefName"
+            type="text"
+            maxlength="120"
+            autocomplete="name"
+            required
+          >
+        </label>
+
+
+        <label>
+          Correo electrónico *
+
+          <input
+            id="structureChiefEmail"
+            type="email"
+            maxlength="160"
+            autocomplete="email"
+            required
+          >
+        </label>
+
+
+        <label>
+          Teléfono
+
+          <input
+            id="structureChiefPhone"
+            type="tel"
+            maxlength="30"
+            autocomplete="tel"
+          >
+        </label>
+
+
+        <label>
+          Contraseña temporal *
+
+          <input
+            id="structureChiefPassword"
+            type="password"
+            minlength="6"
+            autocomplete="new-password"
+            required
+          >
+        </label>
+
+
+        <div class="form-actions">
+
+          <button
+            id="saveStructureChiefButton"
+            class="button"
+            type="submit"
+          >
+            Guardar jefe de estructura
+          </button>
+
+        </div>
+
+      </form>
+
+
+      <div
+        id="structureChiefFormStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+  </div>
+
+
+  <!-- ============================================= -->
+  <!-- JAVASCRIPT                                    -->
+  <!-- ============================================= -->
+
+  <script
+    type="module"
+    src="./estructura.js?v=001"
+  ></script>
+
+</body>
+</html>
