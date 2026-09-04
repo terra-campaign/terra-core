@@ -501,6 +501,15 @@ function renderParticipants(
                 )}
               </p>
 
+                            <a
+                class="button button--secondary button--small"
+                href="./persona.html?id=${encodeURIComponent(
+                  participant.uid
+                )}"
+              >
+                Ver perfil
+              </a>
+
             </article>
           `;
         }
