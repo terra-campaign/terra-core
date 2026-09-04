@@ -202,10 +202,19 @@ if (
       normalizeEmail(data.email);
 
     const phone =
-      normalizePhone(data.phone);
+  normalizePhone(
+    data.phone || ""
+  );
 
-    const temporaryPassword =
-      String(data.temporaryPassword || "");
+const locality =
+  cleanText(
+    data.locality || ""
+  );
+
+const password =
+  String(
+    data.password || ""
+  );
 
     // --------------------------------------------------
     // 4. VALIDACIONES
@@ -239,6 +248,16 @@ if (
       );
     }
 
+if (
+  locality.length < 2 ||
+  locality.length > 120
+) {
+  throw new HttpsError(
+    "invalid-argument",
+    "Ingrese una localidad válida."
+  );
+}
+    
     if (temporaryPassword.length < 8) {
       throw new HttpsError(
         "invalid-argument",
@@ -4143,6 +4162,8 @@ exports.createParticipant = onCall(
 
         phone,
 
+        locality,
+
         role:
           "participante",
 
@@ -4243,6 +4264,8 @@ exports.createParticipant = onCall(
           targetUserEmail:
             email,
 
+          locality,
+
           createdBy:
             creatorUid,
 
@@ -4273,6 +4296,8 @@ exports.createParticipant = onCall(
           email,
 
           phone,
+
+          locality,
 
           role:
             "participante",
