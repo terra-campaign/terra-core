@@ -432,9 +432,9 @@ async function loadStructure() {
 
   if (structureCoordinatorElement) {
     structureCoordinatorElement.textContent =
-      structure.coordinatorName
-        ? `Coordinador municipal: ${structure.coordinatorName}`
-        : "";
+  structure.coordinatorName
+    ? `Responsable de organización: ${structure.coordinatorName}`
+    : "";
   }
 
   if (structureMunicipalityElement) {
