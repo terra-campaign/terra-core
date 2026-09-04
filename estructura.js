@@ -584,47 +584,60 @@ function renderMembers(
               ? "Activo"
               : "Inactivo";
 
-          return `
-            <article class="card">
+         return `
+  <article class="card">
 
-              <p class="eyebrow">
-                INTEGRANTE
-              </p>
+    <p class="eyebrow">
+      INTEGRANTE
+    </p>
 
-              <h3>
-                ${escapeHtml(
-                  member.name
-                )}
-              </h3>
+    <h3>
+      ${escapeHtml(
+        member.name
+      )}
+    </h3>
 
-              <p class="muted">
-                ${escapeHtml(
-                  member.email
-                )}
-              </p>
+    <p class="muted">
+      ${escapeHtml(
+        member.email
+      )}
+    </p>
 
-              ${
-                member.phone
-                  ? `
-                    <p class="muted">
-                      Tel:
-                      ${escapeHtml(
-                        member.phone
-                      )}
-                    </p>
-                  `
-                  : ""
-              }
+    ${
+      member.phone
+        ? `
+          <p class="muted">
+            Tel:
+            ${escapeHtml(
+              member.phone
+            )}
+          </p>
+        `
+        : ""
+    }
 
-              <p class="muted">
-                Estado:
-                ${escapeHtml(
-                  statusText
-                )}
-              </p>
+    <p class="muted">
+      Estado:
+      ${escapeHtml(
+        statusText
+      )}
+    </p>
 
-            </article>
-          `;
+    <div class="form-actions">
+
+      <a
+        class="button button--secondary"
+        href="./participantes.html?id=${encodeURIComponent(
+          member.uid
+        )}"
+      >
+        Administrar participantes
+      </a>
+
+    </div>
+
+  </article>
+`;
         }
       )
       .join("");
