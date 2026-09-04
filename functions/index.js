@@ -3776,3 +3776,582 @@ exports.createStructureMember = onCall(
 );
 
 
+// ======================================================
+// CREATE PARTICIPANT
+// ÚLTIMO NIVEL DE LA JERARQUÍA
+// ======================================================
+
+exports.createParticipant = onCall(
+  {
+    region: "us-central1"
+  },
+
+  async (request) => {
+
+    // ==================================================
+    // 1. AUTENTICACIÓN
+    // ==================================================
+
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Debe iniciar sesión."
+      );
+    }
+
+    const creatorUid =
+      request.auth.uid;
+
+
+    // ==================================================
+    // 2. PERFIL DEL CREADOR
+    // ==================================================
+
+    const creatorRef =
+      db
+        .collection("usuarios")
+        .doc(creatorUid);
+
+    const creatorSnapshot =
+      await creatorRef.get();
+
+    if (!creatorSnapshot.exists) {
+      throw new HttpsError(
+        "permission-denied",
+        "El usuario no tiene un perfil autorizado."
+      );
+    }
+
+    const creatorProfile =
+      creatorSnapshot.data();
+
+    if (
+      creatorProfile.active !== true
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "El usuario está desactivado."
+      );
+    }
+
+    const allowedRoles = [
+      "admin",
+      "coordinador_municipal",
+      "jefe_estructura",
+      "integrante"
+    ];
+
+    if (
+      !allowedRoles.includes(
+        creatorProfile.role
+      )
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "No tiene permisos para crear participantes."
+      );
+    }
+
+    const campaignId =
+      creatorProfile.campaignId;
+
+    if (!campaignId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El usuario no tiene campaña asignada."
+      );
+    }
+
+
+    // ==================================================
+    // 3. DATOS RECIBIDOS
+    // ==================================================
+
+    const data =
+      request.data || {};
+
+    const name =
+      cleanText(
+        data.name || ""
+      );
+
+    const email =
+      normalizeEmail(
+        data.email || ""
+      );
+
+    const phone =
+      normalizePhone(
+        data.phone || ""
+      );
+
+    const password =
+      String(
+        data.password || ""
+      );
+
+    const parentUserId =
+      cleanText(
+        data.parentUserId || ""
+      );
+
+
+    // ==================================================
+    // 4. VALIDACIONES BÁSICAS
+    // ==================================================
+
+    if (
+      name.length < 2 ||
+      name.length > 120
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un nombre válido."
+      );
+    }
+
+    if (!isValidEmail(email)) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un correo electrónico válido."
+      );
+    }
+
+    if (
+      phone &&
+      (
+        phone.length < 10 ||
+        phone.length > 15
+      )
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un teléfono válido de entre 10 y 15 dígitos."
+      );
+    }
+
+    if (
+      password.length < 6
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "La contraseña temporal debe tener al menos 6 caracteres."
+      );
+    }
+
+    if (!parentUserId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "No se recibió el integrante responsable."
+      );
+    }
+
+
+    // ==================================================
+    // 5. VALIDAR INTEGRANTE PADRE
+    // ==================================================
+
+    const parentRef =
+      db
+        .collection("usuarios")
+        .doc(parentUserId);
+
+    const parentSnapshot =
+      await parentRef.get();
+
+    if (!parentSnapshot.exists) {
+      throw new HttpsError(
+        "not-found",
+        "El integrante responsable no existe."
+      );
+    }
+
+    const parentProfile =
+      parentSnapshot.data();
+
+    if (
+      parentProfile.role !==
+      "integrante"
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El usuario responsable no es un integrante."
+      );
+    }
+
+    if (
+      parentProfile.active !== true
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El integrante responsable está desactivado."
+      );
+    }
+
+    if (
+      parentProfile.campaignId !==
+      campaignId
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "El integrante pertenece a otra campaña."
+      );
+    }
+
+
+    // ==================================================
+    // 6. RESTRICCIONES POR ROL
+    // ==================================================
+
+    if (
+      creatorProfile.role ===
+      "integrante"
+    ) {
+
+      if (
+        creatorUid !==
+        parentUserId
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "Un integrante solo puede registrar participantes dentro de su propia base."
+        );
+      }
+    }
+
+
+    if (
+      creatorProfile.role ===
+      "jefe_estructura"
+    ) {
+
+      if (
+        creatorProfile.structureId !==
+        parentProfile.structureId
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "Solo puede registrar participantes dentro de su propia estructura."
+        );
+      }
+    }
+
+
+    if (
+      creatorProfile.role ===
+      "coordinador_municipal"
+    ) {
+
+      if (
+        creatorProfile.municipalityId !==
+        parentProfile.municipalityId
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "Solo puede registrar participantes dentro de su propio municipio."
+        );
+      }
+    }
+
+
+    // ==================================================
+    // 7. CREAR USUARIO EN FIREBASE AUTH
+    // ==================================================
+
+    let authUser =
+      null;
+
+    try {
+
+      authUser =
+        await auth.createUser({
+
+          email,
+
+          password,
+
+          displayName:
+            name,
+
+          disabled:
+            false
+        });
+
+    } catch (error) {
+
+      console.error(
+        "Error al crear participante en Authentication:",
+        error
+      );
+
+      if (
+        error?.code ===
+        "auth/email-already-exists"
+      ) {
+        throw new HttpsError(
+          "already-exists",
+          "Ya existe un usuario registrado con ese correo."
+        );
+      }
+
+      if (
+        error?.code ===
+        "auth/invalid-email"
+      ) {
+        throw new HttpsError(
+          "invalid-argument",
+          "El correo electrónico no es válido."
+        );
+      }
+
+      if (
+        error?.code ===
+        "auth/invalid-password"
+      ) {
+        throw new HttpsError(
+          "invalid-argument",
+          "La contraseña temporal no cumple los requisitos."
+        );
+      }
+
+      throw new HttpsError(
+        "internal",
+        "No fue posible crear la cuenta del participante."
+      );
+    }
+
+
+    // ==================================================
+    // 8. CREAR PERFIL EN FIRESTORE
+    // ==================================================
+
+    const participantRef =
+      db
+        .collection("usuarios")
+        .doc(authUser.uid);
+
+    try {
+
+      const participantProfile = {
+
+        uid:
+          authUser.uid,
+
+        name,
+
+        email,
+
+        phone,
+
+        role:
+          "participante",
+
+        active:
+          true,
+
+        campaignId,
+
+        municipalityId:
+          parentProfile.municipalityId || "",
+
+        municipalityName:
+          parentProfile.municipalityName || "",
+
+        coordinatorId:
+          parentProfile.coordinatorId || "",
+
+        coordinatorName:
+          parentProfile.coordinatorName || "",
+
+        structureId:
+          parentProfile.structureId || "",
+
+        structureDocumentId:
+          parentProfile.structureDocumentId || "",
+
+        structureName:
+          parentProfile.structureName || "",
+
+        structureChiefId:
+          parentProfile.structureChiefId || null,
+
+        structureChiefName:
+          parentProfile.structureChiefName || "",
+
+        parentUserId,
+
+        parentUserName:
+          parentProfile.name || "",
+
+        createdBy:
+          creatorUid,
+
+        createdByRole:
+          creatorProfile.role,
+
+        mustChangePassword:
+          true,
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        updatedAt:
+          FieldValue.serverTimestamp(),
+
+        version:
+          1
+      };
+
+      await participantRef.set(
+        participantProfile
+      );
+
+
+      // ==================================================
+      // 9. AUDITORÍA
+      // ==================================================
+
+      await db
+        .collection("logs")
+        .add({
+
+          action:
+            "CREATE_PARTICIPANT",
+
+          campaignId,
+
+          municipalityId:
+            parentProfile.municipalityId || "",
+
+          structureId:
+            parentProfile.structureId || "",
+
+          structureDocumentId:
+            parentProfile.structureDocumentId || "",
+
+          parentUserId,
+
+          parentUserName:
+            parentProfile.name || "",
+
+          targetUserId:
+            authUser.uid,
+
+          targetUserName:
+            name,
+
+          targetUserEmail:
+            email,
+
+          createdBy:
+            creatorUid,
+
+          createdByRole:
+            creatorProfile.role,
+
+          createdAt:
+            FieldValue.serverTimestamp()
+        });
+
+
+      // ==================================================
+      // 10. RESPUESTA
+      // ==================================================
+
+      return {
+
+        success:
+          true,
+
+        user: {
+
+          uid:
+            authUser.uid,
+
+          name,
+
+          email,
+
+          phone,
+
+          role:
+            "participante",
+
+          active:
+            true,
+
+          campaignId,
+
+          municipalityId:
+            parentProfile.municipalityId || "",
+
+          municipalityName:
+            parentProfile.municipalityName || "",
+
+          structureId:
+            parentProfile.structureId || "",
+
+          structureDocumentId:
+            parentProfile.structureDocumentId || "",
+
+          structureName:
+            parentProfile.structureName || "",
+
+          parentUserId,
+
+          parentUserName:
+            parentProfile.name || "",
+
+          mustChangePassword:
+            true
+        },
+
+        message:
+          `${name} fue registrado como participante de ${parentProfile.name}.`
+      };
+
+    } catch (error) {
+
+      console.error(
+        "Error al crear perfil del participante:",
+        error
+      );
+
+
+      // ==================================================
+      // ROLLBACK AUTH
+      // ==================================================
+
+      try {
+
+        await auth.deleteUser(
+          authUser.uid
+        );
+
+      } catch (
+        rollbackError
+      ) {
+
+        console.error(
+          "No fue posible revertir Authentication:",
+          rollbackError
+        );
+      }
+
+
+      if (
+        error instanceof HttpsError
+      ) {
+        throw error;
+      }
+
+
+      throw new HttpsError(
+        "internal",
+        "No fue posible guardar el participante."
+      );
+    }
+  }
+);
+
+
