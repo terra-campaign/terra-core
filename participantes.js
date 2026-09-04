@@ -481,6 +481,19 @@ function renderParticipants(
                   : ""
               }
 
+              ${
+  participant.locality
+    ? `
+      <p class="muted">
+        Localidad:
+        ${escapeHtml(
+          participant.locality
+        )}
+      </p>
+    `
+    : ""
+}
+
               <p class="muted">
                 Estado:
                 ${escapeHtml(
