@@ -481,7 +481,7 @@ function renderStructureChief(
         false;
 
       newStructureChiefButton.textContent =
-        "+ Asignar jefe";
+        "+ Asignar responsable";
     }
 
     return;
@@ -539,7 +539,7 @@ function renderStructureChief(
       true;
 
     newStructureChiefButton.textContent =
-      "Jefe asignado";
+      "Responsable asignado";
   }
 }
 
