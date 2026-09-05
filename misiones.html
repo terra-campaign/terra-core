@@ -316,18 +316,15 @@
 
         </label>
 
-        <label>
-
- 
-
-
-<div id="missionAssigneeField">
+      <div id="missionAssigneeField">
 
   <p class="mission-assignee-title">
     Destinatarios *
   </p>
 
-  <label class="mission-assignee-option mission-assignee-option--all">
+  <label
+    class="mission-assignee-option mission-assignee-option--all"
+  >
 
     <input
       id="missionSelectAll"
@@ -335,43 +332,32 @@
     >
 
     <span class="mission-assignee-info">
-      <strong>Seleccionar todos</strong>
+
+      <strong>
+        Seleccionar todos
+      </strong>
+
       <small>
         Asigna la misión a todas las personas disponibles de este nivel.
       </small>
+
     </span>
 
   </label>
+
 
   <div
     id="missionAssigneeList"
     class="mission-assignee-list"
   >
+
     <p>
       Cargando personas...
     </p>
+
   </div>
 
 </div>
-
-</div>
-
-<label
-  id="missionStructureField"
-  hidden
->
-
-  Estructura *
-
-  <select
-    id="missionStructure"
-  >
-    <option value="">
-      Seleccione una estructura...
-    </option>
-  </select>
-
-</label>
 
 
 <p class="message">
@@ -379,26 +365,27 @@
   para cada persona incluida en la misión.
 </p>
 
-        <div class="modal__actions">
 
-          <button
-            id="cancelMissionButton"
-            class="button button--secondary"
-            type="button"
-          >
-            Cancelar
-          </button>
+<div class="modal__actions">
+
+  <button
+    id="cancelMissionButton"
+    class="button button--secondary"
+    type="button"
+  >
+    Cancelar
+  </button>
 
 
-          <button
-            id="saveMissionButton"
-            class="button"
-            type="submit"
-          >
-            Guardar misión
-          </button>
+  <button
+    id="saveMissionButton"
+    class="button"
+    type="submit"
+  >
+    Guardar misión
+  </button>
 
-        </div>
+</div>
 
 
         <p
