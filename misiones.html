@@ -340,16 +340,24 @@
 
 <div id="missionAssigneeField">
 
-  <p>
-    Personas *
+  <p class="mission-assignee-title">
+    Destinatarios *
   </p>
 
-  <label>
+  <label class="mission-assignee-option mission-assignee-option--all">
+
     <input
       id="missionSelectAll"
       type="checkbox"
     >
-    Seleccionar todos
+
+    <span class="mission-assignee-info">
+      <strong>Seleccionar todos</strong>
+      <small>
+        Asigna la misión a todas las personas disponibles de este nivel.
+      </small>
+    </span>
+
   </label>
 
   <div
@@ -360,6 +368,8 @@
       Cargando personas...
     </p>
   </div>
+
+</div>
 
 </div>
 
