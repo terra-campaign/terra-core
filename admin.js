@@ -326,8 +326,15 @@ function applyRoleInterface() {
     currentUserProfile.role === "coordinador";
 
   const canAccessMissions =
-  isAdmin ||
-  currentUserProfile.role === "coordinador";
+  [
+    "admin",
+    "coordinador_municipal",
+    "jefe_estructura",
+    "integrante",
+    "participante"
+  ].includes(
+    currentUserProfile.role
+  );
 
 
   const isReadOnly =
@@ -354,8 +361,8 @@ if (municipalitiesButton) {
     !isAdmin;
 }
 
-// Administrador y coordinador
-// pueden acceder al módulo privado de Misiones.
+// La nueva jerarquía operativa
+// puede acceder al módulo privado de Misiones.
 if (missionsButton) {
   missionsButton.hidden =
     !canAccessMissions;
