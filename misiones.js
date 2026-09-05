@@ -83,8 +83,8 @@ const missionDateInput =
 const missionLocalityInput =
   document.querySelector("#missionLocality");
 
-const missionBrigadeInput =
-  document.querySelector("#missionBrigade");
+const missionAssigneeInput =
+  document.querySelector("#missionAssignee");
 
 const cancelMissionButton =
   document.querySelector("#cancelMissionButton");
@@ -180,19 +180,20 @@ function applyRoleInterface() {
     !(isAdmin || isCoordinator);
 }
 
+
 // ======================================================
-// CARGAR BRIGADAS DISPONIBLES
+// CARGAR PERSONAS DISPONIBLES PARA MISIÓN
 // ======================================================
 
-async function loadAvailableBrigades() {
+async function loadAvailableAssignees() {
 
   if (!currentUserProfile) {
     return;
   }
 
-  missionBrigadeInput.innerHTML = `
+  missionAssigneeInput.innerHTML = `
     <option value="">
-      Seleccione una brigada...
+      Seleccione una persona...
     </option>
   `;
 
@@ -200,110 +201,60 @@ async function loadAvailableBrigades() {
     currentUserProfile.campaignId ||
     "CAM-001";
 
+  const allowedRoles = [
+    "coordinador_municipal",
+    "jefe_estructura",
+    "integrante",
+    "participante"
+  ];
+
   try {
 
-    let brigades = [];
-
-    if (
-      currentUserProfile.role ===
-      "admin"
-    ) {
-
-      const brigadesQuery =
-        query(
-          collection(db, "brigadas"),
-          where(
-            "campaignId",
-            "==",
-            campaignId
-          )
-        );
-
-      const snapshot =
-        await getDocs(
-          brigadesQuery
-        );
-
-      snapshot.forEach(
-        (documentSnapshot) => {
-
-          brigades.push({
-            id:
-              documentSnapshot.id,
-
-            ...documentSnapshot.data()
-          });
-        }
+    const usersQuery =
+      query(
+        collection(db, "usuarios"),
+        where(
+          "campaignId",
+          "==",
+          campaignId
+        )
       );
 
-    } else {
+    const snapshot =
+      await getDocs(usersQuery);
 
-      const assignedBrigades =
-        currentUserProfile.brigadeIds ||
-        (
-          currentUserProfile.brigadeId
-            ? [currentUserProfile.brigadeId]
-            : []
-        );
+    const people = [];
 
-      if (!assignedBrigades.length) {
-        return;
-      }
+    snapshot.forEach(
+      (documentSnapshot) => {
 
-      for (
-        const brigadeId
-        of assignedBrigades
-      ) {
-
-        const brigadeRef =
-          doc(
-            db,
-            "brigadas",
-            brigadeId
-          );
-
-        const brigadeSnapshot =
-          await getDoc(
-            brigadeRef
-          );
+        const person = {
+          uid: documentSnapshot.id,
+          ...documentSnapshot.data()
+        };
 
         if (
-          brigadeSnapshot.exists()
+          person.active === true &&
+          allowedRoles.includes(
+            person.role
+          )
         ) {
-
-          const brigadeData =
-            brigadeSnapshot.data();
-
-          if (
-            brigadeData.campaignId ===
-            campaignId
-          ) {
-
-            brigades.push({
-              id:
-                brigadeSnapshot.id,
-
-              ...brigadeData
-            });
-          }
+          people.push(person);
         }
       }
-    }
-
-    brigades.sort(
-      (a, b) =>
-        String(
-          a.name || ""
-        ).localeCompare(
-          String(
-            b.name || ""
-          ),
-          "es"
-        )
     );
 
-    brigades.forEach(
-      (brigade) => {
+    people.sort(
+      (a, b) =>
+        String(a.name || "")
+          .localeCompare(
+            String(b.name || ""),
+            "es"
+          )
+    );
+
+    people.forEach(
+      (person) => {
 
         const option =
           document.createElement(
@@ -311,29 +262,46 @@ async function loadAvailableBrigades() {
           );
 
         option.value =
-          brigade.id;
+          person.uid;
+
+        const roleNames = {
+          coordinador_municipal:
+            "Responsable de organización",
+
+          jefe_estructura:
+            "Responsable de estructura",
+
+          integrante:
+            "Integrante",
+
+          participante:
+            "Participante"
+        };
+
+        const roleName =
+          roleNames[person.role] ||
+          person.role;
 
         option.textContent =
-          brigade.name ||
-          brigade.id;
+          `${person.name || person.email || person.uid} — ${roleName}`;
 
-        missionBrigadeInput.appendChild(
-          option
-        );
+        missionAssigneeInput
+          .appendChild(option);
       }
     );
 
   } catch (error) {
 
     console.error(
-      "Error al cargar brigadas:",
+      "Error al cargar personas:",
       error
     );
 
     missionFormMessage.textContent =
-      "No fue posible cargar las brigadas.";
+      "No fue posible cargar las personas disponibles.";
   }
 }
+
 
 // ======================================================
 // INICIO DE SESIÓN
@@ -362,7 +330,7 @@ onAuthStateChanged(
       );
 
       applyRoleInterface();
-await loadAvailableBrigades();
+await loadAvailableAssignees();
       await loadMissions();
 
     } catch (error) {
@@ -519,8 +487,8 @@ missionForm.addEventListener(
     const locality =
       missionLocalityInput.value.trim();
 
-    const brigadeId =
-  missionBrigadeInput.value;
+    const assigneeId =
+  missionAssigneeInput.value;
     
     if (!title) {
 
@@ -532,12 +500,12 @@ missionForm.addEventListener(
       return;
     }
 
-if (!brigadeId) {
+if (!assigneeId) {
 
   missionFormMessage.textContent =
-    "Seleccione la brigada responsable de la misión.";
+    "Seleccione la persona responsable de la misión.";
 
-  missionBrigadeInput.focus();
+  missionAssigneeInput.focus();
 
   return;
 }
@@ -551,6 +519,40 @@ if (!brigadeId) {
       "";
 
     try {
+
+      const assigneeRef =
+  doc(
+    db,
+    "usuarios",
+    assigneeId
+  );
+
+const assigneeSnapshot =
+  await getDoc(
+    assigneeRef
+  );
+
+if (!assigneeSnapshot.exists()) {
+
+  throw new Error(
+    "La persona seleccionada no existe."
+  );
+}
+
+const assignee =
+  {
+    uid: assigneeSnapshot.id,
+    ...assigneeSnapshot.data()
+  };
+
+if (
+  assignee.active !== true
+) {
+
+  throw new Error(
+    "La persona seleccionada está desactivada."
+  );
+}
 
       const missionRef =
         doc(
@@ -594,7 +596,34 @@ if (!brigadeId) {
           createdByRole:
             currentUserProfile.role,
 
-          brigadeId,
+          assignedTo:
+            
+  assignee.uid,
+
+assignedToName:
+  assignee.name ||
+  assignee.email ||
+  "Sin identificar",
+
+assignedToRole:
+  assignee.role ||
+  "",
+
+municipalityId:
+  assignee.municipalityId ||
+  "",
+
+municipalityName:
+  assignee.municipalityName ||
+  "",
+
+structureId:
+  assignee.structureId ||
+  "",
+
+structureName:
+  assignee.structureName ||
+  "",
           
           createdAt:
             serverTimestamp(),
