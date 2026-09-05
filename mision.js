@@ -348,30 +348,30 @@ function renderMission() {
 // BUILD-116 — INTERFAZ SEGÚN RELACIÓN CON LA MISIÓN
 // ======================================================
 
-const isAssignee =
-  currentMission.assignedTo ===
-  currentUser.uid;
-
-const isCreator =
-  currentMission.createdBy ===
-  currentUser.uid;
-
-
-// El destinatario ejecuta la misión
-// y puede registrar evidencia.
-evidenceForm.hidden =
-  !isAssignee;
-
-
-// El creador/supervisor consulta,
-// pero no registra evidencia en nombre del subordinado.
 if (
-  isCreator &&
-  !isAssignee
+  currentMission &&
+  currentUser
 ) {
 
-  missionMessage.textContent =
-    "Modo supervisión: consulta las evidencias enviadas por la persona asignada.";
+  const isAssignee =
+    currentMission.assignedTo ===
+    currentUser.uid;
+
+  const isCreator =
+    currentMission.createdBy ===
+    currentUser.uid;
+
+  evidenceForm.hidden =
+    !isAssignee;
+
+  if (
+    isCreator &&
+    !isAssignee
+  ) {
+
+    missionMessage.textContent =
+      "Modo supervisión: consulta las evidencias enviadas por la persona asignada.";
+  }
 }
 
 
