@@ -147,13 +147,45 @@ function validateMissionAccess(profile) {
 
   const allowedRoles = [
     "admin",
-    "coordinador"
+    "coordinador_municipal",
+    "jefe_estructura",
+    "integrante",
+    "participante"
   ];
 
   if (!allowedRoles.includes(profile.role)) {
     throw new Error(
       "Tu usuario no tiene acceso al módulo de Misiones."
     );
+  }
+}
+
+// ======================================================
+function getAssignableRole(profile) {
+
+  if (!profile) {
+    return null;
+  }
+
+  switch (profile.role) {
+
+    case "admin":
+      return "coordinador_municipal";
+
+    case "coordinador_municipal":
+      return "jefe_estructura";
+
+    case "jefe_estructura":
+      return "integrante";
+
+    case "integrante":
+      return "participante";
+
+    case "participante":
+      return null;
+
+    default:
+      return null;
   }
 }
 
@@ -168,21 +200,22 @@ function applyRoleInterface() {
     return;
   }
 
-  const isAdmin =
-    currentUserProfile.role === "admin";
+  const assignableRole =
+    getAssignableRole(
+      currentUserProfile
+    );
 
-  const isCoordinator =
-    currentUserProfile.role === "coordinador";
-
-  // Por ahora ambos pueden crear misiones.
-  // Más adelante podemos restringir creación según jerarquía.
   newMissionButton.hidden =
-    !(isAdmin || isCoordinator);
+    !assignableRole;
 }
 
 
 // ======================================================
 // CARGAR PERSONAS DISPONIBLES PARA MISIÓN
+// ======================================================
+
+// ======================================================
+// CARGAR SUBORDINADOS DIRECTOS PARA MISIÓN
 // ======================================================
 
 async function loadAvailableAssignees() {
@@ -201,27 +234,41 @@ async function loadAvailableAssignees() {
     currentUserProfile.campaignId ||
     "CAM-001";
 
-  const allowedRoles = [
-    "coordinador_municipal",
-    "jefe_estructura",
-    "integrante",
-    "participante"
-  ];
+  const assignableRole =
+    getAssignableRole(
+      currentUserProfile
+    );
+
+  if (!assignableRole) {
+    return;
+  }
 
   try {
 
     const usersQuery =
       query(
-        collection(db, "usuarios"),
+        collection(
+          db,
+          "usuarios"
+        ),
+
         where(
           "campaignId",
           "==",
           campaignId
+        ),
+
+        where(
+          "role",
+          "==",
+          assignableRole
         )
       );
 
     const snapshot =
-      await getDocs(usersQuery);
+      await getDocs(
+        usersQuery
+      );
 
     const people = [];
 
@@ -234,11 +281,29 @@ async function loadAvailableAssignees() {
         };
 
         if (
-          person.active === true &&
-          allowedRoles.includes(
-            person.role
-          )
+          person.active !== true
         ) {
+          return;
+        }
+
+        // ADMIN:
+        // solamente responsables de organización.
+        if (
+          currentUserProfile.role ===
+          "admin"
+        ) {
+
+          people.push(person);
+          return;
+        }
+
+        // RESTO DE LA JERARQUÍA:
+        // solamente subordinados directos.
+        if (
+          person.parentUserId ===
+          currentUserProfile.uid
+        ) {
+
           people.push(person);
         }
       }
@@ -246,11 +311,14 @@ async function loadAvailableAssignees() {
 
     people.sort(
       (a, b) =>
-        String(a.name || "")
-          .localeCompare(
-            String(b.name || ""),
-            "es"
-          )
+        String(
+          a.name || ""
+        ).localeCompare(
+          String(
+            b.name || ""
+          ),
+          "es"
+        )
     );
 
     people.forEach(
@@ -264,36 +332,26 @@ async function loadAvailableAssignees() {
         option.value =
           person.uid;
 
-        const roleNames = {
-          coordinador_municipal:
-            "Responsable de organización",
-
-          jefe_estructura:
-            "Responsable de estructura",
-
-          integrante:
-            "Integrante",
-
-          participante:
-            "Participante"
-        };
-
-        const roleName =
-          roleNames[person.role] ||
-          person.role;
-
         option.textContent =
-          `${person.name || person.email || person.uid} — ${roleName}`;
+          person.name ||
+          person.email ||
+          person.uid;
 
         missionAssigneeInput
           .appendChild(option);
       }
     );
 
+    if (!people.length) {
+
+      missionFormMessage.textContent =
+        "No existen personas disponibles en tu nivel inmediato inferior.";
+    }
+
   } catch (error) {
 
     console.error(
-      "Error al cargar personas:",
+      "Error al cargar subordinados directos:",
       error
     );
 
