@@ -374,65 +374,113 @@ async function loadAvailableAssignees() {
       (person) => {
 
         const label =
-          document.createElement(
-            "label"
-          );
+  document.createElement(
+    "label"
+  );
 
-        label.className =
-          "mission-assignee-option";
+label.className =
+  "mission-assignee-option";
 
-        const checkbox =
-          document.createElement(
-            "input"
-          );
 
-        checkbox.type =
-          "checkbox";
+const checkbox =
+  document.createElement(
+    "input"
+  );
 
-        checkbox.className =
-          "mission-assignee-checkbox";
+checkbox.type =
+  "checkbox";
 
-        checkbox.value =
-          person.uid;
+checkbox.className =
+  "mission-assignee-checkbox";
 
-        checkbox.dataset.name =
-          person.name ||
-          person.email ||
-          person.uid;
+checkbox.value =
+  person.uid;
 
-        checkbox.dataset.role =
-          person.role ||
-          "";
+checkbox.dataset.name =
+  person.name ||
+  person.email ||
+  person.uid;
 
-        checkbox.dataset.municipalityId =
-          person.municipalityId ||
-          "";
+checkbox.dataset.role =
+  person.role ||
+  "";
 
-        checkbox.dataset.structureId =
-          person.structureId ||
-          "";
+checkbox.dataset.municipalityId =
+  person.municipalityId ||
+  "";
 
-        label.appendChild(
-          checkbox
-        );
+checkbox.dataset.structureId =
+  person.structureId ||
+  "";
 
-        const text =
-          document.createTextNode(
-            ` ${
-              person.name ||
-              person.email ||
-              person.uid
-            }`
-          );
 
-        label.appendChild(
-          text
-        );
+const info =
+  document.createElement(
+    "span"
+  );
 
-        missionAssigneeList
-          .appendChild(
-            label
-          );
+info.className =
+  "mission-assignee-info";
+
+
+const name =
+  document.createElement(
+    "strong"
+  );
+
+name.textContent =
+  person.name ||
+  person.email ||
+  person.uid;
+
+
+const role =
+  document.createElement(
+    "small"
+  );
+
+const roleLabels = {
+  coordinador_municipal:
+    "Responsable de organización",
+
+  jefe_estructura:
+    "Responsable de estructura",
+
+  integrante:
+    "Integrante",
+
+  participante:
+    "Participante"
+};
+
+role.textContent =
+  roleLabels[
+    person.role
+  ] ||
+  person.role ||
+  "Persona";
+
+
+info.appendChild(
+  name
+);
+
+info.appendChild(
+  role
+);
+
+label.appendChild(
+  checkbox
+);
+
+label.appendChild(
+  info
+);
+
+missionAssigneeList.appendChild(
+  label
+);
+        
       }
     );
 
