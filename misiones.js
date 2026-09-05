@@ -723,53 +723,31 @@ async function loadMissions() {
 
   } else {
 
-    const assignedBrigades =
-      currentUserProfile.brigadeIds ||
-      (
-        currentUserProfile.brigadeId
-          ? [currentUserProfile.brigadeId]
-          : []
-      );
+  missionsQuery = query(
+    collection(
+      db,
+      "misiones"
+    ),
 
-    if (!assignedBrigades.length) {
+    where(
+      "campaignId",
+      "==",
+      campaignId
+    ),
 
-      missions = [];
+    where(
+      "assignedTo",
+      "==",
+      currentUserProfile.uid
+    ),
 
-      renderMissions();
-
-      updateMissionMetrics();
-
-      missionsMessage.textContent =
-        "Tu usuario todavía no tiene brigadas asignadas.";
-
-      return;
-    }
-
-    missionsQuery = query(
-      collection(
-        db,
-        "misiones"
-      ),
-
-      where(
-        "campaignId",
-        "==",
-        campaignId
-      ),
-
-      where(
-        "brigadeId",
-        "in",
-        assignedBrigades
-      ),
-
-      orderBy(
-        "createdAt",
-        "desc"
-      )
-    );
-  }
-
+    orderBy(
+      "createdAt",
+      "desc"
+    )
+  );
+}
+  
   try {
 
     const snapshot =
