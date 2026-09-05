@@ -774,6 +774,7 @@ structureName:
 
 // ======================================================
 // CARGAR MISIONES
+// BUILD-116 — RECIBIDAS + ASIGNADAS POR MÍ
 // ======================================================
 
 async function loadMissions() {
@@ -789,78 +790,202 @@ async function loadMissions() {
     currentUserProfile.campaignId ||
     "CAM-001";
 
-  let missionsQuery;
-
-  if (
-    currentUserProfile.role ===
-    "admin"
-  ) {
-
-    missionsQuery = query(
-      collection(
-        db,
-        "misiones"
-      ),
-
-      where(
-        "campaignId",
-        "==",
-        campaignId
-      ),
-
-      orderBy(
-        "createdAt",
-        "desc"
-      )
-    );
-
-  } else {
-
-  missionsQuery = query(
-    collection(
-      db,
-      "misiones"
-    ),
-
-    where(
-      "campaignId",
-      "==",
-      campaignId
-    ),
-
-    where(
-      "assignedTo",
-      "==",
-      currentUserProfile.uid
-    ),
-
-    orderBy(
-      "createdAt",
-      "desc"
-    )
-  );
-}
-  
   try {
 
-    const snapshot =
-      await getDocs(
-        missionsQuery
+    // ==================================================
+    // ADMIN
+    // Ve todas las misiones de la campaña.
+    // ==================================================
+
+    if (
+      currentUserProfile.role ===
+      "admin"
+    ) {
+
+      const adminQuery =
+        query(
+          collection(
+            db,
+            "misiones"
+          ),
+
+          where(
+            "campaignId",
+            "==",
+            campaignId
+          ),
+
+          orderBy(
+            "createdAt",
+            "desc"
+          )
+        );
+
+      const snapshot =
+        await getDocs(
+          adminQuery
+        );
+
+      missions = [];
+
+      snapshot.forEach(
+        (documentSnapshot) => {
+
+          missions.push({
+            id:
+              documentSnapshot.id,
+
+            ...documentSnapshot.data()
+          });
+        }
       );
 
-    missions = [];
+    } else {
 
-    snapshot.forEach(
-      (documentSnapshot) => {
+      // ==================================================
+      // NUEVA JERARQUÍA
+      //
+      // 1. Misiones recibidas por el usuario.
+      // 2. Misiones creadas/asignadas por el usuario.
+      // ==================================================
 
-        missions.push({
-          id:
+      const receivedQuery =
+        query(
+          collection(
+            db,
+            "misiones"
+          ),
+
+          where(
+            "campaignId",
+            "==",
+            campaignId
+          ),
+
+          where(
+            "assignedTo",
+            "==",
+            currentUserProfile.uid
+          ),
+
+          orderBy(
+            "createdAt",
+            "desc"
+          )
+        );
+
+
+      const createdQuery =
+        query(
+          collection(
+            db,
+            "misiones"
+          ),
+
+          where(
+            "campaignId",
+            "==",
+            campaignId
+          ),
+
+          where(
+            "createdBy",
+            "==",
+            currentUserProfile.uid
+          ),
+
+          orderBy(
+            "createdAt",
+            "desc"
+          )
+        );
+
+
+      const [
+        receivedSnapshot,
+        createdSnapshot
+      ] =
+        await Promise.all([
+          getDocs(
+            receivedQuery
+          ),
+
+          getDocs(
+            createdQuery
+          )
+        ]);
+
+
+      // ==================================================
+      // UNIR RESULTADOS SIN DUPLICADOS
+      // ==================================================
+
+      const missionMap =
+        new Map();
+
+
+      receivedSnapshot.forEach(
+        (documentSnapshot) => {
+
+          missionMap.set(
             documentSnapshot.id,
+            {
+              id:
+                documentSnapshot.id,
 
-          ...documentSnapshot.data()
-        });
-      }
-    );
+              ...documentSnapshot.data()
+            }
+          );
+        }
+      );
+
+
+      createdSnapshot.forEach(
+        (documentSnapshot) => {
+
+          missionMap.set(
+            documentSnapshot.id,
+            {
+              id:
+                documentSnapshot.id,
+
+              ...documentSnapshot.data()
+            }
+          );
+        }
+      );
+
+
+      missions =
+        Array.from(
+          missionMap.values()
+        );
+
+
+      // ==================================================
+      // ORDENAR POR FECHA DE CREACIÓN
+      // ==================================================
+
+      missions.sort(
+        (a, b) => {
+
+          const aTime =
+            a.createdAt?.toMillis?.() ||
+            0;
+
+          const bTime =
+            b.createdAt?.toMillis?.() ||
+            0;
+
+          return bTime - aTime;
+        }
+      );
+    }
+
+
+    // ==================================================
+    // RENDER
+    // ==================================================
 
     renderMissions();
 
@@ -871,12 +996,14 @@ async function loadMissions() {
         ? ""
         : "Todavía no existen misiones registradas.";
 
+
   } catch (error) {
 
     console.error(
       "Error al cargar misiones:",
       error
     );
+
 
     if (
       error.code ===
@@ -889,11 +1016,11 @@ async function loadMissions() {
       return;
     }
 
+
     missionsMessage.textContent =
       "No fue posible consultar las misiones.";
   }
 }
-
 
 // ======================================================
 // RENDERIZAR MISIONES
