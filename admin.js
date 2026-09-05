@@ -286,11 +286,15 @@ async function loadCurrentUserProfile(user) {
   }
 
   const allowedRoles = [
-    "admin",
-    "coordinador",
-    "brigadista",
-    "consulta"
-  ];
+  "admin",
+  "coordinador",
+  "coordinador_municipal",
+  "jefe_estructura",
+  "integrante",
+  "participante",
+  "brigadista",
+  "consulta"
+];
 
   if (!allowedRoles.includes(profile.role)) {
     throw new Error(
