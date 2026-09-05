@@ -338,22 +338,30 @@
 </label>
 
 
-<label
-  id="missionAssigneeField"
->
+<div id="missionAssigneeField">
 
-  Persona *
+  <p>
+    Personas *
+  </p>
 
-  <select
-    id="missionAssignee"
+  <label>
+    <input
+      id="missionSelectAll"
+      type="checkbox"
+    >
+    Seleccionar todos
+  </label>
+
+  <div
+    id="missionAssigneeList"
+    class="mission-assignee-list"
   >
-    <option value="">
-      Seleccione una persona...
-    </option>
-  </select>
+    <p>
+      Cargando personas...
+    </p>
+  </div>
 
-</label>
-
+</div>
 
 <label
   id="missionStructureField"
