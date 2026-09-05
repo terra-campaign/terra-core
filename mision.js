@@ -744,57 +744,60 @@ evidenceForm.addEventListener(
       saveEvidenceButton.textContent =
         "Guardando registro...";
 
-      await setDoc(
-        evidenceRef,
-        {
+     await setDoc(
+  evidenceRef,
+  {
 
-          id:
-            evidenceId,
+    id:
+      evidenceId,
 
-          missionId:
-            currentMission.id,
+    missionId:
+      currentMission.id,
 
-          campaignId:
-            currentMission.campaignId,
+    campaignId:
+      currentMission.campaignId,
 
-          brigadeId:
-            currentMission.brigadeId,
+    assignedTo:
+      currentMission.assignedTo,
 
-          reportedByName,
+    assignedToName:
+      currentMission.assignedToName ||
+      "",
 
-          description,
+    reportedByName,
 
-          source:
-            "whatsapp",
+    description,
 
-          imagePath,
+    source:
+      "whatsapp",
 
-          imageURL,
+    imagePath,
 
-          uploadedBy:
-            currentUser.uid,
+    imageURL,
 
-          uploadedByName:
-            currentUserProfile.name ||
-            currentUser.email ||
-            "Sin identificar",
+    uploadedBy:
+      currentUser.uid,
 
-          uploadedByRole:
-            currentUserProfile.role,
+    uploadedByName:
+      currentUserProfile.name ||
+      currentUser.email ||
+      "Sin identificar",
 
-          status:
-            "received",
+    uploadedByRole:
+      currentUserProfile.role,
 
-          createdAt:
-            serverTimestamp(),
+    status:
+      "received",
 
-          updatedAt:
-            serverTimestamp(),
+    createdAt:
+      serverTimestamp(),
 
-          version: 1
-        }
-      );
+    updatedAt:
+      serverTimestamp(),
 
+    version: 2
+  }
+);
       evidenceFormMessage.textContent =
         "✅ Evidencia guardada correctamente.";
 
