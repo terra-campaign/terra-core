@@ -187,18 +187,15 @@ async function loadCurrentUserProfile(user) {
 // ======================================================
 
 function validateMissionModuleAccess(profile) {
-
   const allowedRoles = [
     "admin",
-    "coordinador"
+    "coordinador_municipal",
+    "jefe_estructura",
+    "integrante",
+    "participante"
   ];
 
-  if (
-    !allowedRoles.includes(
-      profile.role
-    )
-  ) {
-
+  if (!profile || !allowedRoles.includes(profile.role)) {
     throw new Error(
       "Tu usuario no tiene acceso a Misiones."
     );
