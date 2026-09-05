@@ -1459,27 +1459,19 @@ case "brigadista":
     );
 
     break;
-
 case "coordinador_municipal":
 case "jefe_estructura":
 case "integrante":
 case "participante":
 
-  visitsQuery = query(
-    collection(db, "visitas"),
-    where(
-      "campaignId",
-      "==",
-      currentUserProfile.campaignId
-    ),
-    orderBy(
-      "createdAt",
-      "desc"
-    ),
-    limit(200)
-  );
+  latestVisits = [];
 
-  break;
+  applyTerritoryFilter();
+
+  visitsList.innerHTML =
+    "<p>El módulo de visitas históricas todavía no está habilitado para esta estructura.</p>";
+
+  return;
     
   case "consulta":
 
