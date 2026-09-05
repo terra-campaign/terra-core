@@ -923,3 +923,110 @@ TOPBAR ADMIN RESPONSIVE
 
 
 
+
+/* =====================================================
+   BUILD-116 — DESTINATARIOS DE MISIÓN
+   ===================================================== */
+
+.mission-assignee-title {
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+
+.mission-assignee-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.mission-assignee-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 12px 14px;
+
+  border: 1px solid #cfd8e3;
+  border-radius: 10px;
+
+  background: #ffffff;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.mission-assignee-option:hover {
+  border-color: #8fa9c3;
+}
+
+.mission-assignee-option:has(
+  input:checked
+) {
+  border-color: #174f7f;
+  background: #eef5fb;
+  box-shadow: 0 0 0 2px rgba(23, 79, 127, 0.08);
+}
+
+.mission-assignee-option input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+
+  flex: 0 0 auto;
+
+  margin: 0;
+
+  cursor: pointer;
+}
+
+.mission-assignee-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  min-width: 0;
+}
+
+.mission-assignee-info strong {
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.mission-assignee-info small {
+  font-size: 12px;
+  line-height: 1.35;
+  color: #5c6773;
+}
+
+.mission-assignee-option--all {
+  margin-bottom: 12px;
+  background: #f7f9fb;
+}
+
+@media (max-width: 640px) {
+
+  .mission-assignee-option {
+    padding: 14px 12px;
+  }
+
+  .mission-assignee-option input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+  }
+
+  .mission-assignee-info strong {
+    font-size: 16px;
+  }
+
+  .mission-assignee-info small {
+    font-size: 13px;
+  }
+}
+
+
