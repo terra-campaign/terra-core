@@ -301,14 +301,35 @@ async function loadPersonProfile(uid) {
       ) ||
       "—";
 
-    personStructureChief.textContent =
-      cleanText(
-        person.structureChiefName
-      ) ||
-      cleanText(
-        person.chiefName
-      ) ||
-      "—";
+   if (
+  person.role === "coordinador_municipal"
+) {
+
+  personStructure.textContent =
+    "No aplica";
+
+  personStructureChief.textContent =
+    "No aplica";
+
+} else if (
+  person.role === "jefe_estructura"
+) {
+
+  personStructureChief.textContent =
+    cleanText(person.name) ||
+    "—";
+
+} else {
+
+  personStructureChief.textContent =
+    cleanText(
+      person.structureChiefName
+    ) ||
+    cleanText(
+      person.chiefName
+    ) ||
+    "—";
+}
 
     personParent.textContent =
       parentName;
