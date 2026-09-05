@@ -675,25 +675,27 @@ missionForm.addEventListener(
     const locality =
       missionLocalityInput.value.trim();
 
-    const assigneeId =
-  missionAssigneeInput.value;
-    
-    if (!title) {
+   const selectedAssignees =
+  Array.from(
+    missionAssigneeList.querySelectorAll(
+      ".mission-assignee-checkbox:checked"
+    )
+  );
 
-      missionFormMessage.textContent =
-        "Escriba el nombre de la misión.";
-
-      missionTitleInput.focus();
-
-      return;
-    }
-
-if (!assigneeId) {
+if (!title) {
 
   missionFormMessage.textContent =
-    "Seleccione la persona responsable de la misión.";
+    "Escriba el nombre de la misión.";
 
-  missionAssigneeInput.focus();
+  missionTitleInput.focus();
+
+  return;
+}
+
+if (!selectedAssignees.length) {
+
+  missionFormMessage.textContent =
+    "Seleccione al menos una persona.";
 
   return;
 }
@@ -706,134 +708,208 @@ if (!assigneeId) {
     missionFormMessage.textContent =
       "";
 
-    try {
+   try {
 
-      const assigneeRef =
-  doc(
-    db,
-    "usuarios",
-    assigneeId
-  );
+  const selectedPeople = [];
 
-const assigneeSnapshot =
-  await getDoc(
-    assigneeRef
-  );
+  for (
+    const checkbox
+    of selectedAssignees
+  ) {
 
-if (!assigneeSnapshot.exists()) {
+    const assigneeId =
+      checkbox.value;
 
-  throw new Error(
-    "La persona seleccionada no existe."
-  );
-}
-
-const assignee =
-  {
-    uid: assigneeSnapshot.id,
-    ...assigneeSnapshot.data()
-  };
-
-if (
-  assignee.active !== true
-) {
-
-  throw new Error(
-    "La persona seleccionada está desactivada."
-  );
-}
-
-      const missionRef =
-        doc(
-          collection(
-            db,
-            "misiones"
-          )
-        );
-
-      const missionId =
-        missionRef.id;
-
-      await setDoc(
-        missionRef,
-        {
-
-          id: missionId,
-
-          campaignId:
-            currentUserProfile.campaignId ||
-            "CAM-001",
-
-          title,
-
-          description,
-
-          missionDate,
-
-          locality,
-
-          active: true,
-
-          createdBy:
-            currentUser.uid,
-
-          createdByName:
-            currentUserProfile.name ||
-            currentUser.email ||
-            "Sin identificar",
-
-          createdByRole:
-            currentUserProfile.role,
-
-          assignedTo:
-            
-  assignee.uid,
-
-assignedToName:
-  assignee.name ||
-  assignee.email ||
-  "Sin identificar",
-
-assignedToRole:
-  assignee.role ||
-  "",
-
-municipalityId:
-  assignee.municipalityId ||
-  "",
-
-municipalityName:
-  assignee.municipalityName ||
-  "",
-
-structureId:
-  assignee.structureId ||
-  "",
-
-structureName:
-  assignee.structureName ||
-  "",
-          
-          createdAt:
-            serverTimestamp(),
-
-          updatedAt:
-            serverTimestamp(),
-
-          version: 1
-        }
+    const assigneeRef =
+      doc(
+        db,
+        "usuarios",
+        assigneeId
       );
 
-      missionFormMessage.textContent =
-        "✅ Misión creada correctamente.";
-
-      await loadMissions();
-
-      setTimeout(
-        () => {
-          closeMissionModal();
-        },
-        700
+    const assigneeSnapshot =
+      await getDoc(
+        assigneeRef
       );
+
+    if (
+      !assigneeSnapshot.exists()
+    ) {
+
+      throw new Error(
+        "Una de las personas seleccionadas no existe."
+      );
+    }
+
+    const assignee = {
+      uid:
+        assigneeSnapshot.id,
+
+      ...assigneeSnapshot.data()
+    };
+
+    if (
+      assignee.active !== true
+    ) {
+
+      throw new Error(
+        `La persona ${
+          assignee.name ||
+          assignee.email ||
+          assignee.uid
+        } está desactivada.`
+      );
+    }
+
+    selectedPeople.push(
+      assignee
+    );
+  }
+
+
+  // ==================================================
+  // CREAR UNA MISIÓN INDIVIDUAL POR DESTINATARIO
+  // BUILD-116 — TRANSICIÓN A MULTIASIGNACIÓN
+  // ==================================================
+
+  for (
+    const assignee
+    of selectedPeople
+  ) {
+
+    const missionRef =
+      doc(
+        collection(
+          db,
+          "misiones"
+        )
+      );
+
+    const missionId =
+      missionRef.id;
+
+    await setDoc(
+      missionRef,
+      {
+
+        id:
+          missionId,
+
+        campaignId:
+          currentUserProfile.campaignId ||
+          "CAM-001",
+
+        title,
+
+        description,
+
+        missionDate,
+
+        locality,
+
+        active:
+          true,
+
+        createdBy:
+          currentUser.uid,
+
+        createdByName:
+          currentUserProfile.name ||
+          currentUser.email ||
+          "Sin identificar",
+
+        createdByRole:
+          currentUserProfile.role,
+
+        assignedTo:
+          assignee.uid,
+
+        assignedToName:
+          assignee.name ||
+          assignee.email ||
+          "Sin identificar",
+
+        assignedToRole:
+          assignee.role ||
+          "",
+
+        municipalityId:
+          assignee.municipalityId ||
+          "",
+
+        municipalityName:
+          assignee.municipalityName ||
+          "",
+
+        structureId:
+          assignee.structureId ||
+          "",
+
+        structureName:
+          assignee.structureName ||
+          "",
+
+        createdAt:
+          serverTimestamp(),
+
+        updatedAt:
+          serverTimestamp(),
+
+        version:
+          2
+      }
+    );
+  }
+
+
+  missionFormMessage.textContent =
+    selectedPeople.length === 1
+      ? "✅ Misión creada correctamente."
+      : `✅ ${selectedPeople.length} asignaciones creadas correctamente.`;
+
+
+  await loadMissions();
+
+
+  setTimeout(
+    () => {
+
+      closeMissionModal();
+    },
+    900
+  );
+
+
+} catch (error) {
+
+  console.error(
+    "Error al guardar misión:",
+    error
+  );
+
+  if (
+    error.code ===
+    "permission-denied"
+  ) {
+
+    missionFormMessage.textContent =
+      "Firestore rechazó la creación de la misión por las reglas de seguridad.";
+
+  } else {
+
+    missionFormMessage.textContent =
+      error.message ||
+      "No fue posible guardar la misión.";
+  }
+
+} finally {
+
+  saveMissionButton.disabled =
+    false;
+
+  saveMissionButton.textContent =
+    "Guardar misión";
+}
 
     } catch (error) {
 
