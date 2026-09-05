@@ -910,35 +910,6 @@ if (!selectedAssignees.length) {
   saveMissionButton.textContent =
     "Guardar misión";
 }
-
-    } catch (error) {
-
-      console.error(
-        "Error al guardar misión:",
-        error
-      );
-
-      if (
-        error.code ===
-        "permission-denied"
-      ) {
-
-        missionFormMessage.textContent =
-          "Firestore rechazó la creación de la misión por las reglas de seguridad.";
-
-      } else {
-
-        missionFormMessage.textContent =
-          "No fue posible guardar la misión.";
-      }
-
-    } finally {
-
-      saveMissionButton.disabled = false;
-
-      saveMissionButton.textContent =
-        "Guardar misión";
-    }
   }
 );
 
