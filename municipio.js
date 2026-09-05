@@ -599,6 +599,15 @@ function renderCoordinators(
 
                   </p>
 
+                  <a
+  class="button button--secondary button--small"
+  href="./persona.html?id=${encodeURIComponent(
+    coordinator.uid
+  )}"
+>
+  Ver perfil
+</a>
+
                 </div>
 
               </div>
