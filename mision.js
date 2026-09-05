@@ -715,7 +715,9 @@ evidenceForm.addEventListener(
     }
 
     const reportedByName =
-      reportedByNameInput.value.trim();
+  currentUserProfile.name ||
+  currentUser.email ||
+  "Sin identificar";
 
     const description =
       evidenceDescriptionInput.value.trim();
