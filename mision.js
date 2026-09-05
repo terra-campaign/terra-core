@@ -84,6 +84,9 @@ const reportedByNameInput =
 const evidenceDescriptionInput =
   document.querySelector("#evidenceDescription");
 
+const evidenceUrlInput =
+  document.getElementById("evidenceUrl");
+
 const evidencePhotoButton =
   document.querySelector("#evidencePhotoButton");
 
@@ -722,6 +725,9 @@ evidenceForm.addEventListener(
     const description =
       evidenceDescriptionInput.value.trim();
 
+    const evidenceUrl =
+  evidenceUrlInput.value.trim();
+
     saveEvidenceButton.disabled =
       true;
 
@@ -800,10 +806,12 @@ evidenceForm.addEventListener(
 
     reportedByName,
 
-    description,
+   description,
 
-    source:
-      "whatsapp",
+evidenceUrl,
+
+source:
+  "whatsapp",
 
     imagePath,
 
@@ -1061,6 +1069,28 @@ function renderEvidence() {
                   </strong>
 
                 </p>
+
+                ${
+  evidence.evidenceUrl
+    ? `
+      <p>
+
+        Enlace de evidencia:
+
+        <a
+          href="${escapeAttribute(
+            evidence.evidenceUrl
+          )}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Abrir enlace
+        </a>
+
+      </p>
+    `
+    : ""
+}
 
 
                 <p>
