@@ -186,11 +186,17 @@ async function getParentName(
     const parent =
       parentSnapshot.data();
 
-    return (
-      cleanText(parent.name) ||
-      cleanText(parent.email) ||
-      "—"
-    );
+    if (
+  parent.role === "admin"
+) {
+  return "ADMINISTRADOR GRAL";
+}
+
+return (
+  cleanText(parent.name) ||
+  cleanText(parent.email) ||
+  "—"
+);
 
   } catch (error) {
 
