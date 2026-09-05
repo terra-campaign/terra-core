@@ -265,38 +265,42 @@ function validateMissionScope(mission) {
     mission.campaignId !==
     campaignId
   ) {
-
     throw new Error(
       "La misión pertenece a otra campaña."
     );
   }
 
+  // ADMIN puede consultar cualquier misión
+  // de su misma campaña.
   if (
     currentUserProfile.role ===
     "admin"
   ) {
-
     return;
   }
 
-  const assignedBrigades =
-    currentUserProfile.brigadeIds ||
-    (
-      currentUserProfile.brigadeId
-        ? [currentUserProfile.brigadeId]
-        : []
-    );
-
+  // BUILD-116:
+  // el destinatario individual puede abrir
+  // únicamente la misión que le fue asignada.
   if (
-    !assignedBrigades.includes(
-      mission.brigadeId
-    )
+    mission.assignedTo ===
+    currentUser.uid
   ) {
-
-    throw new Error(
-      "No tienes acceso a esta misión."
-    );
+    return;
   }
+
+  // El creador puede consultar la misión
+  // que él mismo asignó.
+  if (
+    mission.createdBy ===
+    currentUser.uid
+  ) {
+    return;
+  }
+
+  throw new Error(
+    "No tienes acceso a esta misión."
+  );
 }
 
 
