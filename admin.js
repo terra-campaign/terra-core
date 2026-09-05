@@ -1460,6 +1460,27 @@ case "brigadista":
 
     break;
 
+case "coordinador_municipal":
+case "jefe_estructura":
+case "integrante":
+case "participante":
+
+  visitsQuery = query(
+    collection(db, "visitas"),
+    where(
+      "campaignId",
+      "==",
+      currentUserProfile.campaignId
+    ),
+    orderBy(
+      "createdAt",
+      "desc"
+    ),
+    limit(200)
+  );
+
+  break;
+    
   case "consulta":
 
     visitsQuery = query(
