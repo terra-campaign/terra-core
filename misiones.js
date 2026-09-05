@@ -216,6 +216,7 @@ function applyRoleInterface() {
 
 // ======================================================
 // CARGAR SUBORDINADOS DIRECTOS PARA MISIÓN
+// BUILD-116 — SELECCIÓN MÚLTIPLE
 // ======================================================
 
 async function loadAvailableAssignees() {
@@ -224,11 +225,14 @@ async function loadAvailableAssignees() {
     return;
   }
 
-  missionAssigneeInput.innerHTML = `
-    <option value="">
-      Seleccione una persona...
-    </option>
+  missionAssigneeList.innerHTML = `
+    <p>
+      Cargando personas...
+    </p>
   `;
+
+  missionSelectAll.checked =
+    false;
 
   const campaignId =
     currentUserProfile.campaignId ||
@@ -240,65 +244,73 @@ async function loadAvailableAssignees() {
     );
 
   if (!assignableRole) {
+
+    missionAssigneeList.innerHTML = `
+      <p>
+        No tienes personas disponibles para asignar misiones.
+      </p>
+    `;
+
     return;
   }
 
   try {
 
-   let usersQuery;
+    let usersQuery;
 
-if (
-  currentUserProfile.role === "admin"
-) {
+    if (
+      currentUserProfile.role ===
+      "admin"
+    ) {
 
-  usersQuery =
-    query(
-      collection(
-        db,
-        "usuarios"
-      ),
+      usersQuery =
+        query(
+          collection(
+            db,
+            "usuarios"
+          ),
 
-      where(
-        "campaignId",
-        "==",
-        campaignId
-      ),
+          where(
+            "campaignId",
+            "==",
+            campaignId
+          ),
 
-      where(
-        "role",
-        "==",
-        assignableRole
-      )
-    );
+          where(
+            "role",
+            "==",
+            assignableRole
+          )
+        );
 
-} else {
+    } else {
 
-  usersQuery =
-    query(
-      collection(
-        db,
-        "usuarios"
-      ),
+      usersQuery =
+        query(
+          collection(
+            db,
+            "usuarios"
+          ),
 
-      where(
-        "campaignId",
-        "==",
-        campaignId
-      ),
+          where(
+            "campaignId",
+            "==",
+            campaignId
+          ),
 
-      where(
-        "role",
-        "==",
-        assignableRole
-      ),
+          where(
+            "role",
+            "==",
+            assignableRole
+          ),
 
-      where(
-        "parentUserId",
-        "==",
-        currentUserProfile.uid
-      )
-    );
-}
+          where(
+            "parentUserId",
+            "==",
+            currentUserProfile.uid
+          )
+        );
+    }
 
     const snapshot =
       await getDocs(
@@ -311,7 +323,9 @@ if (
       (documentSnapshot) => {
 
         const person = {
-          uid: documentSnapshot.id,
+          uid:
+            documentSnapshot.id,
+
           ...documentSnapshot.data()
         };
 
@@ -321,19 +335,16 @@ if (
           return;
         }
 
-        // ADMIN:
-        // solamente responsables de organización.
         if (
           currentUserProfile.role ===
           "admin"
         ) {
 
           people.push(person);
+
           return;
         }
 
-        // RESTO DE LA JERARQUÍA:
-        // solamente subordinados directos.
         if (
           person.parentUserId ===
           currentUserProfile.uid
@@ -356,28 +367,82 @@ if (
         )
     );
 
+    missionAssigneeList.innerHTML =
+      "";
+
     people.forEach(
       (person) => {
 
-        const option =
+        const label =
           document.createElement(
-            "option"
+            "label"
           );
 
-        option.value =
+        label.className =
+          "mission-assignee-option";
+
+        const checkbox =
+          document.createElement(
+            "input"
+          );
+
+        checkbox.type =
+          "checkbox";
+
+        checkbox.className =
+          "mission-assignee-checkbox";
+
+        checkbox.value =
           person.uid;
 
-        option.textContent =
+        checkbox.dataset.name =
           person.name ||
           person.email ||
           person.uid;
 
-        missionAssigneeInput
-          .appendChild(option);
+        checkbox.dataset.role =
+          person.role ||
+          "";
+
+        checkbox.dataset.municipalityId =
+          person.municipalityId ||
+          "";
+
+        checkbox.dataset.structureId =
+          person.structureId ||
+          "";
+
+        label.appendChild(
+          checkbox
+        );
+
+        const text =
+          document.createTextNode(
+            ` ${
+              person.name ||
+              person.email ||
+              person.uid
+            }`
+          );
+
+        label.appendChild(
+          text
+        );
+
+        missionAssigneeList
+          .appendChild(
+            label
+          );
       }
     );
 
     if (!people.length) {
+
+      missionAssigneeList.innerHTML = `
+        <p>
+          No existen personas disponibles en tu nivel inmediato inferior.
+        </p>
+      `;
 
       missionFormMessage.textContent =
         "No existen personas disponibles en tu nivel inmediato inferior.";
@@ -390,11 +455,41 @@ if (
       error
     );
 
+    missionAssigneeList.innerHTML = `
+      <p>
+        No fue posible cargar las personas disponibles.
+      </p>
+    `;
+
     missionFormMessage.textContent =
       "No fue posible cargar las personas disponibles.";
   }
 }
 
+
+// ======================================================
+// SELECCIONAR TODOS
+// ======================================================
+
+missionSelectAll.addEventListener(
+  "change",
+  () => {
+
+    const checkboxes =
+      missionAssigneeList
+        .querySelectorAll(
+          ".mission-assignee-checkbox"
+        );
+
+    checkboxes.forEach(
+      (checkbox) => {
+
+        checkbox.checked =
+          missionSelectAll.checked;
+      }
+    );
+  }
+);
 
 // ======================================================
 // INICIO DE SESIÓN
