@@ -306,11 +306,15 @@ function validateMissionScope(mission) {
 
 // ======================================================
 // RENDERIZAR MISIÓN
+// BUILD-116 — EJECUTOR VS SUPERVISOR
 // ======================================================
 
 function renderMission() {
 
-  if (!currentMission) {
+  if (
+    !currentMission ||
+    !currentUser
+  ) {
     return;
   }
 
@@ -341,17 +345,10 @@ function renderMission() {
 
   missionMessage.textContent =
     "";
-}
 
-
-// ======================================================
-// BUILD-116 — INTERFAZ SEGÚN RELACIÓN CON LA MISIÓN
-// ======================================================
-
-if (
-  currentMission &&
-  currentUser
-) {
+  // ====================================================
+  // BUILD-116 — RELACIÓN DEL USUARIO CON LA MISIÓN
+  // ====================================================
 
   const isAssignee =
     currentMission.assignedTo ===
@@ -361,9 +358,11 @@ if (
     currentMission.createdBy ===
     currentUser.uid;
 
+  // El destinatario puede registrar evidencia.
   evidenceForm.hidden =
     !isAssignee;
 
+  // El creador/supervisor solo consulta.
   if (
     isCreator &&
     !isAssignee
@@ -374,6 +373,8 @@ if (
   }
 }
 
+
+// ===================
 
 // ======================================================
 // INICIO DE SESIÓN
