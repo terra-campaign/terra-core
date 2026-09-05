@@ -320,11 +320,32 @@
 
  <label>
 
-  Asignar a persona *
+  Tipo de asignación *
+
+  <select
+    id="missionAssignmentType"
+    required
+  >
+    <option value="person">
+      Una persona
+    </option>
+
+    <option value="structure">
+      Estructura completa
+    </option>
+  </select>
+
+</label>
+
+
+<label
+  id="missionAssigneeField"
+>
+
+  Persona *
 
   <select
     id="missionAssignee"
-    required
   >
     <option value="">
       Seleccione una persona...
@@ -333,8 +354,28 @@
 
 </label>
 
+
+<label
+  id="missionStructureField"
+  hidden
+>
+
+  Estructura *
+
+  <select
+    id="missionStructure"
+  >
+    <option value="">
+      Seleccione una estructura...
+    </option>
+  </select>
+
+</label>
+
+
 <p class="message">
-  La misión quedará asociada directamente a la persona seleccionada.
+  TERRA generará una asignación individual
+  para cada persona incluida en la misión.
 </p>
 
         <div class="modal__actions">
@@ -378,7 +419,7 @@
 
   <script
     type="module"
-    src="./misiones.js?v=002"
+    src="./misiones.js?v=003"
   ></script>
 
 </body>
