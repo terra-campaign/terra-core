@@ -245,25 +245,60 @@ async function loadAvailableAssignees() {
 
   try {
 
-    const usersQuery =
-      query(
-        collection(
-          db,
-          "usuarios"
-        ),
+   let usersQuery;
 
-        where(
-          "campaignId",
-          "==",
-          campaignId
-        ),
+if (
+  currentUserProfile.role === "admin"
+) {
 
-        where(
-          "role",
-          "==",
-          assignableRole
-        )
-      );
+  usersQuery =
+    query(
+      collection(
+        db,
+        "usuarios"
+      ),
+
+      where(
+        "campaignId",
+        "==",
+        campaignId
+      ),
+
+      where(
+        "role",
+        "==",
+        assignableRole
+      )
+    );
+
+} else {
+
+  usersQuery =
+    query(
+      collection(
+        db,
+        "usuarios"
+      ),
+
+      where(
+        "campaignId",
+        "==",
+        campaignId
+      ),
+
+      where(
+        "role",
+        "==",
+        assignableRole
+      ),
+
+      where(
+        "parentUserId",
+        "==",
+        currentUserProfile.uid
+      )
+    );
+}
 
     const snapshot =
       await getDocs(
