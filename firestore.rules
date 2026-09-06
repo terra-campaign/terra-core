@@ -87,19 +87,36 @@ match /municipios/{municipalityId} {
 
 
     // =====================================================
-    // ESTRUCTURAS
-    // =====================================================
+// ESTRUCTURAS
+// =====================================================
 
-    match /estructuras/{structureDocId} {
+match /estructuras/{structureDocId} {
 
-      allow get, list:
-        if roleIs("admin") &&
-           resource.data.campaignId ==
-           profile().campaignId;
+  // ADMIN:
+  // puede consultar estructuras
+  // de cualquier municipio de su campaña.
+  allow get, list: if
+    roleIs("admin") &&
+    resource.data.campaignId ==
+    profile().campaignId;
 
-      allow create, update, delete:
-        if false;
-    }
+
+  // RESPONSABLE DE ORGANIZACIÓN:
+  // puede consultar exclusivamente
+  // las estructuras de su propio municipio.
+  allow get, list: if
+    roleIs("coordinador_municipal") &&
+    resource.data.campaignId ==
+    profile().campaignId &&
+    resource.data.municipalityId ==
+    profile().municipalityId;
+
+
+  // Escritura exclusivamente
+  // mediante backend confiable.
+  allow create, update, delete:
+    if false;
+}
 
 
     // =====================================================
