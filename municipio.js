@@ -359,14 +359,14 @@ if (
 }
 
 
-  if (
-    !profile.campaignId
-  ) {
+ if (
+  !profile.campaignId
+) {
 
-    throw new Error(
-      "El administrador no tiene campaña asignada."
-    );
-  }
+  throw new Error(
+    "El usuario no tiene campaña asignada."
+  );
+}
 
 
   return profile;
@@ -427,6 +427,20 @@ async function loadMunicipality() {
       "El municipio no pertenece a esta campaña."
     );
   }
+
+  // El Responsable de organización
+// sólo puede administrar su propio municipio.
+if (
+  currentUserProfile.role ===
+    "coordinador_municipal" &&
+  currentUserProfile.municipalityId !==
+    municipality.id
+) {
+
+  throw new Error(
+    "No tienes permisos para administrar este municipio."
+  );
+}
 
 
   currentMunicipality =
