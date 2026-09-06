@@ -2587,10 +2587,9 @@ exports.createStructureChief = onCall(
     }
 
 
-    const allowedRoles = [
-      "admin",
-      "coordinador_municipal"
-    ];
+   const allowedRoles = [
+  "coordinador_municipal"
+];
 
 
     if (
@@ -2601,7 +2600,7 @@ exports.createStructureChief = onCall(
 
       throw new HttpsError(
         "permission-denied",
-        "No tiene permisos para crear jefes de estructura."
+        "No tiene permisos para crear responsables de estructura."
       );
     }
 
