@@ -4057,34 +4057,7 @@ if (!parentUserId) {
         );
       }
     }
-
-
-
-
-      if (
-        creatorProfile.structureId !==
-        parentProfile.structureId
-      ) {
-        throw new HttpsError(
-          "permission-denied",
-          "Solo puede registrar participantes dentro de su propia estructura."
-        );
-      }
-    }
-
-
-
-
-      if (
-        creatorProfile.municipalityId !==
-        parentProfile.municipalityId
-      ) {
-        throw new HttpsError(
-          "permission-denied",
-          "Solo puede registrar participantes dentro de su propio municipio."
-        );
-      }
-    }
+  
 
 
     // ==================================================
