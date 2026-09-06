@@ -344,14 +344,19 @@ async function loadCurrentUserProfile(
   }
 
 
-  if (
-    profile.role !== "admin"
-  ) {
+ const allowedRoles = [
+  "admin",
+  "coordinador_municipal"
+];
 
-    throw new Error(
-      "Esta sección es exclusiva para administradores."
-    );
-  }
+if (
+  !allowedRoles.includes(profile.role)
+) {
+
+  throw new Error(
+    "No tienes permisos para administrar este municipio."
+  );
+}
 
 
   if (
