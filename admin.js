@@ -389,6 +389,13 @@ if (municipalitiesButton) {
 if (organizationButton) {
   organizationButton.hidden =
     !canManageOrganization;
+
+  if (canManageOrganization) {
+    organizationButton.href =
+      `./municipio.html?id=${encodeURIComponent(
+        currentUserProfile.municipalityId
+      )}`;
+  }
 }
   
 // La nueva jerarquía operativa
