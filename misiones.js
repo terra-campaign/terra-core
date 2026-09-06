@@ -815,6 +815,72 @@ if (!selectedAssignees.length) {
   }
 
 
+// ==================================================
+// CADENA DE SUPERVISIÓN
+// BUILD-116 — SUPERVISIÓN JERÁRQUICA
+// ==================================================
+
+const supervisorIds = [];
+
+let supervisorUid =
+  currentUser.uid;
+
+let supervisorProfile =
+  currentUserProfile;
+
+const visitedSupervisorIds =
+  new Set();
+
+while (
+  supervisorUid &&
+  supervisorProfile &&
+  !visitedSupervisorIds.has(
+    supervisorUid
+  )
+) {
+
+  visitedSupervisorIds.add(
+    supervisorUid
+  );
+
+  supervisorIds.push(
+    supervisorUid
+  );
+
+  const parentUid =
+    supervisorProfile.parentUserId ||
+    "";
+
+  if (!parentUid) {
+    break;
+  }
+
+  const parentSnapshot =
+    await getDoc(
+      doc(
+        db,
+        "usuarios",
+        parentUid
+      )
+    );
+
+  if (!parentSnapshot.exists()) {
+    break;
+  }
+
+  supervisorUid =
+    parentSnapshot.id;
+
+  supervisorProfile = {
+    uid:
+      parentSnapshot.id,
+
+    ...parentSnapshot.data()
+  };
+}
+
+     
+
   // ==================================================
   // CREAR UNA MISIÓN INDIVIDUAL POR DESTINATARIO
   // BUILD-116 — TRANSICIÓN A MULTIASIGNACIÓN
@@ -869,6 +935,8 @@ if (!selectedAssignees.length) {
         createdByRole:
           currentUserProfile.role,
 
+        supervisorIds,
+
         assignedTo:
           assignee.uid,
 
@@ -904,7 +972,7 @@ if (!selectedAssignees.length) {
           serverTimestamp(),
 
         version:
-          2
+          3
       }
     );
   }
