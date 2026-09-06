@@ -713,8 +713,59 @@ function listenCoordinators() {
   ) {
 
     stopCoordinatorsListener();
+
+    stopCoordinatorsListener =
+      null;
   }
 
+
+  // ----------------------------------------------------
+  // RESPONSABLE DE ORGANIZACIÓN
+  //
+  // No consulta otros coordinadores.
+  // Él mismo es el responsable de su organización.
+  // ----------------------------------------------------
+
+  if (
+    currentUserProfile.role ===
+    "coordinador_municipal"
+  ) {
+
+    const coordinators = [
+      {
+        uid:
+          currentUser.uid,
+
+        ...currentUserProfile
+      }
+    ];
+
+
+    currentCoordinators =
+      coordinators;
+
+
+    renderCoordinators(
+      coordinators
+    );
+
+
+    renderCoordinatorOptions();
+
+
+    showStatus(
+      coordinatorStatus,
+      ""
+    );
+
+
+    return;
+  }
+
+
+  // ----------------------------------------------------
+  // ADMINISTRADOR
+  // ----------------------------------------------------
 
   const coordinatorsQuery =
     query(
