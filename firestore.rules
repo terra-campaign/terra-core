@@ -169,6 +169,15 @@ match /estructuras/{structureDocId} {
         resource.data.parentUserId ==
         request.auth.uid;
 
+     // Responsable de organización:
+// lectura de sus descendientes en la misma campaña.
+// No concede permisos de escritura.
+allow get, list: if
+  roleIs("coordinador_municipal") &&
+  resource.data.campaignId ==
+  profile().campaignId &&
+  request.auth.uid in resource.data.ancestorIds;
+
       // Altas y modificaciones mediante Cloud Functions.
       allow create, update, delete: if false;
     }
