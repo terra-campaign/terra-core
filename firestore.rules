@@ -152,8 +152,9 @@ match /estructuras/{structureDocId} {
       // NUEVA JERARQUÍA
       // BUILD-116
       //
-      // Cada nivel puede consultar solamente
-      // a sus subordinados directos.
+    // Cada nivel consulta a sus subordinados directos.
+// El responsable de organización también puede
+// leer a sus descendientes, sin permisos de escritura.
       // -------------------------------------------------
 
       allow get, list: if
