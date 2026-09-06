@@ -256,6 +256,7 @@ async function loadMission() {
 
 // ======================================================
 // VALIDAR ALCANCE DE LA MISIÓN
+// BUILD-116 — SUPERVISIÓN JERÁRQUICA
 // ======================================================
 
 function validateMissionScope(mission) {
@@ -282,9 +283,7 @@ function validateMissionScope(mission) {
     return;
   }
 
-  // BUILD-116:
-  // el destinatario individual puede abrir
-  // únicamente la misión que le fue asignada.
+  // Destinatario directo.
   if (
     mission.assignedTo ===
     currentUser.uid
@@ -292,11 +291,22 @@ function validateMissionScope(mission) {
     return;
   }
 
-  // El creador puede consultar la misión
-  // que él mismo asignó.
+  // Creador directo.
   if (
     mission.createdBy ===
     currentUser.uid
+  ) {
+    return;
+  }
+
+  // Supervisor jerárquico.
+  if (
+    Array.isArray(
+      mission.supervisorIds
+    ) &&
+    mission.supervisorIds.includes(
+      currentUser.uid
+    )
   ) {
     return;
   }
