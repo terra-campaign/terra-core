@@ -49,6 +49,11 @@ import {
   centerTerritoryMap
 } from "./js/maps.js";
 
+const visitResultInput =
+  document.getElementById("visitResult");
+
+const votingIntentionInput =
+  document.getElementById("votingIntention");
 
 // Resultado de visita → Intención de voto
 // =====================================================
