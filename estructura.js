@@ -708,11 +708,11 @@ function listenStructureUsers() {
           currentUserProfile.campaignId
         ),
 
-        where(
-          "parentUserId",
-          "==",
-          currentUser.uid
-        ),
+       where(
+  "ancestorIds",
+  "array-contains",
+  currentUser.uid
+),
 
         where(
           "structureId",
