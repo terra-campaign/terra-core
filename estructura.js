@@ -343,13 +343,16 @@ async function loadCurrentUserProfile(
     );
   }
 
-  if (
-    profile.role !== "admin"
-  ) {
-    throw new Error(
-      "Esta sección es exclusiva para administradores."
-    );
-  }
+ if (
+  ![
+    "admin",
+    "coordinador_municipal"
+  ].includes(profile.role)
+) {
+  throw new Error(
+    "No tienes autorización para administrar esta estructura."
+  );
+}
 
   if (
     !profile.campaignId
@@ -408,6 +411,17 @@ async function loadStructure() {
       "La estructura no pertenece a esta campaña."
     );
   }
+
+  if (
+  currentUserProfile.role ===
+    "coordinador_municipal" &&
+  structure.municipalityId !==
+    currentUserProfile.municipalityId
+) {
+  throw new Error(
+    "No tienes autorización para administrar estructuras de otro municipio."
+  );
+}
 
   currentStructure =
     structure;
@@ -677,26 +691,57 @@ function listenStructureUsers() {
     stopStructureUsersListener();
   }
 
-  const structureUsersQuery =
-    query(
+ const structureUsersQuery =
+  currentUserProfile.role ===
+  "coordinador_municipal"
 
-      collection(
-        db,
-        "usuarios"
-      ),
+    ? query(
 
-      where(
-        "campaignId",
-        "==",
-        currentUserProfile.campaignId
-      ),
+        collection(
+          db,
+          "usuarios"
+        ),
 
-      where(
-        "structureId",
-        "==",
-        currentStructure.id
+        where(
+          "campaignId",
+          "==",
+          currentUserProfile.campaignId
+        ),
+
+        where(
+          "parentUserId",
+          "==",
+          currentUser.uid
+        ),
+
+        where(
+          "structureId",
+          "==",
+          currentStructure.id
+        )
       )
-    );
+
+    : query(
+
+        collection(
+          db,
+          "usuarios"
+        ),
+
+        where(
+          "campaignId",
+          "==",
+          currentUserProfile.campaignId
+        ),
+
+        where(
+          "structureId",
+          "==",
+          currentStructure.id
+        )
+      );
+
+  
 
   stopStructureUsersListener =
     onSnapshot(
@@ -1195,7 +1240,50 @@ structureChiefModal
 
 newMemberButton?.addEventListener(
   "click",
-  openMemberModal
+  () => {
+
+    if (
+      currentUserProfile?.role !==
+      "admin"
+    ) {
+
+      console.warn(
+        "Intento bloqueado: el Responsable de Organización no crea integrantes."
+      );
+
+      return;
+    }
+
+
+    openMemberModal();
+  }
+);
+
+
+memberForm?.addEventListener(
+  "submit",
+  (event) => {
+
+    if (
+      currentUserProfile?.role !==
+      "admin"
+    ) {
+
+      event.preventDefault();
+
+
+      console.warn(
+        "Intento bloqueado: el Responsable de Organización no crea integrantes."
+      );
+
+      return;
+    }
+
+
+    handleCreateMember(
+      event
+    );
+  }
 );
 
 closeMemberModalButton?.addEventListener(
@@ -1203,10 +1291,7 @@ closeMemberModalButton?.addEventListener(
   closeMemberModal
 );
 
-memberForm?.addEventListener(
-  "submit",
-  handleCreateMember
-);
+
 
 memberModal
   ?.querySelector(
@@ -1293,6 +1378,9 @@ onAuthStateChanged(
         await loadCurrentUserProfile(
           user
         );
+
+      newMemberButton.hidden =
+  currentUserProfile.role !== "admin";
 
       await loadStructure();
 
