@@ -1,0 +1,652 @@
+rules_version = '2';
+
+service cloud.firestore {
+
+  match /databases/{database}/documents {
+
+    // =====================================================
+    // FUNCIONES AUXILIARES
+    // =====================================================
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath() {
+      return /databases/$(database)/documents/usuarios/$(request.auth.uid);
+    }
+
+    function profileExists() {
+      return signedIn() &&
+             exists(profilePath());
+    }
+
+    function profile() {
+      return get(profilePath()).data;
+    }
+
+    function active() {
+      return profileExists() &&
+             profile().active == true;
+    }
+
+    function roleIs(roleName) {
+      return active() &&
+             profile().role == roleName;
+    }
+
+    // -----------------------------------------------------
+    // USUARIOS AUXILIARES
+    // BUILD-116
+    // -----------------------------------------------------
+
+    function userPath(userId) {
+      return /databases/$(database)/documents/usuarios/$(userId);
+    }
+
+    function userExists(userId) {
+      return exists(userPath(userId));
+    }
+
+    function userProfile(userId) {
+      return get(userPath(userId)).data;
+    }
+
+
+
+// =====================================================
+// MUNICIPIOS
+// =====================================================
+
+match /municipios/{municipalityId} {
+
+  // ADMIN:
+  // puede consultar municipios de su misma campaña.
+  //
+  // RESPONSABLE DE ORGANIZACIÓN:
+  // puede consultar únicamente su propio municipio.
+  allow get, list: if
+    (
+      roleIs("admin") &&
+      resource.data.campaignId ==
+      profile().campaignId
+    )
+    ||
+    (
+      roleIs("coordinador_municipal") &&
+      municipalityId ==
+      profile().municipalityId &&
+      resource.data.campaignId ==
+      profile().campaignId
+    );
+
+  // La creación y modificación
+  // continúan únicamente por backend confiable.
+  allow create, update, delete: if false;
+}
+
+
+    // =====================================================
+    // ESTRUCTURAS
+    // =====================================================
+
+    match /estructuras/{structureDocId} {
+
+      allow get, list:
+        if roleIs("admin") &&
+           resource.data.campaignId ==
+           profile().campaignId;
+
+      allow create, update, delete:
+        if false;
+    }
+
+
+    // =====================================================
+    // USUARIOS
+    // =====================================================
+
+    match /usuarios/{userId} {
+
+      // Cada usuario puede leer su propio perfil.
+      allow get: if signedIn() &&
+                 request.auth.uid == userId;
+
+      // Administrador:
+      // usuarios de su campaña.
+      allow get, list: if roleIs("admin") &&
+                       resource.data.campaignId ==
+                       profile().campaignId;
+
+      // -------------------------------------------------
+      // MODELO ANTERIOR
+      // Coordinador → brigadistas
+      // -------------------------------------------------
+
+      allow get, list: if roleIs("coordinador") &&
+                       resource.data.campaignId ==
+                       profile().campaignId &&
+                       resource.data.role ==
+                       "brigadista" &&
+                       resource.data.brigadeId
+                       in profile().brigadeIds;
+
+      // -------------------------------------------------
+      // NUEVA JERARQUÍA
+      // BUILD-116
+      //
+      // Cada nivel puede consultar solamente
+      // a sus subordinados directos.
+      // -------------------------------------------------
+
+      allow get, list: if
+        (
+          roleIs("coordinador_municipal") ||
+          roleIs("jefe_estructura") ||
+          roleIs("integrante")
+        ) &&
+
+        resource.data.campaignId ==
+        profile().campaignId &&
+
+        resource.data.parentUserId ==
+        request.auth.uid;
+
+      // Altas y modificaciones mediante Cloud Functions.
+      allow create, update, delete: if false;
+    }
+
+
+    // =====================================================
+    // VISITAS
+    // MODELO OPERATIVO ANTERIOR
+    // =====================================================
+
+    match /visitas/{visitaId} {
+
+      // Crear visita.
+      allow create: if active() &&
+                    (
+                      roleIs("admin") ||
+                      roleIs("coordinador") ||
+                      roleIs("brigadista")
+                    ) &&
+                    request.resource.data.interviewerId ==
+                    request.auth.uid &&
+                    request.resource.data.campaignId ==
+                    profile().campaignId;
+
+      // Administrador:
+      // todas las visitas de su campaña.
+      allow read: if roleIs("admin") &&
+                  resource.data.campaignId ==
+                  profile().campaignId;
+
+      // Brigadista:
+      // únicamente sus propias visitas.
+      allow read: if roleIs("brigadista") &&
+                  resource.data.interviewerId ==
+                  request.auth.uid;
+
+      // Coordinador:
+      // visitas de sus brigadas.
+      allow read: if roleIs("coordinador") &&
+                  resource.data.campaignId ==
+                  profile().campaignId &&
+                  resource.data.brigadeId
+                  in profile().brigadeIds;
+
+      // Consulta:
+      // solo lectura de su campaña.
+      allow read: if roleIs("consulta") &&
+                  resource.data.campaignId ==
+                  profile().campaignId;
+
+      allow update, delete: if false;
+    }
+
+
+    // =====================================================
+    // BRIGADAS
+    // MODELO OPERATIVO ANTERIOR
+    // =====================================================
+
+    match /brigadas/{brigadeId} {
+
+      // Administrador:
+      // todas las brigadas de su campaña.
+      allow get, list: if roleIs("admin") &&
+                       resource.data.campaignId ==
+                       profile().campaignId;
+
+      // Coordinador:
+      // únicamente sus brigadas asignadas.
+      allow get, list: if roleIs("coordinador") &&
+                       resource.data.campaignId ==
+                       profile().campaignId &&
+                       brigadeId
+                       in profile().brigadeIds;
+
+      // Escritura exclusivamente mediante Cloud Functions.
+      allow create, update, delete: if false;
+    }
+
+
+    // =====================================================
+    // MISIONES
+    // BUILD-116
+    // =====================================================
+
+    match /misiones/{missionId} {
+
+      // -------------------------------------------------
+      // CREAR — ADMINISTRADOR
+      // -------------------------------------------------
+
+      allow create: if roleIs("admin") &&
+
+                    request.resource.data.id ==
+                    missionId &&
+
+                    request.resource.data.campaignId ==
+                    profile().campaignId &&
+
+                    request.resource.data.createdBy ==
+                    request.auth.uid &&
+
+                    request.resource.data.createdByRole ==
+                    "admin";
+
+
+      // -------------------------------------------------
+      // CREAR — NUEVA JERARQUÍA
+      // BUILD-116
+      //
+      // Responsable de organización
+      //    → Responsable de estructura
+      //
+      // Responsable de estructura
+      //    → Integrante
+      //
+      // Integrante
+      //    → Participante
+      //
+      // Nunca se puede brincar un nivel.
+      // -------------------------------------------------
+
+      allow create: if
+        (
+          roleIs("coordinador_municipal") ||
+          roleIs("jefe_estructura") ||
+          roleIs("integrante")
+        ) &&
+
+        request.resource.data.id ==
+        missionId &&
+
+        request.resource.data.campaignId ==
+        profile().campaignId &&
+
+        request.resource.data.createdBy ==
+        request.auth.uid &&
+
+        request.resource.data.createdByRole ==
+        profile().role &&
+
+        request.resource.data.assignedTo
+        is string &&
+
+        userExists(
+          request.resource.data.assignedTo
+        ) &&
+
+        userProfile(
+          request.resource.data.assignedTo
+        ).campaignId ==
+        profile().campaignId &&
+
+        userProfile(
+          request.resource.data.assignedTo
+        ).active ==
+        true &&
+
+        userProfile(
+          request.resource.data.assignedTo
+        ).parentUserId ==
+        request.auth.uid &&
+
+        (
+          (
+            roleIs("coordinador_municipal") &&
+
+            userProfile(
+              request.resource.data.assignedTo
+            ).role ==
+            "jefe_estructura"
+          ) ||
+
+          (
+            roleIs("jefe_estructura") &&
+
+            userProfile(
+              request.resource.data.assignedTo
+            ).role ==
+            "integrante"
+          ) ||
+
+          (
+            roleIs("integrante") &&
+
+            userProfile(
+              request.resource.data.assignedTo
+            ).role ==
+            "participante"
+          )
+        );
+
+
+      // -------------------------------------------------
+      // CREAR — COORDINADOR
+      // MODELO ANTERIOR
+      // -------------------------------------------------
+
+      allow create: if roleIs("coordinador") &&
+
+                    request.resource.data.id ==
+                    missionId &&
+
+                    request.resource.data.campaignId ==
+                    profile().campaignId &&
+
+                    request.resource.data.createdBy ==
+                    request.auth.uid &&
+
+                    request.resource.data.createdByRole ==
+                    "coordinador" &&
+
+                    request.resource.data.brigadeId
+                    in profile().brigadeIds;
+
+
+      // -------------------------------------------------
+      // LEER — ADMINISTRADOR
+      // -------------------------------------------------
+
+      allow read: if roleIs("admin") &&
+                  resource.data.campaignId ==
+                  profile().campaignId;
+
+
+      // -------------------------------------------------
+      // LEER — COORDINADOR
+      // MODELO ANTERIOR
+      // -------------------------------------------------
+
+      allow read: if roleIs("coordinador") &&
+                  resource.data.campaignId ==
+                  profile().campaignId &&
+                  resource.data.brigadeId
+                  in profile().brigadeIds;
+
+
+      // -------------------------------------------------
+      // -------------------------------------------------
+// LEER — NUEVA JERARQUÍA
+// BUILD-116 — SUPERVISIÓN JERÁRQUICA
+//
+// Puede leer:
+// 1. La persona que recibió la misión.
+// 2. La persona que creó la misión.
+// 3. Un supervisor registrado en supervisorIds.
+// -------------------------------------------------
+
+allow read: if
+  (
+    roleIs("coordinador_municipal") ||
+    roleIs("jefe_estructura") ||
+    roleIs("integrante") ||
+    roleIs("participante")
+  ) &&
+
+  resource.data.campaignId ==
+  profile().campaignId &&
+
+  (
+    (
+      resource.data.keys().hasAll(
+        ["assignedTo"]
+      ) &&
+
+      resource.data.assignedTo ==
+      request.auth.uid
+    ) ||
+
+    resource.data.createdBy ==
+    request.auth.uid ||
+
+    (
+      resource.data.keys().hasAll(
+        ["supervisorIds"]
+      ) &&
+
+      request.auth.uid
+      in resource.data.supervisorIds
+    )
+  );
+
+
+      // Edición/cancelación todavía no implementada.
+      allow update, delete: if false;
+    }
+
+
+    // =====================================================
+    // EVIDENCIAS DE MISIONES
+    // BUILD-116
+    // =====================================================
+
+    match /missionEvidence/{evidenceId} {
+
+      // -------------------------------------------------
+      // CREAR — ADMINISTRADOR
+      // MODELO ANTERIOR
+      // -------------------------------------------------
+
+      allow create: if roleIs("admin") &&
+
+                    request.resource.data.id ==
+                    evidenceId &&
+
+                    request.resource.data.campaignId ==
+                    profile().campaignId &&
+
+                    request.resource.data.uploadedBy ==
+                    request.auth.uid &&
+
+                    request.resource.data.uploadedByRole ==
+                    "admin" &&
+
+                    exists(
+                      /databases/$(database)/documents/misiones/$(request.resource.data.missionId)
+                    ) &&
+
+                    get(
+                      /databases/$(database)/documents/misiones/$(request.resource.data.missionId)
+                    ).data.campaignId ==
+                    profile().campaignId &&
+
+                    request.resource.data.brigadeId ==
+                    get(
+                      /databases/$(database)/documents/misiones/$(request.resource.data.missionId)
+                    ).data.brigadeId;
+
+
+      // -------------------------------------------------
+      // CREAR — COORDINADOR
+      // MODELO ANTERIOR
+      // -------------------------------------------------
+
+      allow create: if roleIs("coordinador") &&
+
+                    request.resource.data.id ==
+                    evidenceId &&
+
+                    request.resource.data.campaignId ==
+                    profile().campaignId &&
+
+                    request.resource.data.uploadedBy ==
+                    request.auth.uid &&
+
+                    request.resource.data.uploadedByRole ==
+                    "coordinador" &&
+
+                    request.resource.data.brigadeId
+                    in profile().brigadeIds &&
+
+                    exists(
+                      /databases/$(database)/documents/misiones/$(request.resource.data.missionId)
+                    ) &&
+
+                    get(
+                      /databases/$(database)/documents/misiones/$(request.resource.data.missionId)
+                    ).data.campaignId ==
+                    profile().campaignId &&
+
+                    request.resource.data.brigadeId ==
+                    get(
+                      /databases/$(database)/documents/misiones/$(request.resource.data.missionId)
+                    ).data.brigadeId;
+
+
+      // -------------------------------------------------
+      // CREAR EVIDENCIA — NUEVA JERARQUÍA
+      // BUILD-116
+      //
+      // Solo la persona a quien se le asignó
+      // la misión puede registrar su evidencia.
+      // -------------------------------------------------
+
+      allow create: if
+        (
+          roleIs("coordinador_municipal") ||
+          roleIs("jefe_estructura") ||
+          roleIs("integrante") ||
+          roleIs("participante")
+        ) &&
+
+        request.resource.data.id ==
+        evidenceId &&
+
+        request.resource.data.campaignId ==
+        profile().campaignId &&
+
+        request.resource.data.uploadedBy ==
+        request.auth.uid &&
+
+        request.resource.data.uploadedByRole ==
+        profile().role &&
+
+        request.resource.data.missionId
+        is string &&
+
+        exists(
+          /databases/$(database)/documents/misiones/$(request.resource.data.missionId)
+        ) &&
+
+        get(
+          /databases/$(database)/documents/misiones/$(request.resource.data.missionId)
+        ).data.campaignId ==
+        profile().campaignId &&
+
+        get(
+          /databases/$(database)/documents/misiones/$(request.resource.data.missionId)
+        ).data.assignedTo ==
+        request.auth.uid;
+
+
+      // -------------------------------------------------
+      // LEER — ADMINISTRADOR
+      // -------------------------------------------------
+
+      allow read: if roleIs("admin") &&
+                  resource.data.campaignId ==
+                  profile().campaignId;
+
+
+      // -------------------------------------------------
+      // LEER — COORDINADOR
+      // MODELO ANTERIOR
+      // -------------------------------------------------
+
+      allow read: if roleIs("coordinador") &&
+                  resource.data.campaignId ==
+                  profile().campaignId &&
+                  resource.data.brigadeId
+                  in profile().brigadeIds;
+
+
+      // -------------------------------------------------
+      // LEER EVIDENCIA — NUEVA JERARQUÍA
+      // BUILD-116
+      //
+      // Puede consultar evidencia:
+      // - quien recibió la misión
+      // - quien creó la misión
+      // -------------------------------------------------
+
+     allow read: if
+  (
+    roleIs("coordinador_municipal") ||
+    roleIs("jefe_estructura") ||
+    roleIs("integrante") ||
+    roleIs("participante")
+  ) &&
+
+  resource.data.campaignId ==
+  profile().campaignId &&
+
+  resource.data.missionId
+  is string &&
+
+  exists(
+    /databases/$(database)/documents/misiones/$(resource.data.missionId)
+  ) &&
+
+  get(
+    /databases/$(database)/documents/misiones/$(resource.data.missionId)
+  ).data.campaignId ==
+  profile().campaignId &&
+
+  (
+    get(
+      /databases/$(database)/documents/misiones/$(resource.data.missionId)
+    ).data.assignedTo ==
+    request.auth.uid ||
+
+    get(
+      /databases/$(database)/documents/misiones/$(resource.data.missionId)
+    ).data.createdBy ==
+    request.auth.uid ||
+
+    (
+      get(
+        /databases/$(database)/documents/misiones/$(resource.data.missionId)
+      ).data.keys().hasAll(
+        ["supervisorIds"]
+      ) &&
+
+      request.auth.uid
+      in get(
+        /databases/$(database)/documents/misiones/$(resource.data.missionId)
+      ).data.supervisorIds
+    )
+  );
+
+
+      // Evidencia inmutable.
+      allow update, delete: if false;
+    }
+
+  }
+
+}
