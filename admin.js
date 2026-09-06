@@ -49,11 +49,126 @@ import {
   centerTerritoryMap
 } from "./js/maps.js";
 
+// ======================================================
+// ELEMENTOS DE PANTALLA
+// ======================================================
+
+const logoutButton =
+  document.querySelector("#logoutButton");
+
+const brigadistasAdminButton =
+  document.querySelector("#brigadistasAdminButton");
+
+const brigadasAdminButton =
+  document.querySelector("#brigadasAdminButton");
+
+const municipalitiesButton =
+  document.querySelector("#municipalitiesButton");
+
+const missionsButton =
+  document.querySelector("#missionsButton");
+
+const organizationButton =
+  document.querySelector("#organizationButton");
+
+const visitForm =
+  document.querySelector("#visitForm");
+
+const streetInput =
+  document.querySelector("#street");
+
+const houseNumberInput =
+  document.querySelector("#houseNumber");
+
+const neighborhoodInput =
+  document.querySelector("#neighborhood");
+
+const localityInput =
+  document.querySelector("#locality");
+
+const adultsInput =
+  document.querySelector("#adults");
+
+const citizenNameInput =
+  document.querySelector("#citizenName");
+
+const citizenPhoneInput =
+  document.querySelector("#citizenPhone");
+
+const observationsInput =
+  document.querySelector("#observations");
+
+const duplicateAddressWarning =
+  document.querySelector("#duplicateAddressWarning");
+
 const visitResultInput =
-  document.getElementById("visitResult");
+  document.querySelector("#visitResult");
 
 const votingIntentionInput =
-  document.getElementById("votingIntention");
+  document.querySelector("#votingIntention");
+
+const locationButton =
+  document.querySelector("#locationButton");
+
+const centerMapButton =
+  document.querySelector("#centerMapButton");
+
+const locationStatus =
+  document.querySelector("#locationStatus");
+
+const mapMessage =
+  document.querySelector("#mapMessage");
+
+const latitudeInput =
+  document.querySelector("#latitude");
+
+const longitudeInput =
+  document.querySelector("#longitude");
+
+const saveVisitButton =
+  document.querySelector("#saveVisitButton");
+
+const visitMessage =
+  document.querySelector("#visitMessage");
+
+const photoButton =
+  document.querySelector("#photoButton");
+
+const photoInput =
+  document.querySelector("#photo");
+
+const photoPreview =
+  document.querySelector("#photoPreview");
+
+const photoStatus =
+  document.querySelector("#photoStatus");
+
+const totalVisitsElement =
+  document.querySelector("#totalVisits");
+
+const totalFlyersElement =
+  document.querySelector("#totalFlyers");
+
+const totalAnswersElement =
+  document.querySelector("#totalAnswers");
+
+const totalSupportElement =
+  document.querySelector("#totalSupport");
+
+const totalUndecidedElement =
+  document.querySelector("#totalUndecided");
+
+const totalOtherOptionElement =
+  document.querySelector("#totalOtherOption");
+
+const totalFollowUpsElement =
+  document.querySelector("#totalFollowUps");
+
+const visitsList =
+  document.querySelector("#visitsList");
+
+const territoryFilters =
+  document.querySelectorAll(".territory-filter");
 
 // Resultado de visita → Intención de voto
 // =====================================================
