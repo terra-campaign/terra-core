@@ -2965,10 +2965,18 @@ const structureDocumentId =
           structure.name || "",
 
         parentUserId:
-          structure.coordinatorId,
+  creatorUid,
 
-        createdBy:
-          creatorUid,
+ancestorIds: [
+  creatorUid,
+  ...(
+    creatorProfile.ancestorIds ||
+    []
+  )
+],
+
+createdBy:
+  creatorUid,
 
         createdByRole:
           creatorProfile.role,
@@ -3233,10 +3241,8 @@ exports.createStructureMember = onCall(
     }
 
     const allowedRoles = [
-      "admin",
-      "coordinador_municipal",
-      "jefe_estructura"
-    ];
+  "jefe_estructura"
+];
 
     if (
       !allowedRoles.includes(
@@ -3518,31 +3524,21 @@ const password =
     }
 
 
-    // ==================================================
-    // 8. DEFINIR PADRE JERÁRQUICO
-    // ==================================================
+   // ==================================================
+// 8. DEFINIR JERARQUÍA
+// BUILD-116A
+// ==================================================
 
-    let parentUserId =
-      creatorUid;
+const parentUserId =
+  creatorUid;
 
-    if (
-      creatorProfile.role ===
-      "admin"
-    ) {
-      parentUserId =
-        structure.chiefId ||
-        structure.coordinatorId ||
-        creatorUid;
-    }
-
-    if (
-      creatorProfile.role ===
-      "coordinador_municipal"
-    ) {
-      parentUserId =
-        structure.chiefId ||
-        creatorUid;
-    }
+const ancestorIds = [
+  creatorUid,
+  ...(
+    creatorProfile.ancestorIds ||
+    []
+  )
+];
 
 
     // ==================================================
@@ -3604,8 +3600,10 @@ const password =
 
         parentUserId,
 
-        createdBy:
-          creatorUid,
+ancestorIds,
+
+createdBy:
+  creatorUid,
 
         createdByRole:
           creatorProfile.role,
@@ -3859,11 +3857,8 @@ exports.createParticipant = onCall(
     }
 
     const allowedRoles = [
-      "admin",
-      "coordinador_municipal",
-      "jefe_estructura",
-      "integrante"
-    ];
+  "integrante"
+];
 
     if (
       !allowedRoles.includes(
@@ -3920,9 +3915,15 @@ const password =
   );
 
 const parentUserId =
-  cleanText(
-    data.parentUserId || ""
-  );
+  creatorUid;
+
+    const ancestorIds = [
+  creatorUid,
+  ...(
+    creatorProfile.ancestorIds ||
+    []
+  )
+];
 
 
    // ==================================================
@@ -4059,10 +4060,7 @@ if (!parentUserId) {
     }
 
 
-    if (
-      creatorProfile.role ===
-      "jefe_estructura"
-    ) {
+
 
       if (
         creatorProfile.structureId !==
@@ -4076,10 +4074,7 @@ if (!parentUserId) {
     }
 
 
-    if (
-      creatorProfile.role ===
-      "coordinador_municipal"
-    ) {
+
 
       if (
         creatorProfile.municipalityId !==
@@ -4221,11 +4216,13 @@ if (!parentUserId) {
 
         parentUserId,
 
-        parentUserName:
-          parentProfile.name || "",
+parentUserName:
+  parentProfile.name || "",
 
-        createdBy:
-          creatorUid,
+ancestorIds,
+
+createdBy:
+  creatorUid,
 
         createdByRole:
           creatorProfile.role,
