@@ -1158,20 +1158,50 @@ async function loadMissions() {
           )
         );
 
+      const supervisedQuery =
+  query(
+    collection(
+      db,
+      "misiones"
+    ),
 
-      const [
-        receivedSnapshot,
-        createdSnapshot
-      ] =
-        await Promise.all([
-          getDocs(
-            receivedQuery
-          ),
+    where(
+      "campaignId",
+      "==",
+      campaignId
+    ),
 
-          getDocs(
-            createdQuery
-          )
-        ]);
+    where(
+      "supervisorIds",
+      "array-contains",
+      currentUserProfile.uid
+    ),
+
+    orderBy(
+      "createdAt",
+      "desc"
+    )
+  );
+
+
+    const [
+  receivedSnapshot,
+  createdSnapshot,
+  supervisedSnapshot
+] =
+  await Promise.all([
+    getDocs(
+      receivedQuery
+    ),
+
+    getDocs(
+      createdQuery
+    ),
+
+    getDocs(
+      supervisedQuery
+    )
+  ]);
 
 
       // ==================================================
@@ -1212,6 +1242,23 @@ async function loadMissions() {
           );
         }
       );
+
+
+      supervisedSnapshot.forEach(
+  (documentSnapshot) => {
+
+    missionMap.set(
+      documentSnapshot.id,
+      {
+        id:
+          documentSnapshot.id,
+
+        ...documentSnapshot.data()
+      }
+    );
+  }
+);
+      
 
 
       missions =
