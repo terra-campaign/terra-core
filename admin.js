@@ -344,6 +344,10 @@ function applyRoleInterface() {
     isAdmin ||
     currentUserProfile.role === "coordinador";
 
+  const canManageOrganization =
+  currentUserProfile.role ===
+  "coordinador_municipal";
+
   const canAccessMissions =
   [
     "admin",
@@ -380,6 +384,13 @@ if (municipalitiesButton) {
     !isAdmin;
 }
 
+// El Responsable de organización
+// administra únicamente su propia organización.
+if (organizationButton) {
+  organizationButton.hidden =
+    !canManageOrganization;
+}
+  
 // La nueva jerarquía operativa
 // puede acceder al módulo privado de Misiones.
 if (missionsButton) {
