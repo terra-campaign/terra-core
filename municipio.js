@@ -1433,9 +1433,26 @@ async function handleCreateStructure(
 // EVENTOS COORDINADOR
 // ======================================================
 
+
 newCoordinatorButton?.addEventListener(
   "click",
-  openCoordinatorModal
+  () => {
+
+    if (
+      currentUserProfile?.role !==
+      "admin"
+    ) {
+
+      console.warn(
+        "Intento bloqueado: sólo Admin puede crear coordinadores municipales."
+      );
+
+      return;
+    }
+
+
+    openCoordinatorModal();
+  }
 );
 
 
@@ -1447,7 +1464,28 @@ closeCoordinatorModalButton?.addEventListener(
 
 coordinatorForm?.addEventListener(
   "submit",
-  handleCreateCoordinator
+  (event) => {
+
+    if (
+      currentUserProfile?.role !==
+      "admin"
+    ) {
+
+      event.preventDefault();
+
+
+      console.warn(
+        "Intento bloqueado: sólo Admin puede crear coordinadores municipales."
+      );
+
+      return;
+    }
+
+
+    handleCreateCoordinator(
+      event
+    );
+  }
 );
 
 
@@ -1544,6 +1582,9 @@ onAuthStateChanged(
         await loadCurrentUserProfile(
           user
         );
+
+      newCoordinatorButton.hidden =
+  currentUserProfile.role !== "admin";
 
 
       await loadMunicipality();
