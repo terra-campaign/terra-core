@@ -4373,3 +4373,10 @@ exports.getStructureProgress =
   require("./structure-progress.cjs").getStructureProgress;
 
 
+exports.createLinkedMissions =
+  require("./mission-delegation.cjs").createLinkedMissions;
+
+exports.getMissionBranchProgress =
+  require("./mission-delegation.cjs").getMissionBranchProgress;
+
+
