@@ -466,12 +466,9 @@ if (
     : "";
   }
 
-  if (structureMunicipalityElement) {
-    structureMunicipalityElement.textContent =
-      structure.municipalityName
-        ? `Municipio: ${structure.municipalityName}`
-        : "";
-  }
+ if (structureCoordinatorElement) {
+  structureCoordinatorElement.textContent = "";
+}
 
   showStatus(
     structureStatus,
@@ -494,6 +491,12 @@ function renderStructureChief(
 
   currentStructureChief =
     chief || null;
+
+  if (structureCoordinatorElement) {
+  structureCoordinatorElement.textContent = chief
+    ? `Responsable de estructura: ${chief.name || "Sin nombre"}`
+    : "Responsable de estructura: pendiente de asignación";
+}
 
   if (!chief) {
 
