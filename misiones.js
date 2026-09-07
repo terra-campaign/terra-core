@@ -1055,13 +1055,18 @@ function renderMissions() {
                 </p>
 
                 <p>
-                  Fecha:
-                  <strong>
-                    ${escapeHtml(
-                      dateText
-                    )}
-                  </strong>
-                </p>
+  Fecha programada:
+  <strong>
+    ${escapeHtml(dateText)}
+  </strong>
+</p>
+
+<p>
+  Asignada el:
+  <strong>
+    ${escapeHtml(formatFirestoreDate(mission.createdAt))}
+  </strong>
+</p>
 
                 <p>
                   Creada por:
