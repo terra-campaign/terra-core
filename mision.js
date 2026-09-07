@@ -30,7 +30,7 @@ import {
 
 
 import {
-  getDownloadURL,
+  getBlob,
   ref,
   uploadBytes
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
@@ -396,6 +396,11 @@ onAuthStateChanged(
   auth,
   async (user) => {
 
+    clearEvidenceImages();
+    currentMission = null;
+    currentUserProfile = null;
+    evidenceItems = [];
+
     if (!user) {
 
       window.location.href =
@@ -716,6 +721,12 @@ evidenceForm.addEventListener(
       return;
     }
 
+    if (auth.currentUser?.uid !== currentUser.uid ||
+        currentMission.assignedTo !== currentUser.uid) {
+      evidenceFormMessage.textContent = "Solo el destinatario puede registrar evidencia.";
+      return;
+    }
+
     if (
       !selectedEvidencePhoto
     ) {
@@ -785,11 +796,6 @@ evidenceForm.addEventListener(
         }
       );
 
-      const imageURL =
-        await getDownloadURL(
-          imageReference
-        );
-
       saveEvidenceButton.textContent =
         "Guardando registro...";
 
@@ -824,7 +830,7 @@ source:
 
     imagePath,
 
-    imageURL,
+    imageURL: "",
 
     uploadedBy:
       currentUser.uid,
@@ -846,7 +852,7 @@ source:
     updatedAt:
       serverTimestamp(),
 
-    version: 2
+    version: 3
   }
 );
       evidenceFormMessage.textContent =
@@ -964,7 +970,7 @@ async function loadEvidence() {
       }
     );
 
-    renderEvidence();
+    await renderEvidence();
 
     updateEvidenceMetrics();
 
@@ -1001,152 +1007,86 @@ async function loadEvidence() {
 // RENDERIZAR EVIDENCIAS
 // ======================================================
 
-function renderEvidence() {
+let evidenceRenderVersion = 0;
+const evidenceObjectUrls = new Set();
 
-  if (
-    !evidenceItems.length
-  ) {
-
-    evidenceList.innerHTML = `
-      <p>
-        Todavía no existen evidencias.
-      </p>
-    `;
-
-    return;
-  }
-
-  evidenceList.innerHTML =
-    evidenceItems
-      .map(
-        (evidence) => {
-
-          const createdDate =
-            formatFirestoreDate(
-              evidence.createdAt
-            );
-
-          return `
-
-            <article class="visit-item">
-
-              <div>
-
-                <img
-                  src="${escapeAttribute(
-                    evidence.imageURL ||
-                    ""
-                  )}"
-                  alt="Evidencia de misión"
-                  loading="lazy"
-                  style="
-                    width:100%;
-                    max-width:420px;
-                    border-radius:10px;
-                    object-fit:cover;
-                  "
-                >
-
-              </div>
-
-
-              <div>
-
-                <p>
-
-                  Reportó:
-
-                  <strong>
-                    ${escapeHtml(
-                      evidence.reportedByName ||
-                      "Sin identificar"
-                    )}
-                  </strong>
-
-                </p>
-
-
-                <p>
-
-                  Nota:
-
-                  <strong>
-                    ${escapeHtml(
-                      evidence.description ||
-                      "Sin nota"
-                    )}
-                  </strong>
-
-                </p>
-
-                ${
-  evidence.evidenceUrl
-    ? `
-      <p>
-
-        Enlace de evidencia:
-
-        <a
-          href="${escapeAttribute(
-            evidence.evidenceUrl
-          )}"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Abrir enlace
-        </a>
-
-      </p>
-    `
-    : ""
+function clearEvidenceImages() {
+  evidenceRenderVersion++;
+  evidenceList.replaceChildren();
+  for (const url of evidenceObjectUrls) URL.revokeObjectURL(url);
+  evidenceObjectUrls.clear();
 }
 
+window.addEventListener("pagehide", clearEvidenceImages);
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) window.location.reload();
+});
 
-                <p>
+async function renderEvidence() {
+  clearEvidenceImages();
+  const version = evidenceRenderVersion;
+  const uid = auth.currentUser?.uid;
+  const mission = currentMission;
+  if (!uid || !mission) return;
 
-                  Origen:
-
-                  <strong>
-                    WhatsApp
-                  </strong>
-
-                </p>
-
-
-                <p>
-
-                  Subida por:
-
-                  <strong>
-                    ${escapeHtml(
-                      evidence.uploadedByName ||
-                      "Sin identificar"
-                    )}
-                  </strong>
-
-                </p>
-
-
-                <p>
-
-                  Fecha:
-
-                  <strong>
-                    ${escapeHtml(
-                      createdDate
-                    )}
-                  </strong>
-
-                </p>
-
-              </div>
-
-            </article>
-
-          `;
+  for (const evidence of evidenceItems) {
+    if (version !== evidenceRenderVersion || auth.currentUser?.uid !== uid) return;
+    const article = document.createElement("article");
+    article.className = "visit-item";
+    const imageBox = document.createElement("div");
+    const status = document.createElement("p");
+    status.textContent = "Cargando fotografía...";
+    imageBox.append(status);
+    const details = document.createElement("div");
+    for (const [label, value] of [
+      ["Reportó", evidence.reportedByName || "Sin identificar"],
+      ["Nota", evidence.description || "Sin nota"],
+      ["Subida por", evidence.uploadedByName || "Sin identificar"],
+      ["Fecha", formatFirestoreDate(evidence.createdAt)]
+    ]) {
+      const line = document.createElement("p");
+      line.textContent = label + ": " + value;
+      details.append(line);
+    }
+    // Los enlaces externos no se usan para cargar la fotografía.
+    if (evidence.evidenceUrl) {
+      try {
+        const url = new URL(evidence.evidenceUrl);
+        if (["https:", "http:"].includes(url.protocol) &&
+            !["firebasestorage.googleapis.com", "storage.googleapis.com"].includes(url.hostname)) {
+          const link = document.createElement("a");
+          link.href = url.href;
+          link.textContent = "Abrir enlace externo";
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          details.append(link);
         }
-      )
-      .join("");
+      } catch {}
+    }
+    article.append(imageBox, details);
+    evidenceList.append(article);
+    try {
+      const prefix = "missions/" + mission.campaignId + "/" + mission.id + "/evidence/";
+      const path = evidence.imagePath;
+      if (typeof path !== "string" || !path.startsWith(prefix) ||
+          !path.slice(prefix.length) || path.slice(prefix.length).includes("/")) {
+        throw new Error("Ruta de fotografía inválida.");
+      }
+      const blob = await getBlob(ref(storage, path), 8 * 1024 * 1024);
+      if (version !== evidenceRenderVersion || auth.currentUser?.uid !== uid) return;
+      const url = URL.createObjectURL(blob);
+      evidenceObjectUrls.add(url);
+      const img = document.createElement("img");
+      img.alt = "Evidencia de misión";
+      img.style.cssText = "width:100%;max-width:420px;border-radius:10px;object-fit:cover";
+      img.src = url;
+      imageBox.replaceChildren(img);
+    } catch (error) {
+      if (version !== evidenceRenderVersion || auth.currentUser?.uid !== uid) return;
+      status.textContent = "No fue posible cargar la fotografía con tu sesión.";
+      console.error("Carga de fotografía:", error.code || error.message);
+    }
+  }
 }
 
 
