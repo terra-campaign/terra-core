@@ -23,11 +23,19 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
-  serverTimestamp,
-  setDoc
+  orderBy
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
+
+import {getFunctions, httpsCallable} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
+const functions = getFunctions(auth.app, "us-central1");
+const createLinkedMissions = httpsCallable(functions, "createLinkedMissions");
+const getMissionBranchProgress = httpsCallable(functions, "getMissionBranchProgress");
+const missionAssigneeList = document.querySelector("#missionAssigneeList");
+const missionSelectAll = document.querySelector("#missionSelectAll");
+let parentMission = null;
+let dispatchRequestId = null;
+let submitting = false;
 
 // ======================================================
 // ELEMENTOS DE PANTALLA
@@ -125,8 +133,8 @@ async function loadCurrentUserProfile(user) {
   }
 
   const profile = {
-    uid: snapshot.id,
-    ...snapshot.data()
+    ...snapshot.data(),
+    uid: snapshot.id
   };
 
   if (profile.active !== true) {
@@ -135,6 +143,7 @@ async function loadCurrentUserProfile(user) {
     );
   }
 
+  if (!profile.campaignId) throw new Error("El perfil no tiene campaña asignada.");
   return profile;
 }
 
@@ -235,8 +244,7 @@ async function loadAvailableAssignees() {
     false;
 
   const campaignId =
-    currentUserProfile.campaignId ||
-    "CAM-001";
+    currentUserProfile.campaignId;
 
   const assignableRole =
     getAssignableRole(
@@ -548,6 +556,11 @@ onAuthStateChanged(
   async (user) => {
 
     if (!user) {
+      currentUser = null;
+      currentUserProfile = null;
+      missions = [];
+      missionsList.replaceChildren();
+      missionModal.hidden = true;
       window.location.href =
         "./login.html";
 
@@ -558,8 +571,9 @@ onAuthStateChanged(
 
     try {
 
-      currentUserProfile =
-        await loadCurrentUserProfile(user);
+      const loadedProfile = await loadCurrentUserProfile(user);
+      if (auth.currentUser?.uid !== user.uid) return;
+      currentUserProfile = loadedProfile;
 
       validateMissionAccess(
         currentUserProfile
@@ -580,17 +594,6 @@ await loadAvailableAssignees();
         error.message ||
         "No fue posible validar el acceso.";
 
-      setTimeout(
-        async () => {
-
-          await signOut(auth);
-
-          window.location.href =
-            "./login.html";
-
-        },
-        2500
-      );
     }
   }
 );
@@ -640,345 +643,63 @@ logoutButton.addEventListener(
 // ABRIR MODAL
 // ======================================================
 
-newMissionButton.addEventListener(
-  "click",
-  () => {
-
-    missionForm.reset();
-
-    missionFormMessage.textContent =
-      "";
-
-    missionModal.hidden = false;
-
-    missionTitleInput.focus();
-  }
-);
-
-
-// ======================================================
-// CERRAR MODAL
-// ======================================================
-
-function closeMissionModal() {
-
-  missionModal.hidden = true;
-
+function openMissionModal(parent = null) {
+  parentMission = parent;
+  dispatchRequestId = crypto.randomUUID();
   missionForm.reset();
-
-  missionFormMessage.textContent =
-    "";
-}
-
-
-cancelMissionButton.addEventListener(
-  "click",
-  closeMissionModal
-);
-
-
-document
-  .querySelectorAll(
-    "[data-close-mission-modal]"
-  )
-  .forEach((element) => {
-
-    element.addEventListener(
-      "click",
-      closeMissionModal
-    );
-  });
-
-
-// ======================================================
-// GUARDAR MISIÓN
-// ======================================================
-
-missionForm.addEventListener(
-  "submit",
-  async (event) => {
-
-    event.preventDefault();
-
-    if (
-      !currentUser ||
-      !currentUserProfile
-    ) {
-
-      missionFormMessage.textContent =
-        "La sesión todavía no está disponible.";
-
-      return;
-    }
-
-    const title =
-      missionTitleInput.value.trim();
-
-    const description =
-      missionDescriptionInput.value.trim();
-
-    const missionDate =
-      missionDateInput.value || null;
-
-    const locality =
-      missionLocalityInput.value.trim();
-
-   const selectedAssignees =
-  Array.from(
-    missionAssigneeList.querySelectorAll(
-      ".mission-assignee-checkbox:checked"
-    )
-  );
-
-if (!title) {
-
-  missionFormMessage.textContent =
-    "Escriba el nombre de la misión.";
-
-  missionTitleInput.focus();
-
-  return;
-}
-
-if (!selectedAssignees.length) {
-
-  missionFormMessage.textContent =
-    "Seleccione al menos una persona.";
-
-  return;
-}
-    
-    saveMissionButton.disabled = true;
-
-    saveMissionButton.textContent =
-      "Guardando...";
-
-    missionFormMessage.textContent =
-      "";
-
-   try {
-
-  const selectedPeople = [];
-
-  for (
-    const checkbox
-    of selectedAssignees
-  ) {
-
-    const assigneeId =
-      checkbox.value;
-
-    const assigneeRef =
-      doc(
-        db,
-        "usuarios",
-        assigneeId
-      );
-
-    const assigneeSnapshot =
-      await getDoc(
-        assigneeRef
-      );
-
-    if (
-      !assigneeSnapshot.exists()
-    ) {
-
-      throw new Error(
-        "Una de las personas seleccionadas no existe."
-      );
-    }
-
-    const assignee = {
-      uid:
-        assigneeSnapshot.id,
-
-      ...assigneeSnapshot.data()
-    };
-
-    if (
-      assignee.active !== true
-    ) {
-
-      throw new Error(
-        `La persona ${
-          assignee.name ||
-          assignee.email ||
-          assignee.uid
-        } está desactivada.`
-      );
-    }
-
-    selectedPeople.push(
-      assignee
-    );
+  missionFormMessage.textContent = "";
+  document.querySelector("#missionModalTitle").textContent = parent ? "Delegar misión recibida" : "Nueva misión";
+  for (const [input, field] of [[missionTitleInput,"title"], [missionDescriptionInput,"description"], [missionDateInput,"missionDate"], [missionLocalityInput,"locality"]]) {
+    input.value = parent?.[field] || "";
+    input.readOnly = !!parent;
   }
-
-
-// ==================================================
-// ==================================================
-// CADENA DE SUPERVISIÓN
-// BUILD-116
-// ==================================================
-
-const supervisorIds = [
-  currentUser.uid,
-  ...(
-    currentUserProfile.ancestorIds ||
-    []
-  )
-];
-
-     
-
-  // ==================================================
-  // CREAR UNA MISIÓN INDIVIDUAL POR DESTINATARIO
-  // BUILD-116 — TRANSICIÓN A MULTIASIGNACIÓN
-  // ==================================================
-
-  for (
-    const assignee
-    of selectedPeople
-  ) {
-
-    const missionRef =
-      doc(
-        collection(
-          db,
-          "misiones"
-        )
-      );
-
-    const missionId =
-      missionRef.id;
-
-    await setDoc(
-      missionRef,
-      {
-
-        id:
-          missionId,
-
-        campaignId:
-          currentUserProfile.campaignId ||
-          "CAM-001",
-
-        title,
-
-        description,
-
-        missionDate,
-
-        locality,
-
-        active:
-          true,
-
-        createdBy:
-          currentUser.uid,
-
-        createdByName:
-          currentUserProfile.name ||
-          currentUser.email ||
-          "Sin identificar",
-
-        createdByRole:
-          currentUserProfile.role,
-
-        supervisorIds,
-
-        assignedTo:
-          assignee.uid,
-
-        assignedToName:
-          assignee.name ||
-          assignee.email ||
-          "Sin identificar",
-
-        assignedToRole:
-          assignee.role ||
-          "",
-
-        municipalityId:
-          assignee.municipalityId ||
-          "",
-
-        municipalityName:
-          assignee.municipalityName ||
-          "",
-
-        structureId:
-          assignee.structureId ||
-          "",
-
-        structureName:
-          assignee.structureName ||
-          "",
-
-        createdAt:
-          serverTimestamp(),
-
-        updatedAt:
-          serverTimestamp(),
-
-        version:
-          3
-      }
-    );
-  }
-
-
-  missionFormMessage.textContent =
-    selectedPeople.length === 1
-      ? "✅ Misión creada correctamente."
-      : `✅ ${selectedPeople.length} asignaciones creadas correctamente.`;
-
-
-  await loadMissions();
-
-
-  setTimeout(
-    () => {
-
-      closeMissionModal();
-    },
-    900
-  );
-
-
-} catch (error) {
-
-  console.error(
-    "Error al guardar misión:",
-    error
-  );
-
-  if (
-    error.code ===
-    "permission-denied"
-  ) {
-
-    missionFormMessage.textContent =
-      "Firestore rechazó la creación de la misión por las reglas de seguridad.";
-
-  } else {
-
-    missionFormMessage.textContent =
-      error.message ||
-      "No fue posible guardar la misión.";
-  }
-
-} finally {
-
-  saveMissionButton.disabled =
-    false;
-
-  saveMissionButton.textContent =
-    "Guardar misión";
+  missionModal.hidden = false;
+  loadAvailableAssignees();
+  (parent ? cancelMissionButton : missionTitleInput).focus();
 }
+newMissionButton.addEventListener("click", () => openMissionModal());
+function closeMissionModal() {
+  if (submitting) return;
+  missionModal.hidden = true;
+  missionForm.reset();
+  parentMission = null;
+  dispatchRequestId = null;
+  newMissionButton.focus();
+}
+cancelMissionButton.addEventListener("click", closeMissionModal);
+document.querySelectorAll("[data-close-mission-modal]").forEach(el => el.addEventListener("click", closeMissionModal));
+document.addEventListener("keydown", event => { if (event.key === "Escape" && !missionModal.hidden) closeMissionModal(); });
+missionForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  if (submitting || !currentUserProfile || !currentUser) return;
+  const assigneeIds = Array.from(missionAssigneeList.querySelectorAll(".mission-assignee-checkbox:checked"), el => el.value);
+  if (!assigneeIds.length || assigneeIds.length > 50) {
+    missionFormMessage.textContent = "Selecciona entre 1 y 50 personas.";
+    return;
   }
-);
-
+  const payload = {requestId:dispatchRequestId, parentMissionId:parentMission?.id || null, assigneeIds,
+    title:missionTitleInput.value.trim(), description:missionDescriptionInput.value.trim(),
+    missionDate:missionDateInput.value || null, locality:missionLocalityInput.value.trim()};
+  submitting = true;
+  const controls = Array.from(missionForm.elements);
+  controls.forEach(el => el.disabled = true);
+  saveMissionButton.textContent = "Guardando...";
+  missionFormMessage.textContent = "";
+  let saved = false;
+  try {
+    const {data} = await createLinkedMissions(payload);
+    saved = true;
+    missionsMessage.textContent = `${data.created} asignaciones creadas; ${data.alreadyAssigned} ya estaban asignadas.`;
+  } catch (error) {
+    console.error("Creación de misión:", error);
+    missionFormMessage.textContent = error.message || "No fue posible guardar. Puedes reintentar.";
+  } finally {
+    submitting = false;
+    controls.forEach(el => el.disabled = false);
+    saveMissionButton.textContent = "Guardar misión";
+  }
+  if (saved) { closeMissionModal(); await loadMissions(); }
+});
 
 // ======================================================
 // CARGAR MISIONES
@@ -991,12 +712,12 @@ async function loadMissions() {
     return;
   }
 
+  const loadingUid = currentUser.uid;
   missionsMessage.textContent =
     "Cargando misiones...";
 
   const campaignId =
-    currentUserProfile.campaignId ||
-    "CAM-001";
+    currentUserProfile.campaignId;
 
   try {
 
@@ -1232,6 +953,7 @@ async function loadMissions() {
     // RENDER
     // ==================================================
 
+    if (auth.currentUser?.uid !== loadingUid) return;
     renderMissions();
 
     updateMissionMetrics();
@@ -1354,10 +1076,17 @@ function renderMissions() {
                 <button
                   class="button button--small"
                   type="button"
-                  data-open-mission="${mission.id}"
+                  data-open-mission="${escapeHtml(mission.id)}"
                 >
                   Ver misión
                 </button>
+                ${mission.linkedVersion === 1 && (currentUserProfile.role === "admin" || mission.createdBy === currentUser.uid || mission.assignedTo === currentUser.uid) ? `
+                  <button class="button button--small button--secondary" type="button" data-progress-mission="${escapeHtml(mission.id)}">Ver avance</button>` : ""}
+                ${mission.linkedVersion === 1 && mission.active === true && mission.assignedTo === currentUser.uid && getAssignableRole(currentUserProfile) ? `
+                  <button class="button button--small button--secondary" type="button" data-delegate-mission="${escapeHtml(mission.id)}">Delegar</button>` : ""}
+                <p>Asignada a: ${escapeHtml(mission.assignedToName || "Sin nombre")}</p>
+                <p class="message" data-branch-progress aria-live="polite"></p>
+
 
               </div>
 
@@ -1392,9 +1121,9 @@ function updateMissionMetrics() {
   activeMissionsElement.textContent =
     active;
 
-  // Todavía no existe el módulo de evidencias.
-  totalEvidenceElement.textContent =
-    "0";
+  totalEvidenceElement.textContent = "—";
+  totalEvidenceElement.title = "Consulta el avance por misión; el total de evidencias no se calcula en este listado.";
+  lastActivityElement.previousElementSibling.textContent = "Última misión creada";
 
   if (!missions.length) {
 
@@ -1532,3 +1261,25 @@ function escapeHtml(value) {
       "&#039;"
     );
 }
+// Linked progress contains counts only. The callable independently checks access.
+missionsList.addEventListener("click", async event => {
+  const delegate = event.target.closest("[data-delegate-mission]");
+  if (delegate) {
+    const mission = missions.find(m => m.id === delegate.dataset.delegateMission);
+    if (mission) openMissionModal(mission);
+    return;
+  }
+  const button = event.target.closest("[data-progress-mission]");
+  if (!button) return;
+  const output = button.closest("article").querySelector("[data-branch-progress]");
+  const uid = auth.currentUser?.uid;
+  button.disabled = true;
+  output.textContent = "Calculando avance...";
+  try {
+    const {data} = await getMissionBranchProgress({missionId:button.dataset.progressMission});
+    if (auth.currentUser?.uid !== uid) return;
+    output.textContent = `Esta asignación y sus delegaciones: ${data.total}. Con evidencia: ${data.withEvidence}. Sin evidencia: ${data.withoutEvidence}. Avance reportado: ${data.percentage ?? "—"}%. Incluye todos los niveles, activos e inactivos. Una evidencia no certifica cumplimiento.`;
+  } catch (error) {
+    if (auth.currentUser?.uid === uid) output.textContent = error.message || "No fue posible consultar el avance.";
+  } finally { button.disabled = false; }
+});
