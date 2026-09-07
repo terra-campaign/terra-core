@@ -87,6 +87,39 @@ const evidenceDescriptionInput =
 const evidenceUrlInput =
   document.getElementById("evidenceUrl");
 
+// Campos visibles y accesibles, también en móvil.
+const evidenceFieldStyle = document.createElement("style");
+evidenceFieldStyle.textContent = `
+  #evidenceForm #reportedByName,
+  #evidenceForm #evidenceDescription,
+  #evidenceForm #evidenceUrl {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #64748b;
+    border-radius: 6px;
+    background: #fff;
+    color: #17324d;
+    padding: 10px 12px;
+    margin: 6px 0 14px;
+    min-height: 44px;
+    font: inherit;
+    font-size: 16px;
+  }
+  #evidenceForm #reportedByName[readonly] { background: #edf2f7; }
+  #evidenceForm #reportedByName:focus,
+  #evidenceForm #evidenceDescription:focus,
+  #evidenceForm #evidenceUrl:focus {
+    outline: 2px solid #145c9e;
+    outline-offset: 2px;
+  }
+`;
+document.head.appendChild(evidenceFieldStyle);
+if (reportedByNameInput) {
+  reportedByNameInput.readOnly = true;
+  reportedByNameInput.title = "Nombre de la cuenta que registra la evidencia";
+}
+
 const evidencePhotoButton =
   document.querySelector("#evidencePhotoButton");
 
@@ -429,6 +462,12 @@ onAuthStateChanged(
       validateMissionModuleAccess(
         currentUserProfile
       );
+
+      if (reportedByNameInput) {
+        const accountName = currentUserProfile.name || user.email || "Sin identificar";
+        reportedByNameInput.defaultValue = accountName;
+        reportedByNameInput.value = accountName;
+      }
 
       await loadMission();
 
