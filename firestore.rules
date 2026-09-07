@@ -474,12 +474,14 @@ allow read: if
     request.auth.uid ||
 
     (
-      resource.data.keys().hasAll(
-        ["supervisorIds"]
-      ) &&
+     profile().role != "coordinador_municipal" &&
 
-      request.auth.uid
-      in resource.data.supervisorIds
+resource.data.keys().hasAll(
+  ["supervisorIds"]
+) &&
+
+request.auth.uid
+in resource.data.supervisorIds
     )
   );
 
@@ -678,16 +680,18 @@ allow read: if
     request.auth.uid ||
 
     (
-      get(
-        /databases/$(database)/documents/misiones/$(resource.data.missionId)
-      ).data.keys().hasAll(
-        ["supervisorIds"]
-      ) &&
+    profile().role != "coordinador_municipal" &&
 
-      request.auth.uid
-      in get(
-        /databases/$(database)/documents/misiones/$(resource.data.missionId)
-      ).data.supervisorIds
+get(
+  /databases/$(database)/documents/misiones/$(resource.data.missionId)
+).data.keys().hasAll(
+  ["supervisorIds"]
+) &&
+
+request.auth.uid
+in get(
+  /databases/$(database)/documents/misiones/$(resource.data.missionId)
+).data.supervisorIds
     )
   );
 
