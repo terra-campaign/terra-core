@@ -132,6 +132,13 @@ let currentMission = null;
 let evidenceItems = [];
 
 let selectedEvidencePhoto = null;
+let selectedEvidencePhotos = [];
+const extraPreviewUrls = [];
+const extraPreviews = document.createElement("div");
+evidencePhotoPreview.after(extraPreviews);
+evidencePhotoInput.multiple = true;
+evidencePhotoInput.removeAttribute("capture");
+evidencePhotoButton.textContent = "Seleccionar imágenes (hasta 5)";
 let previewEvidenceUrl = "";
 
 
@@ -504,33 +511,25 @@ evidencePhotoInput.addEventListener(
   "change",
   () => {
 
-    const file =
-      evidencePhotoInput.files?.[0];
-
-    if (!file) {
-
-      clearSelectedEvidencePhoto();
-
+    const files = Array.from(evidencePhotoInput.files || []);
+    clearSelectedEvidencePhoto();
+    if (!files.length) return;
+    if (files.length > 5 || files.some(file => !file.type.startsWith("image/"))) {
+      evidencePhotoInput.value = "";
+      evidencePhotoStatus.textContent = "Selecciona entre 1 y 5 imágenes.";
       return;
     }
-
-    if (
-      !file.type.startsWith(
-        "image/"
-      )
-    ) {
-
-      evidencePhotoInput.value =
-        "";
-
-      clearSelectedEvidencePhoto();
-
-      evidencePhotoStatus.textContent =
-        "El archivo seleccionado no es una imagen.";
-
-      return;
+    selectedEvidencePhotos = files;
+    const file = files[0];
+    for (const extra of files.slice(1)) {
+      const url = URL.createObjectURL(extra);
+      extraPreviewUrls.push(url);
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "Vista previa de " + extra.name;
+      img.style.cssText = "max-width:180px;max-height:180px;margin:6px;object-fit:contain";
+      extraPreviews.append(img);
     }
-
     selectedEvidencePhoto =
       file;
 
@@ -555,7 +554,7 @@ evidencePhotoInput.addEventListener(
       "block";
 
     evidencePhotoStatus.textContent =
-      "Imagen lista para guardar.";
+      `${files.length} imágenes listas para guardar.`;
   }
 );
 
@@ -565,6 +564,9 @@ evidencePhotoInput.addEventListener(
 // ======================================================
 
 function clearSelectedEvidencePhoto() {
+  selectedEvidencePhotos = [];
+  extraPreviewUrls.splice(0).forEach(url => URL.revokeObjectURL(url));
+  extraPreviews.replaceChildren();
 
   selectedEvidencePhoto =
     null;
@@ -748,6 +750,9 @@ evidenceForm.addEventListener(
     const evidenceUrl =
   evidenceUrlInput.value.trim();
 
+    if (saveEvidenceButton.disabled) return;
+    evidencePhotoButton.disabled = true;
+    evidencePhotoInput.disabled = true;
     saveEvidenceButton.disabled =
       true;
 
@@ -770,32 +775,16 @@ evidenceForm.addEventListener(
       const evidenceId =
         evidenceRef.id;
 
-      const compressedPhoto =
-        await compressEvidencePhoto(
-          selectedEvidencePhoto
-        );
-
-      const imagePath =
-        `missions/${currentMission.campaignId}/${currentMission.id}/evidence/${evidenceId}.jpg`;
-
-      const imageReference =
-        ref(
-          storage,
-          imagePath
-        );
-
-      saveEvidenceButton.textContent =
-        "Subiendo evidencia...";
-
-      await uploadBytes(
-        imageReference,
-        compressedPhoto,
-        {
-          contentType:
-            "image/jpeg"
-        }
-      );
-
+      const imagePaths = [];
+      for (const [index, file] of selectedEvidencePhotos.entries()) {
+        const compressedPhoto = await compressEvidencePhoto(file);
+        if (compressedPhoto.size >= 8 * 1024 * 1024) throw new Error("Una imagen supera el límite de 8 MB.");
+        const path = `missions/${currentMission.campaignId}/${currentMission.id}/evidence/${evidenceId}-${index + 1}.jpg`;
+        saveEvidenceButton.textContent = `Subiendo imagen ${index + 1} de ${selectedEvidencePhotos.length}...`;
+        await uploadBytes(ref(storage, path), compressedPhoto, {contentType: "image/jpeg"});
+        imagePaths.push(path);
+      }
+      const imagePath = imagePaths[0];
       saveEvidenceButton.textContent =
         "Guardando registro...";
 
@@ -829,6 +818,7 @@ source:
   "whatsapp",
 
     imagePath,
+    imagePaths,
 
     imageURL: "",
 
@@ -852,7 +842,7 @@ source:
     updatedAt:
       serverTimestamp(),
 
-    version: 3
+    version: 4
   }
 );
       evidenceFormMessage.textContent =
@@ -895,7 +885,8 @@ source:
       }
 
     } finally {
-
+      evidencePhotoButton.disabled = false;
+      evidencePhotoInput.disabled = false;
       saveEvidenceButton.disabled =
         false;
 
@@ -1065,9 +1056,19 @@ async function renderEvidence() {
     }
     article.append(imageBox, details);
     evidenceList.append(article);
+    const paths = Array.isArray(evidence.imagePaths) && evidence.imagePaths.length
+      ? evidence.imagePaths.slice(0, 5) : (evidence.imagePath ? [evidence.imagePath] : []);
+    imageBox.replaceChildren();
+    if (!paths.length) imageBox.textContent = "Este reporte no tiene fotografía adjunta.";
+    for (const path of paths) {
+      const photoBox = document.createElement("div");
+      const status = document.createElement("p");
+      status.textContent = "Cargando fotografía...";
+      photoBox.append(status);
+      imageBox.append(photoBox);
     try {
       const prefix = "missions/" + mission.campaignId + "/" + mission.id + "/evidence/";
-      const path = evidence.imagePath;
+
       if (typeof path !== "string" || !path.startsWith(prefix) ||
           !path.slice(prefix.length) || path.slice(prefix.length).includes("/")) {
         throw new Error("Ruta de fotografía inválida.");
@@ -1080,11 +1081,12 @@ async function renderEvidence() {
       img.alt = "Evidencia de misión";
       img.style.cssText = "width:100%;max-width:420px;border-radius:10px;object-fit:cover";
       img.src = url;
-      imageBox.replaceChildren(img);
+      photoBox.replaceChildren(img);
     } catch (error) {
       if (version !== evidenceRenderVersion || auth.currentUser?.uid !== uid) return;
       status.textContent = "No fue posible cargar la fotografía con tu sesión.";
       console.error("Carga de fotografía:", error.code || error.message);
+    }
     }
   }
 }
