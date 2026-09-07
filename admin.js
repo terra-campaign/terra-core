@@ -326,98 +326,208 @@ async function loadCurrentUserProfile(user) {
 
 
 // ======================================================
-// ======================================================
-// ======================================================
-// BUILD-113 — INTERFAZ SEGÚN ROL
+// INTERFAZ SEGÚN ROL
 // ======================================================
 
 function applyRoleInterface() {
-
   if (!currentUserProfile) {
     return;
   }
 
-  const isAdmin =
-    currentUserProfile.role === "admin";
+  const role = currentUserProfile.role;
+  const isAdmin = role === "admin";
 
   const canManageBrigadistas =
-    isAdmin ||
-    currentUserProfile.role === "coordinador";
+    isAdmin || role === "coordinador";
 
-  const canManageOrganization =
-  currentUserProfile.role ===
-  "coordinador_municipal";
+  const canAccessOrganization = [
+    "coordinador_municipal",
+    "jefe_estructura",
+    "integrante"
+  ].includes(role);
 
-  const canAccessMissions =
-  [
+  const canAccessMissions = [
     "admin",
     "coordinador_municipal",
     "jefe_estructura",
     "integrante",
     "participante"
-  ].includes(
-    currentUserProfile.role
-  );
+  ].includes(role);
 
-
-  const isReadOnly =
-    currentUserProfile.role === "consulta";
-
-  // Administrador y coordinador
-  // pueden administrar brigadistas.
   if (brigadistasAdminButton) {
-    brigadistasAdminButton.hidden =
-      !canManageBrigadistas;
+    brigadistasAdminButton.hidden = !canManageBrigadistas;
   }
 
- // Únicamente el administrador
-// puede administrar brigadas.
-if (brigadasAdminButton) {
-  brigadasAdminButton.hidden =
-    !isAdmin;
-}
-
-// Únicamente el administrador
-// puede administrar municipios.
-if (municipalitiesButton) {
-  municipalitiesButton.hidden =
-    !isAdmin;
-}
-
-// El Responsable de organización
-// administra únicamente su propia organización.
-if (organizationButton) {
-  organizationButton.hidden =
-    !canManageOrganization;
-
-  if (canManageOrganization) {
-    organizationButton.href =
-      `./municipio.html?id=${encodeURIComponent(
-        currentUserProfile.municipalityId
-      )}`;
+  if (brigadasAdminButton) {
+    brigadasAdminButton.hidden = !isAdmin;
   }
-}
-  
-// La nueva jerarquía operativa
-// puede acceder al módulo privado de Misiones.
-if (missionsButton) {
-  missionsButton.hidden =
-    !canAccessMissions;
-}
-  
-  // El usuario de consulta no puede capturar visitas.
-  if (isReadOnly) {
 
-    visitForm.hidden = true;
+  if (municipalitiesButton) {
+    municipalitiesButton.hidden = !isAdmin;
+  }
 
+  if (organizationButton) {
+    organizationButton.hidden = !canAccessOrganization;
+    organizationButton.textContent = "Mi organización";
+    organizationButton.removeAttribute("href");
+
+    if (
+      role === "coordinador_municipal" &&
+      currentUserProfile.municipalityId
+    ) {
+      organizationButton.href =
+        `./municipio.html?id=${encodeURIComponent(
+          currentUserProfile.municipalityId
+        )}`;
+    }
+
+    if (role === "integrante" && currentUser?.uid) {
+      organizationButton.href =
+        `./participantes.html?id=${encodeURIComponent(
+          currentUser.uid
+        )}`;
+    }
+
+    // El Responsable de estructura obtiene el documento
+    // de su estructura al pulsar el botón.
+  }
+
+  if (missionsButton) {
+    missionsButton.hidden = !canAccessMissions;
+  }
+
+  if (visitForm) {
+    visitForm.hidden = role === "consulta";
+  }
+
+  if (role === "consulta" && visitMessage) {
     visitMessage.textContent =
       "Acceso de consulta: solo lectura.";
+  }
+}
 
+// ======================================================
+// MI ORGANIZACIÓN
+// ======================================================
+
+let openingOrganization = false;
+
+organizationButton?.addEventListener("click", async (event) => {
+  event.preventDefault();
+
+  if (openingOrganization) {
     return;
   }
 
-  visitForm.hidden = false;
-}
+  const user = currentUser;
+  const profile = currentUserProfile;
+
+  if (
+    !user ||
+    auth.currentUser?.uid !== user.uid ||
+    profile?.active !== true ||
+    !profile.campaignId
+  ) {
+    alert("No fue posible validar tu sesión. Inicia sesión nuevamente.");
+    return;
+  }
+
+  openingOrganization = true;
+  organizationButton.textContent = "Abriendo...";
+  organizationButton.setAttribute("aria-busy", "true");
+
+  try {
+    let destination = "";
+
+    switch (profile.role) {
+      case "coordinador_municipal": {
+        if (!profile.municipalityId) {
+          throw new Error("No tienes un municipio asignado.");
+        }
+
+        destination =
+          `./municipio.html?id=${encodeURIComponent(
+            profile.municipalityId
+          )}`;
+
+        break;
+      }
+
+      case "jefe_estructura": {
+        if (
+          typeof profile.structureId !== "string" ||
+          !profile.structureId.trim()
+        ) {
+          throw new Error("No tienes una estructura asignada.");
+        }
+
+        // structureId contiene el identificador operativo,
+        // por ejemplo EST-002. La página necesita el ID
+        // del documento de Firestore.
+        const structureQuery = query(
+          collection(db, "estructuras"),
+          where("campaignId", "==", profile.campaignId),
+          where("id", "==", profile.structureId),
+          limit(2)
+        );
+
+        const snapshot = await getDocs(structureQuery);
+
+        if (snapshot.empty) {
+          throw new Error("No se encontró tu estructura asignada.");
+        }
+
+        if (snapshot.size !== 1) {
+          throw new Error(
+            "Hay más de una estructura con ese identificador. " +
+            "Solicita al administrador revisar la asignación."
+          );
+        }
+
+        destination =
+          `./estructura.html?id=${encodeURIComponent(
+            snapshot.docs[0].id
+          )}`;
+
+        break;
+      }
+
+      case "integrante": {
+        destination =
+          `./participantes.html?id=${encodeURIComponent(user.uid)}`;
+
+        break;
+      }
+
+      default:
+        throw new Error("Tu rol no tiene acceso a esta sección.");
+    }
+
+    // Evitar navegar si la sesión cambió durante la consulta.
+    if (
+      auth.currentUser?.uid !== user.uid ||
+      currentUserProfile !== profile
+    ) {
+      return;
+    }
+
+    window.location.href = destination;
+  } catch (error) {
+    console.error("Error al abrir Mi organización:", error);
+
+    if (auth.currentUser?.uid === user.uid) {
+      alert(
+        error.code === "permission-denied"
+          ? "No tienes permisos para consultar la organización asignada."
+          : error.message || "No fue posible abrir tu organización."
+      );
+    }
+  } finally {
+    openingOrganization = false;
+    organizationButton.textContent = "Mi organización";
+    organizationButton.removeAttribute("aria-busy");
+  }
+});
 
 
 
