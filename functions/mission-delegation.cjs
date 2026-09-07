@@ -27,6 +27,11 @@ function targetAllowed(p, t) {
     (p.role === 'admin' || (t.parentUserId === p.uid && !!p.municipalityId && t.municipalityId === p.municipalityId)) &&
     (!['jefe_estructura','integrante'].includes(p.role) || (!!p.structureId && t.structureId === p.structureId));
 }
+function deadline(value) {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) || !Number.isFinite(Date.parse(value))) fail('invalid-argument','Fecha límite inválida.');
+  return new Date(value).toISOString();
+}
 exports.createLinkedMissions = onCall(OPTIONS, async request => {
   const d = request.data || {};
   const requestId = id(d.requestId);
@@ -35,7 +40,7 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
   const parentId = d.parentMissionId == null ? null : id(d.parentMissionId);
   const fields = parentId ? null : {
     title:text(d.title,150,true), description:text(d.description,1500),
-    locality:text(d.locality,120), missionDate:text(d.missionDate,10) || null
+    locality:text(d.locality,120), missionDate:text(d.missionDate,10) || null, deadlineAt:deadline(d.deadlineAt)
   };
   if (fields?.missionDate && (!/^\d{4}-\d{2}-\d{2}$/.test(fields.missionDate) || !Number.isFinite(Date.parse(fields.missionDate)) || new Date(fields.missionDate).toISOString().slice(0,10) !== fields.missionDate)) fail('invalid-argument','Fecha inválida.');
   const fingerprint = hash(parentId,ids,fields);
@@ -49,12 +54,14 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
       if (receipt.data().fingerprint !== fingerprint || receipt.data().campaignId !== p.campaignId) fail('already-exists','Este intento ya se usó con otros datos. Cierra y abre el formulario.');
       return receipt.data().result;
     }
+    if (fields?.deadlineAt && Date.parse(fields.deadlineAt) <= Date.now()) fail('invalid-argument','La fecha límite debe ser futura.');
     let parent = null;
     if (parentId) {
       const registry = await tx.get(db.collection('missionLinks').doc(parentId));
       const source = await tx.get(db.collection('misiones').doc(parentId));
       parent = registry.data();
       if (!parent || !source.exists || parent.campaignId !== p.campaignId || parent.assignedTo !== p.uid || parent.assignedToRole !== p.role || source.data().active !== true) fail('permission-denied','Solo puedes delegar una misión vinculada, activa y asignada a ti.');
+      if (parent.content?.deadlineAt && Date.parse(parent.content.deadlineAt) <= Date.now()) fail('failed-precondition','La misión ya venció; no se puede delegar.');
       if (parent.ancestorMissionIds.length >= 3) fail('failed-precondition','Se alcanzó el último nivel de delegación.');
     }
     const groupId = parent ? parent.groupId : hash(p.uid,requestId,'group');
@@ -158,5 +165,48 @@ exports.getMissionEvidenceTotal = onCall(OPTIONS, async request => {
       if (allowed.has(e.missionId) && (!assignees.has(e.missionId) || assignees.get(e.missionId) === e.uploadedBy)) total++;
     }
     return {total, calculatedAt:new Date().toISOString()};
+  });
+});
+
+exports.manageMissionLifecycle = onCall(OPTIONS, async request => {
+  const missionId = id(request.data?.missionId);
+  const action = request.data?.action;
+  if (!['deactivate','deadline'].includes(action)) fail('invalid-argument','Acción inválida.');
+  const reason = action === 'deactivate' ? text(request.data.reason,500,true) : '';
+  const due = action === 'deadline' ? deadline(request.data.deadlineAt) : null;
+  if (action === 'deadline' && (!due || Date.parse(due) <= Date.now())) fail('invalid-argument','Elige una fecha futura.');
+  const db = getFirestore();
+  return db.runTransaction(async tx => {
+    const p = await caller(tx,db,request);
+    const sourceRef = db.collection('misiones').doc(missionId);
+    const source = (await tx.get(sourceRef)).data();
+    if (!source || source.campaignId !== p.campaignId || source.createdBy !== p.uid) fail('permission-denied','Solo quien creó esta asignación puede administrarla.');
+    const root = (await tx.get(db.collection('missionLinks').doc(missionId))).data();
+    if (action === 'deactivate' && source.active === false) return {affected:0};
+    if (source.active !== true) fail('failed-precondition','La misión está desactivada.');
+    if (action === 'deadline' && (source.deadlineAt || root?.parentMissionId)) fail('failed-precondition','El plazo ya está fijado o se hereda de la misión original.');
+    const records = [{id:missionId,mission:source,link:root}];
+    if (root) {
+      const all = await tx.get(db.collection('missionLinks').where('groupId','==',root.groupId).limit(5001));
+      if (all.size > 5000) fail('resource-exhausted','La cadena supera el límite de esta versión.');
+      const descendants = all.docs.filter(s => s.id !== missionId && s.data().campaignId === p.campaignId && s.data().ancestorMissionIds.includes(missionId));
+      if (descendants.length > 199) fail('resource-exhausted','Máximo 200 asignaciones por operación; no se aplicó ningún cambio.');
+      for (const s of descendants) {
+        const m = (await tx.get(db.collection('misiones').doc(s.id))).data();
+        if (!m || m.campaignId !== p.campaignId) fail('failed-precondition','La cadena requiere revisión.');
+        if (action === 'deadline' && m.deadlineAt) fail('failed-precondition','Una delegación ya tiene plazo; no se modificó la cadena.');
+        records.push({id:s.id,mission:m,link:s.data()});
+      }
+    }
+    for (const r of records) {
+      const patch = action === 'deactivate'
+        ? {active:false,deactivatedBy:p.uid,deactivatedAt:FieldValue.serverTimestamp(),deactivationReason:reason}
+        : {deadlineAt:due,deadlineSetBy:p.uid,deadlineSetAt:FieldValue.serverTimestamp()};
+      // Preserve an earlier cancellation and its audit fields.
+      if (action === 'deactivate' && r.mission.active === false) continue;
+      tx.update(db.collection('misiones').doc(r.id),{...patch,updatedAt:FieldValue.serverTimestamp()});
+      if (r.link && action === 'deadline') tx.update(db.collection('missionLinks').doc(r.id),{content:{...r.link.content,deadlineAt:due}});
+    }
+    return {affected:records.length};
   });
 });
