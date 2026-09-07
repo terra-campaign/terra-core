@@ -1103,89 +1103,88 @@ function closeMemberModal() {
 // CREAR INTEGRANTE
 // ======================================================
 
-async function handleCreateMember(
-  event
-) {
+async function handleCreateMember(event) {
 
   event.preventDefault();
 
-  const name =
-    String(
-      memberNameInput?.value ||
-      ""
-    )
-      .trim()
-      .replace(/\s+/g, " ");
-
-  const email =
-    String(
-      memberEmailInput?.value ||
-      ""
-    )
-      .trim()
-      .toLowerCase();
-
-  const phone =
-    String(
-      memberPhoneInput?.value ||
-      ""
-    )
-      .trim();
-
-  const password =
-    String(
-      memberPasswordInput?.value ||
-      ""
+  if (
+    currentUserProfile?.active !== true ||
+    currentUserProfile?.role !== "jefe_estructura"
+  ) {
+    showStatus(
+      memberFormStatus,
+      "Sólo el Responsable de estructura puede crear integrantes.",
+      "error"
     );
+    return;
+  }
 
   if (
-    name.length < 2
+    !currentUserProfile.structureId ||
+    !currentUserProfile.campaignId ||
+    !currentStructure?.id ||
+    !structureDocumentId ||
+    currentStructure.id !== currentUserProfile.structureId ||
+    currentStructure.campaignId !== currentUserProfile.campaignId ||
+    currentStructure.firestoreId !== structureDocumentId
   ) {
+    showStatus(
+      memberFormStatus,
+      "La estructura no coincide con tu asignación. Recarga la página.",
+      "error"
+    );
+    return;
+  }
 
+  if (!saveMemberButton || saveMemberButton.disabled) {
+    return;
+  }
+
+  const name = String(memberNameInput?.value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  const email = String(memberEmailInput?.value || "")
+    .trim()
+    .toLowerCase();
+
+  const phone = String(memberPhoneInput?.value || "")
+    .trim();
+
+  const password = String(memberPasswordInput?.value || "");
+
+  if (name.length < 2) {
     showStatus(
       memberFormStatus,
       "Ingrese el nombre completo.",
       "error"
     );
-
     memberNameInput?.focus();
-
     return;
   }
 
   if (!email) {
-
     showStatus(
       memberFormStatus,
       "Ingrese un correo electrónico.",
       "error"
     );
-
     memberEmailInput?.focus();
-
     return;
   }
 
-  if (
-    password.length < 6
-  ) {
-
+  if (password.length < 6) {
     showStatus(
       memberFormStatus,
       "La contraseña temporal debe tener al menos 6 caracteres.",
       "error"
     );
-
     memberPasswordInput?.focus();
-
     return;
   }
 
-  saveMemberButton.disabled =
-    true;
-
-  saveMemberButton.textContent =
-    "Guardando...";
+  saveMemberButton.disabled = true;
+  saveMemberButton.textContent = "Guardando...";
 
   showStatus(
     memberFormStatus,
@@ -1194,17 +1193,15 @@ async function handleCreateMember(
 
   try {
 
-    const result =
-      await createStructureMemberFunction({
-        name,
-        email,
-        phone,
-        password,
-        structureDocumentId
-      });
+    const result = await createStructureMemberFunction({
+      name,
+      email,
+      phone,
+      password,
+      structureDocumentId
+    });
 
-    const member =
-      result?.data?.user;
+    const member = result?.data?.user;
 
     showStatus(
       memberFormStatus,
@@ -1213,6 +1210,10 @@ async function handleCreateMember(
         : "Integrante registrado correctamente.",
       "success"
     );
+
+    if (memberPasswordInput) {
+      memberPasswordInput.value = "";
+    }
 
     setTimeout(
       () => {
@@ -1236,11 +1237,8 @@ async function handleCreateMember(
 
   } finally {
 
-    saveMemberButton.disabled =
-      false;
-
-    saveMemberButton.textContent =
-      "Guardar integrante";
+    saveMemberButton.disabled = false;
+    saveMemberButton.textContent = "Guardar integrante";
   }
 }
 
@@ -1284,16 +1282,14 @@ newMemberButton?.addEventListener(
 
     if (
       currentUserProfile?.role !==
-      "admin"
+      "jefe_estructura"
     ) {
-
       console.warn(
-        "Intento bloqueado: el Responsable de Organización no crea integrantes."
+        "Sólo el Responsable de estructura puede crear integrantes."
       );
 
       return;
     }
-
 
     openMemberModal();
   }
@@ -1304,21 +1300,18 @@ memberForm?.addEventListener(
   "submit",
   (event) => {
 
+    event.preventDefault();
+
     if (
       currentUserProfile?.role !==
-      "admin"
+      "jefe_estructura"
     ) {
-
-      event.preventDefault();
-
-
       console.warn(
-        "Intento bloqueado: el Responsable de Organización no crea integrantes."
+        "Sólo el Responsable de estructura puede crear integrantes."
       );
 
       return;
     }
-
 
     handleCreateMember(
       event
@@ -1326,11 +1319,11 @@ memberForm?.addEventListener(
   }
 );
 
+
 closeMemberModalButton?.addEventListener(
   "click",
   closeMemberModal
 );
-
 
 
 memberModal
@@ -1419,8 +1412,10 @@ onAuthStateChanged(
           user
         );
 
-      newMemberButton.hidden =
-  currentUserProfile.role !== "admin";
+      if (newMemberButton) {
+  newMemberButton.hidden =
+    currentUserProfile.role !== "jefe_estructura";
+}
 
       await loadStructure();
 
