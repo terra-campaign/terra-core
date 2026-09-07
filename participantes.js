@@ -1,12 +1,8 @@
 // ======================================================
-// TERRA CAMPAIGN
-// ADMINISTRACIÓN DE PARTICIPANTES
+// TERRA CAMPAIGN — PARTICIPANTES
 // ======================================================
 
-import {
-  auth,
-  db
-} from "./firebase-config.js";
+import { auth, db } from "./firebase-config.js";
 
 import {
   onAuthStateChanged,
@@ -27,133 +23,62 @@ import {
   httpsCallable
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
 
-
 // ======================================================
 // ELEMENTOS
 // ======================================================
 
-const memberTitle =
-  document.querySelector("#memberTitle");
+const memberTitle = document.querySelector("#memberTitle");
+const memberName = document.querySelector("#memberName");
+const memberEmail = document.querySelector("#memberEmail");
+const memberPhone = document.querySelector("#memberPhone");
+const memberStructure = document.querySelector("#memberStructure");
+const memberMunicipality = document.querySelector("#memberMunicipality");
+const memberInfoStatus = document.querySelector("#memberInfoStatus");
 
-const memberName =
-  document.querySelector("#memberName");
+const backButton = document.querySelector("#backButton");
+const logoutButton = document.querySelector("#logoutButton");
 
-const memberEmail =
-  document.querySelector("#memberEmail");
-
-const memberPhone =
-  document.querySelector("#memberPhone");
-
-const memberStructure =
-  document.querySelector("#memberStructure");
-
-const memberMunicipality =
-  document.querySelector("#memberMunicipality");
-
-const memberInfoStatus =
-  document.querySelector("#memberInfoStatus");
-
-const backButton =
-  document.querySelector("#backButton");
-
-const logoutButton =
-  document.querySelector("#logoutButton");
-
-
-// ======================================================
-// PARTICIPANTES
-// ======================================================
-
-const newParticipantButton =
-  document.querySelector("#newParticipantButton");
-
-const participantStatus =
-  document.querySelector("#participantStatus");
-
-const participantList =
-  document.querySelector("#participantList");
-
-const participantModal =
-  document.querySelector("#participantModal");
-
+const newParticipantButton = document.querySelector("#newParticipantButton");
+const participantStatus = document.querySelector("#participantStatus");
+const participantList = document.querySelector("#participantList");
+const participantModal = document.querySelector("#participantModal");
 const closeParticipantModalButton =
   document.querySelector("#closeParticipantModalButton");
+const participantForm = document.querySelector("#participantForm");
 
-const participantForm =
-  document.querySelector("#participantForm");
+const participantNameInput = document.querySelector("#participantName");
+const participantEmailInput = document.querySelector("#participantEmail");
+const participantPhoneInput = document.querySelector("#participantPhone");
+const participantLocalityInput = document.querySelector("#participantLocality");
+const participantPasswordInput = document.querySelector("#participantPassword");
 
-const participantNameInput =
-  document.querySelector("#participantName");
-
-const participantEmailInput =
-  document.querySelector("#participantEmail");
-
-const participantPhoneInput =
-  document.querySelector("#participantPhone");
-
-const participantLocalityInput =
-  document.querySelector("#participantLocality");
-
-const participantPasswordInput =
-  document.querySelector("#participantPassword");
-
-const saveParticipantButton =
-  document.querySelector("#saveParticipantButton");
-
-const participantFormStatus =
-  document.querySelector("#participantFormStatus");
-
+const saveParticipantButton = document.querySelector("#saveParticipantButton");
+const participantFormStatus = document.querySelector("#participantFormStatus");
 
 // ======================================================
-// ESTADO
+// ESTADO Y URL
 // ======================================================
 
 let currentUser = null;
 let currentUserProfile = null;
 let currentMember = null;
-
 let stopParticipantListener = null;
+let savingParticipant = false;
+let sessionVersion = 0;
 
+const urlParams = new URLSearchParams(window.location.search);
+const requestedMemberUid = String(urlParams.get("id") || "").trim();
 
-// ======================================================
-// URL
-// ======================================================
-
-const urlParams =
-  new URLSearchParams(
-    window.location.search
-  );
-
-const memberUid =
-  String(
-    urlParams.get("id") || ""
-  ).trim();
-
-
-// ======================================================
-// CLOUD FUNCTION
-// ======================================================
-
-const functions =
-  getFunctions(
-    undefined,
-    "us-central1"
-  );
-
+const functions = getFunctions(undefined, "us-central1");
 const createParticipantFunction =
-  httpsCallable(
-    functions,
-    "createParticipant"
-  );
-
+  httpsCallable(functions, "createParticipant");
 
 // ======================================================
 // UTILIDADES
 // ======================================================
 
 function escapeHtml(value) {
-
-  return String(value || "")
+  return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -161,661 +86,452 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
-
-function showStatus(
-  element,
-  message,
-  type = ""
-) {
-
-  if (!element) {
-    return;
-  }
-
-  element.textContent =
-    message;
-
-  element.hidden =
-    !message;
-
-  element.className =
-    "status";
-
-  if (type) {
-    element.classList.add(
-      `status--${type}`
-    );
+function setText(element, text) {
+  if (element) {
+    element.textContent = text;
   }
 }
 
+function showStatus(element, message, type = "") {
+  if (!element) return;
+
+  element.textContent = message;
+  element.hidden = !message;
+  element.className = "status";
+
+  if (type) {
+    element.classList.add(`status--${type}`);
+  }
+}
 
 function getErrorMessage(error) {
+  const code = String(error?.code || "").replace(/^functions\//, "");
 
-  const message =
-    error?.message ||
-    error?.details ||
-    "";
-
-  if (
-    error?.code ===
-    "functions/already-exists"
-  ) {
-    return (
-      message ||
-      "Ya existe un usuario con esos datos."
-    );
+  if (code === "permission-denied") {
+    return "No tienes autorización para consultar o modificar estos participantes.";
   }
 
-  if (
-    error?.code ===
-    "functions/permission-denied"
-  ) {
-    return "No tiene permisos para realizar esta operación.";
+  if (code === "unauthenticated") {
+    return "La sesión no es válida. Inicia sesión nuevamente.";
   }
 
-  if (
-    error?.code ===
-    "functions/unauthenticated"
-  ) {
-    return "La sesión no es válida. Inicie sesión nuevamente.";
+  if (code === "already-exists") {
+    return "Ya existe un usuario con esos datos.";
   }
 
-  if (
-    error?.code ===
-    "functions/not-found"
-  ) {
-    return (
-      message ||
-      "No se encontró el registro solicitado."
-    );
-  }
+  return error?.message || "No fue posible completar la operación.";
+}
 
-  if (
-    error?.code ===
-    "functions/invalid-argument"
-  ) {
-    return (
-      message ||
-      "Revise los datos ingresados."
-    );
+function stopListening() {
+  if (stopParticipantListener) {
+    stopParticipantListener();
+    stopParticipantListener = null;
   }
+}
 
-  if (
-    error?.code ===
-    "functions/failed-precondition"
-  ) {
-    return (
-      message ||
-      "No se cumplen las condiciones necesarias para realizar esta operación."
-    );
-  }
-
-  return (
-    message ||
-    "No fue posible completar la operación."
+function canCreateParticipant() {
+  return Boolean(
+    currentUser &&
+    auth.currentUser?.uid === currentUser.uid &&
+    currentUserProfile?.active === true &&
+    currentUserProfile.role === "integrante" &&
+    currentMember?.active === true &&
+    currentMember.role === "integrante" &&
+    currentMember.uid === currentUser.uid &&
+    currentUserProfile.campaignId &&
+    currentMember.campaignId === currentUserProfile.campaignId
   );
 }
 
+function updateCreateControls() {
+  const allowed = canCreateParticipant();
+
+  if (newParticipantButton) {
+    newParticipantButton.hidden = !allowed;
+    newParticipantButton.disabled = !allowed || savingParticipant;
+  }
+
+  if (saveParticipantButton) {
+    saveParticipantButton.disabled = !allowed || savingParticipant;
+    saveParticipantButton.textContent =
+      savingParticipant ? "Guardando..." : "Guardar participante";
+  }
+}
+
+function clearMemberDisplay() {
+  setText(memberTitle, "Participantes");
+  setText(memberName, "");
+  setText(memberEmail, "");
+  setText(memberPhone, "");
+  setText(memberStructure, "");
+  setText(memberMunicipality, "");
+
+  if (participantList) {
+    participantList.innerHTML = "";
+  }
+}
 
 // ======================================================
 // PERFIL ACTUAL
 // ======================================================
 
 async function loadCurrentUserProfile(user) {
-
-  const reference =
-    doc(
-      db,
-      "usuarios",
-      user.uid
-    );
-
-  const snapshot =
-    await getDoc(
-      reference
-    );
+  const snapshot = await getDoc(doc(db, "usuarios", user.uid));
 
   if (!snapshot.exists()) {
-    throw new Error(
-      "El usuario no tiene perfil autorizado."
-    );
+    throw new Error("El usuario no tiene perfil autorizado.");
   }
 
   const profile = {
-    uid:
-      snapshot.id,
-
-    ...snapshot.data()
+    ...snapshot.data(),
+    uid: snapshot.id
   };
 
-  if (
-    profile.active !== true
-  ) {
-    throw new Error(
-      "El usuario está desactivado."
-    );
+  if (profile.active !== true) {
+    throw new Error("El usuario está desactivado.");
+  }
+
+  if (!["admin", "jefe_estructura", "integrante"].includes(profile.role)) {
+    throw new Error("No tienes autorización para consultar participantes.");
+  }
+
+  if (!profile.campaignId) {
+    throw new Error("El usuario no tiene campaña asignada.");
   }
 
   if (
-    profile.role !== "admin"
+    profile.role === "jefe_estructura" &&
+    (
+      typeof profile.structureId !== "string" ||
+      !profile.structureId.trim()
+    )
   ) {
-    throw new Error(
-      "Esta sección es exclusiva para administradores."
-    );
-  }
-
-  if (
-    !profile.campaignId
-  ) {
-    throw new Error(
-      "El administrador no tiene campaña asignada."
-    );
+    throw new Error("El Responsable de estructura no tiene estructura asignada.");
   }
 
   return profile;
 }
 
-
 // ======================================================
 // CARGAR INTEGRANTE
 // ======================================================
 
-async function loadMember() {
+async function loadMember(profile, user) {
+  const targetUid =
+    requestedMemberUid ||
+    (profile.role === "integrante" ? user.uid : "");
 
-  if (!memberUid) {
-    throw new Error(
-      "No se especificó un integrante."
-    );
+  if (!targetUid) {
+    throw new Error("No se especificó un integrante.");
   }
 
-  const reference =
-    doc(
-      db,
-      "usuarios",
-      memberUid
-    );
+  if (profile.role === "integrante" && targetUid !== user.uid) {
+    throw new Error("Sólo puedes consultar tus propios participantes.");
+  }
 
-  const snapshot =
-    await getDoc(
-      reference
-    );
+  const snapshot = await getDoc(doc(db, "usuarios", targetUid));
 
   if (!snapshot.exists()) {
-    throw new Error(
-      "El integrante no existe."
-    );
+    throw new Error("El integrante no existe.");
   }
 
   const member = {
-    uid:
-      snapshot.id,
-
-    ...snapshot.data()
+    ...snapshot.data(),
+    uid: snapshot.id
   };
 
-  if (
-    member.role !== "integrante"
-  ) {
-    throw new Error(
-      "El usuario seleccionado no es un integrante."
-    );
+  if (member.role !== "integrante") {
+    throw new Error("El usuario seleccionado no es un integrante.");
+  }
+
+  if (member.campaignId !== profile.campaignId) {
+    throw new Error("El integrante pertenece a otra campaña.");
   }
 
   if (
-    member.campaignId !==
-    currentUserProfile.campaignId
+    profile.role === "jefe_estructura" &&
+    member.structureId !== profile.structureId
   ) {
-    throw new Error(
-      "El integrante pertenece a otra campaña."
-    );
+    throw new Error("El integrante no pertenece a tu estructura.");
   }
 
-  currentMember =
-    member;
+  return member;
+}
 
-  memberTitle.textContent =
-    member.name ||
-    "Participantes";
+function renderMember(member) {
+  setText(memberTitle, member.name || "Participantes");
+  setText(memberName, member.name || "Integrante");
+  setText(memberEmail, member.email ? `Correo: ${member.email}` : "");
+  setText(memberPhone, member.phone ? `Tel: ${member.phone}` : "");
 
-  memberName.textContent =
-    member.name ||
-    "Integrante";
+  const structureLabel = member.structureName || member.structureId || "";
 
-  memberEmail.textContent =
-    member.email
-      ? `Correo: ${member.email}`
-      : "";
+  setText(
+    memberStructure,
+    structureLabel ? `Estructura: ${structureLabel}` : ""
+  );
 
-  memberPhone.textContent =
-    member.phone
-      ? `Tel: ${member.phone}`
-      : "";
-
-  memberStructure.textContent =
-    member.structureName
-      ? `Estructura: ${member.structureName}`
-      : (
-          member.structureId
-            ? `Estructura: ${member.structureId}`
-            : ""
-        );
-
-  memberMunicipality.textContent =
-    member.municipalityName
-      ? `Municipio: ${member.municipalityName}`
-      : "";
+  setText(
+    memberMunicipality,
+    member.municipalityName ? `Municipio: ${member.municipalityName}` : ""
+  );
 
   showStatus(
     memberInfoStatus,
-    ""
+    canCreateParticipant()
+      ? ""
+      : "Consulta de participantes. Las altas corresponden al integrante."
   );
 }
-
 
 // ======================================================
 // RENDER PARTICIPANTES
 // ======================================================
 
-function renderParticipants(
-  participants
-) {
+function renderParticipants(participants) {
+  if (!participantList) return;
 
-  if (!participantList) {
-    return;
-  }
-
-  if (
-    participants.length === 0
-  ) {
-
+  if (participants.length === 0) {
     participantList.innerHTML = `
       <div class="card">
-        <p class="muted">
-          Todavía no hay participantes registrados.
-        </p>
+        <p class="muted">Todavía no hay participantes registrados.</p>
       </div>
     `;
-
     return;
   }
 
-  participantList.innerHTML =
-    participants
-      .map(
-        (participant) => {
+  participantList.innerHTML = participants.map((participant) => `
+    <article class="card">
+      <p class="eyebrow">PARTICIPANTE</p>
 
-          const statusText =
-            participant.active === true
-              ? "Activo"
-              : "Inactivo";
+      <h3>${escapeHtml(participant.name)}</h3>
+      <p class="muted">${escapeHtml(participant.email)}</p>
 
-          return `
-            <article class="card">
+      ${
+        participant.phone
+          ? `<p class="muted">Tel: ${escapeHtml(participant.phone)}</p>`
+          : ""
+      }
 
-              <p class="eyebrow">
-                PARTICIPANTE
-              </p>
+      ${
+        participant.locality
+          ? `<p class="muted">Localidad: ${escapeHtml(participant.locality)}</p>`
+          : ""
+      }
 
-              <h3>
-                ${escapeHtml(
-                  participant.name
-                )}
-              </h3>
-
-              <p class="muted">
-                ${escapeHtml(
-                  participant.email
-                )}
-              </p>
-
-              ${
-                participant.phone
-                  ? `
-                    <p class="muted">
-                      Tel:
-                      ${escapeHtml(
-                        participant.phone
-                      )}
-                    </p>
-                  `
-                  : ""
-              }
-
-              ${
-  participant.locality
-    ? `
       <p class="muted">
-        Localidad:
-        ${escapeHtml(
-          participant.locality
-        )}
+        Estado: ${participant.active === true ? "Activo" : "Inactivo"}
       </p>
-    `
-    : ""
+
+      <a
+        class="button button--secondary button--small"
+        href="./persona.html?id=${encodeURIComponent(participant.uid)}"
+      >
+        Ver perfil
+      </a>
+    </article>
+  `).join("");
 }
 
-              <p class="muted">
-                Estado:
-                ${escapeHtml(
-                  statusText
-                )}
-              </p>
-
-                            <a
-                class="button button--secondary button--small"
-                href="./persona.html?id=${encodeURIComponent(
-                  participant.uid
-                )}"
-              >
-                Ver perfil
-              </a>
-
-            </article>
-          `;
-        }
-      )
-      .join("");
-}
-
-
 // ======================================================
-// ESCUCHAR PARTICIPANTES DEL INTEGRANTE
+// CONSULTAR PARTICIPANTES
 // ======================================================
 
-function listenParticipants() {
+function listenParticipants(version) {
+  stopListening();
 
-  if (
-    stopParticipantListener
-  ) {
-    stopParticipantListener();
+  const filters = [
+    where("campaignId", "==", currentUserProfile.campaignId),
+    where("parentUserId", "==", currentMember.uid),
+    where("role", "==", "participante")
+  ];
+
+  // La consulta del Responsable de estructura debe incluir
+  // el mismo alcance que autorizan las reglas de Firestore.
+  if (currentUserProfile.role === "jefe_estructura") {
+    filters.push(
+      where("structureId", "==", currentUserProfile.structureId)
+    );
   }
 
-  const participantQuery =
-    query(
+  showStatus(participantStatus, "Cargando participantes...");
 
-      collection(
-        db,
-        "usuarios"
-      ),
+  stopParticipantListener = onSnapshot(
+    query(collection(db, "usuarios"), ...filters),
 
-      where(
-        "campaignId",
-        "==",
-        currentUserProfile.campaignId
-      ),
+    (snapshot) => {
+      if (version !== sessionVersion) return;
 
-      where(
-        "parentUserId",
-        "==",
-        currentMember.uid
-      ),
+      const participants = snapshot.docs.map((item) => ({
+        ...item.data(),
+        uid: item.id
+      }));
 
-      where(
-        "role",
-        "==",
-        "participante"
-      )
-    );
+      renderParticipants(participants);
+      showStatus(participantStatus, "");
+    },
 
-  stopParticipantListener =
-    onSnapshot(
+    (error) => {
+      if (version !== sessionVersion) return;
 
-      participantQuery,
+      console.error("Error al consultar participantes:", error);
 
-      (snapshot) => {
-
-        const participants =
-          [];
-
-        snapshot.forEach(
-          (documentSnapshot) => {
-
-            participants.push({
-              uid:
-                documentSnapshot.id,
-
-              ...documentSnapshot.data()
-            });
-          }
-        );
-
-        renderParticipants(
-          participants
-        );
-
-        showStatus(
-          participantStatus,
-          ""
-        );
-      },
-
-      (error) => {
-
-        console.error(
-          "Error al consultar participantes:",
-          error
-        );
-
-        showStatus(
-          participantStatus,
-          "No fue posible consultar los participantes.",
-          "error"
-        );
+      if (participantList) {
+        participantList.innerHTML = "";
       }
-    );
-}
 
+      showStatus(
+        participantStatus,
+        getErrorMessage(error),
+        "error"
+      );
+    }
+  );
+}
 
 // ======================================================
 // MODAL
 // ======================================================
 
 function openParticipantModal() {
+  if (!canCreateParticipant() || savingParticipant) return;
 
   participantForm?.reset();
-
-  showStatus(
-    participantFormStatus,
-    ""
-  );
+  showStatus(participantFormStatus, "");
 
   if (participantModal) {
-    participantModal.hidden =
-      false;
+    participantModal.hidden = false;
   }
 
-  setTimeout(
-    () => {
-      participantNameInput?.focus();
-    },
-    50
-  );
+  participantNameInput?.focus();
 }
-
 
 function closeParticipantModal() {
-
   if (participantModal) {
-    participantModal.hidden =
-      true;
+    participantModal.hidden = true;
   }
 
   participantForm?.reset();
-
-  showStatus(
-    participantFormStatus,
-    ""
-  );
+  showStatus(participantFormStatus, "");
 }
-
 
 // ======================================================
 // CREAR PARTICIPANTE
 // ======================================================
 
-async function handleCreateParticipant(
-  event
-) {
-
+async function handleCreateParticipant(event) {
   event.preventDefault();
 
-  const name =
-    String(
-      participantNameInput?.value ||
-      ""
-    )
-      .trim()
-      .replace(/\s+/g, " ");
-
-  const email =
-    String(
-      participantEmailInput?.value ||
-      ""
-    )
-      .trim()
-      .toLowerCase();
-
-  const phone =
-    String(
-      participantPhoneInput?.value ||
-      ""
-    )
-      .trim();
-
-  const locality =
-    String(
-      participantLocalityInput?.value ||
-      ""
-    )
-      .trim()
-      .replace(/\s+/g, " ");
-
-  const password =
-    String(
-      participantPasswordInput?.value ||
-      ""
-    );
-
-  if (
-    name.length < 2
-  ) {
-
+  if (!canCreateParticipant()) {
     showStatus(
       participantFormStatus,
-      "Ingrese el nombre completo.",
+      "Sólo el integrante puede registrar sus propios participantes.",
       "error"
     );
+    return;
+  }
 
+  if (savingParticipant) return;
+
+  const name = String(participantNameInput?.value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  const email = String(participantEmailInput?.value || "")
+    .trim()
+    .toLowerCase();
+
+  const phone = String(participantPhoneInput?.value || "").trim();
+
+  const locality = String(participantLocalityInput?.value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  const password = String(participantPasswordInput?.value || "");
+
+  if (name.length < 2) {
+    showStatus(participantFormStatus, "Ingrese el nombre completo.", "error");
     participantNameInput?.focus();
-
     return;
   }
 
   if (!email) {
-
-    showStatus(
-      participantFormStatus,
-      "Ingrese un correo electrónico.",
-      "error"
-    );
-
+    showStatus(participantFormStatus, "Ingrese un correo electrónico.", "error");
     participantEmailInput?.focus();
-
     return;
   }
 
-  if (
-    locality.length < 2
-  ) {
-
+  if (locality.length < 2) {
     showStatus(
       participantFormStatus,
       "Ingrese la localidad del participante.",
       "error"
     );
-
     participantLocalityInput?.focus();
-
     return;
   }
 
-  if (
-    password.length < 6
-  ) {
-
+  if (password.length < 6) {
     showStatus(
       participantFormStatus,
       "La contraseña temporal debe tener al menos 6 caracteres.",
       "error"
     );
-
     participantPasswordInput?.focus();
-
     return;
   }
 
-  saveParticipantButton.disabled =
-    true;
+  const version = sessionVersion;
 
-  saveParticipantButton.textContent =
-    "Guardando...";
-
-  showStatus(
-    participantFormStatus,
-    "Registrando participante..."
-  );
+  savingParticipant = true;
+  updateCreateControls();
+  showStatus(participantFormStatus, "Registrando participante...");
 
   try {
+    // El backend debe validar el rol y que parentUserId
+    // corresponda al usuario autenticado.
+    const result = await createParticipantFunction({
+      name,
+      email,
+      phone,
+      locality,
+      password,
+      parentUserId: currentUser.uid
+    });
 
-    const result =
-      await createParticipantFunction({
-        name,
-        email,
-        phone,
-        locality,
-        password,
-        parentUserId:
-          currentMember.uid
-      });
+    if (version !== sessionVersion) return;
 
-    const participant =
-      result?.data?.user;
+    const participant = result?.data?.user;
+
+    closeParticipantModal();
 
     showStatus(
       participantFormStatus,
+      ""
+    );
+
+    showStatus(
+      memberInfoStatus,
       participant?.name
         ? `${participant.name} registrado correctamente.`
         : "Participante registrado correctamente.",
       "success"
     );
-
-    setTimeout(
-      () => {
-        closeParticipantModal();
-      },
-      900
-    );
-
   } catch (error) {
+    if (version !== sessionVersion) return;
 
-    console.error(
-      "Error al crear participante:",
-      error
-    );
+    console.error("Error al crear participante:", error);
 
     showStatus(
       participantFormStatus,
       getErrorMessage(error),
       "error"
     );
-
   } finally {
-
-    saveParticipantButton.disabled =
-      false;
-
-    saveParticipantButton.textContent =
-      "Guardar participante";
+    if (version === sessionVersion) {
+      savingParticipant = false;
+      updateCreateControls();
+    }
   }
 }
 
@@ -823,125 +539,123 @@ async function handleCreateParticipant(
 // EVENTOS
 // ======================================================
 
-newParticipantButton?.addEventListener(
-  "click",
-  openParticipantModal
-);
+newParticipantButton?.addEventListener("click", openParticipantModal);
 
 closeParticipantModalButton?.addEventListener(
   "click",
   closeParticipantModal
 );
 
-participantForm?.addEventListener(
-  "submit",
-  handleCreateParticipant
-);
+participantForm?.addEventListener("submit", handleCreateParticipant);
 
 participantModal
-  ?.querySelector(
-    ".modal__backdrop"
-  )
-  ?.addEventListener(
-    "click",
-    closeParticipantModal
-  );
-
+  ?.querySelector(".modal__backdrop")
+  ?.addEventListener("click", closeParticipantModal);
 
 // ======================================================
 // VOLVER
 // ======================================================
 
-backButton?.addEventListener(
-  "click",
-  () => {
+backButton?.addEventListener("click", () => {
+  const role = currentUserProfile?.role;
 
-    if (
-      currentMember?.structureDocumentId
-    ) {
-
-      window.location.href =
-        `./estructura.html?id=${encodeURIComponent(
-          currentMember.structureDocumentId
-        )}`;
-
-      return;
-    }
-
+  if (
+    (role === "admin" || role === "jefe_estructura") &&
+    currentMember?.structureDocumentId
+  ) {
     window.location.href =
-      "./municipios.html";
+      `./estructura.html?id=${encodeURIComponent(
+        currentMember.structureDocumentId
+      )}`;
+    return;
   }
-);
 
+  // El integrante no se envía al administrador de municipios.
+  window.location.href = "./admin.html";
+});
 
 // ======================================================
 // LOGOUT
 // ======================================================
 
-logoutButton?.addEventListener(
-  "click",
-  async () => {
+logoutButton?.addEventListener("click", async () => {
+  sessionVersion++;
+  stopListening();
 
-    try {
+  currentUser = null;
+  currentUserProfile = null;
+  currentMember = null;
 
-      await signOut(
-        auth
-      );
+  clearMemberDisplay();
+  closeParticipantModal();
+  updateCreateControls();
 
-    } finally {
-
-      window.location.href =
-        "./login.html";
-    }
+  try {
+    await signOut(auth);
+  } finally {
+    window.location.href = "./login.html";
   }
-);
-
+});
 
 // ======================================================
 // AUTENTICACIÓN
 // ======================================================
 
-onAuthStateChanged(
-  auth,
+// Ocultar controles y contenido mientras se valida la sesión.
+clearMemberDisplay();
+closeParticipantModal();
+updateCreateControls();
 
-  async (user) => {
+onAuthStateChanged(auth, async (user) => {
+  const version = ++sessionVersion;
 
-    if (!user) {
+  stopListening();
 
-      window.location.href =
-        "./login.html";
+  currentUser = null;
+  currentUserProfile = null;
+  currentMember = null;
+  savingParticipant = false;
 
-      return;
-    }
+  clearMemberDisplay();
+  closeParticipantModal();
+  updateCreateControls();
+  showStatus(participantStatus, "");
 
-    try {
-
-      currentUser =
-        user;
-
-      currentUserProfile =
-        await loadCurrentUserProfile(
-          user
-        );
-
-      await loadMember();
-
-      listenParticipants();
-
-    } catch (error) {
-
-      console.error(
-        "Error al iniciar módulo de participantes:",
-        error
-      );
-
-      alert(
-        error.message ||
-        "No fue posible abrir los participantes."
-      );
-
-      window.location.href =
-        "./municipios.html";
-    }
+  if (!user) {
+    window.location.href = "./login.html";
+    return;
   }
-);
+
+  showStatus(memberInfoStatus, "Validando acceso...");
+
+  try {
+    const profile = await loadCurrentUserProfile(user);
+
+    if (version !== sessionVersion) return;
+
+    const member = await loadMember(profile, user);
+
+    if (version !== sessionVersion) return;
+
+    currentUser = user;
+    currentUserProfile = profile;
+    currentMember = member;
+
+    renderMember(member);
+    updateCreateControls();
+    listenParticipants(version);
+  } catch (error) {
+    if (version !== sessionVersion) return;
+
+    console.error("Error al iniciar módulo de participantes:", error);
+
+    clearMemberDisplay();
+    updateCreateControls();
+
+    showStatus(
+      memberInfoStatus,
+      getErrorMessage(error),
+      "error"
+    );
+  }
+});
