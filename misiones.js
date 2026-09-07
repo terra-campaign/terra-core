@@ -1,3 +1,4 @@
+import {deadlineText, deadlineInputValue, inputDeadline} from "./mission-deadline.js?v=vigencia-001";
 // ======================================================
 // TERRA CAMPAIGN
 // MÓDULO PRIVADO DE MISIONES
@@ -30,6 +31,7 @@ import {
 
 import {getFunctions, httpsCallable} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
 const functions = getFunctions(auth.app, "us-central1");
+const manageMissionLifecycle = httpsCallable(functions,"manageMissionLifecycle");
 const createLinkedMissions = httpsCallable(functions, "createLinkedMissions");
 const getMissionEvidenceTotal = httpsCallable(functions, "getMissionEvidenceTotal");
 const getMissionBranchProgress = httpsCallable(functions, "getMissionBranchProgress");
@@ -89,6 +91,14 @@ const missionDescriptionInput =
 
 const missionDateInput =
   document.querySelector("#missionDate");
+const deadlineLabel = document.createElement('label');
+deadlineLabel.textContent = 'Fecha y hora límite (hora de este dispositivo)';
+const deadlineInput = document.createElement('input');
+deadlineInput.type = 'datetime-local';
+deadlineInput.style.cssText = 'display:block;width:100%;padding:10px;border:1px solid #64748b;box-sizing:border-box';
+deadlineLabel.append(deadlineInput);
+missionDateInput.after(deadlineLabel);
+
 
 const missionLocalityInput =
   document.querySelector("#missionLocality");
@@ -688,6 +698,9 @@ function openMissionModal(parent = null) {
   missionForm.reset();
   missionFormMessage.textContent = "";
   document.querySelector("#missionModalTitle").textContent = parent ? "Delegar misión recibida" : "Nueva misión";
+  deadlineInput.value = deadlineInputValue(parentMission?.deadlineAt);
+  deadlineInput.disabled = !!parentMission;
+  deadlineInput.required = !parentMission;
   for (const [input, field] of [[missionTitleInput,"title"], [missionDescriptionInput,"description"], [missionDateInput,"missionDate"], [missionLocalityInput,"locality"]]) {
     input.value = parent?.[field] || "";
     input.readOnly = !!parent;
@@ -718,7 +731,7 @@ missionForm.addEventListener("submit", async event => {
   }
   const payload = {requestId:dispatchRequestId, parentMissionId:parentMission?.id || null, assigneeIds,
     title:missionTitleInput.value.trim(), description:missionDescriptionInput.value.trim(),
-    missionDate:missionDateInput.value || null, locality:missionLocalityInput.value.trim()};
+    deadlineAt:inputDeadline(deadlineInput.value), missionDate:missionDateInput.value || null, locality:missionLocalityInput.value.trim()};
   submitting = true;
   const controls = Array.from(missionForm.elements);
   controls.forEach(el => el.disabled = true);
@@ -1116,6 +1129,7 @@ function renderMissions() {
                     )}
                   </strong>
                 </p>
+                <p data-deadline-id="${escapeHtml(mission.id)}">${escapeHtml(deadlineText(mission))}</p>
                 <p>Asignada el: <strong>${escapeHtml(formatFirestoreDate(mission.createdAt))}</strong></p>
 
 
@@ -1140,6 +1154,9 @@ function renderMissions() {
                   <button class="button button--small button--secondary" type="button" data-progress-mission="${escapeHtml(mission.id)}">Ver avance</button>` : ""}
                 ${mission.linkedVersion === 1 && mission.active === true && mission.assignedTo === currentUser.uid && getAssignableRole(currentUserProfile) ? `
                   <button class="button button--small button--secondary" type="button" data-delegate-mission="${escapeHtml(mission.id)}">Delegar</button>` : ""}
+                ${mission.createdBy === currentUser.uid && mission.active === true ? `
+                  <button type="button" class="button button--small button--secondary" data-deactivate="${escapeHtml(mission.id)}">Desactivar</button>
+                  ${!mission.deadlineAt && !mission.parentMissionId ? `<button type="button" class="button button--small button--secondary" data-deadline-set="${escapeHtml(mission.id)}">Fijar vencimiento</button>` : ''}` : ''}
                 <p>Asignada a: ${escapeHtml(mission.assignedToName || "Sin nombre")}</p>
                 <p class="message" data-branch-progress aria-live="polite"></p>
 
@@ -1345,3 +1362,43 @@ function missionWhatsAppUrl(mission) {
   const text = `Hola, ${mission.assignedToName || ""}. Tienes una misión asignada en TERRA Campaign:\n\n${mission.title || "Misión"}\n\nAbre este enlace con tu cuenta para consultar las instrucciones y registrar tu evidencia:\n${destination.href}`;
   return "https://wa.me/?text=" + encodeURIComponent(text);
 }
+
+setInterval(() => {
+  document.querySelectorAll('[data-deadline-id]').forEach(el => {
+    const m = missions.find(m => m.id === el.dataset.deadlineId);
+    if (m) el.textContent = deadlineText(m);
+  });
+},30000);
+let managingLifecycle = false;
+document.addEventListener('click', async event => {
+  const button = event.target.closest('[data-deactivate],[data-deadline-set]');
+  if (!button || managingLifecycle) return;
+  const missionId = button.dataset.deactivate || button.dataset.deadlineSet;
+  const payload = {missionId};
+  if (button.dataset.deactivate) {
+    const reason = window.prompt('Desactivar esta asignación y todas sus delegaciones. Se conservarán las evidencias. Escribe el motivo:');
+    if (!reason?.trim()) return;
+    payload.action = 'deactivate'; payload.reason = reason.trim();
+  } else {
+    const dialog = document.createElement('dialog');
+    const form = document.createElement('form'); form.method = 'dialog';
+    const label = document.createElement('label'); label.textContent = 'Fecha y hora límite (hora de este dispositivo). Se hereda a las delegaciones y no se modifica después.';
+    const input = document.createElement('input'); input.type = 'datetime-local'; input.required = true;
+    input.style.cssText = 'display:block;padding:12px;margin:12px 0';
+    const save = document.createElement('button'); save.textContent = 'Fijar vencimiento'; save.value = 'save';
+    const cancel = document.createElement('button'); cancel.textContent = 'Cancelar'; cancel.value = 'cancel'; cancel.formNoValidate = true;
+    label.append(input); form.append(label,save,cancel); dialog.append(form); document.body.append(dialog);
+    const result = new Promise(resolve => dialog.addEventListener('close',()=>resolve(dialog.returnValue),{once:true}));
+    dialog.showModal(); const answer = await result;
+    const value = input.value; dialog.remove();
+    if (answer !== 'save') return;
+    payload.action = 'deadline'; payload.deadlineAt = inputDeadline(value);
+  }
+  managingLifecycle = true; button.disabled = true;
+  try {
+    const {data} = await manageMissionLifecycle(payload);
+    await loadMissions();
+    missionsMessage.textContent = `Operación aplicada a ${data.affected} asignaciones.`;
+  } catch(error) { missionsMessage.textContent = error.message || 'No se pudo aplicar el cambio.'; }
+  finally { managingLifecycle = false; button.disabled = false; }
+});
