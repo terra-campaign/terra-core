@@ -31,6 +31,7 @@ import {
 import {getFunctions, httpsCallable} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
 const functions = getFunctions(auth.app, "us-central1");
 const createLinkedMissions = httpsCallable(functions, "createLinkedMissions");
+const getMissionEvidenceTotal = httpsCallable(functions, "getMissionEvidenceTotal");
 const getMissionBranchProgress = httpsCallable(functions, "getMissionBranchProgress");
 const missionAssigneeList = document.querySelector("#missionAssigneeList");
 const missionSelectAll = document.querySelector("#missionSelectAll");
@@ -125,33 +126,21 @@ function renderSession() {
 }
 async function loadEvidenceTotal(version) {
   const uid = currentUser?.uid;
-  const campaignId = currentUserProfile?.campaignId;
-  const ids = [...new Set(missions.map(m => m.id))];
   const isCurrent = () => version === evidenceCountVersion && auth.currentUser?.uid === uid;
-  let cursor = 0;
-  let total = 0;
-  let failure = null;
-  async function worker() {
-    while (cursor < ids.length && isCurrent() && !failure) {
-      const id = ids[cursor++];
-      try {
-        const result = await getCountFromServer(query(collection(db,"missionEvidence"),
-          where("campaignId","==",campaignId), where("missionId","==",id)));
-        total += result.data().count;
-      } catch (error) { failure = error; }
-    }
-  }
-  await Promise.all(Array.from({length:Math.min(3,ids.length)}, () => worker()));
-  if (!isCurrent()) return;
-  if (failure) {
+  try {
+    const {data} = await getMissionEvidenceTotal({});
+    if (!isCurrent()) return;
+    if (!Number.isSafeInteger(data.total) || data.total < 0) throw new Error("Total inválido");
+    totalEvidenceElement.textContent = String(data.total);
+    evidenceCountStatus.textContent = "Reportes de tus misiones y sus delegaciones autorizadas. Cada reporte cuenta una vez, aunque tenga varias fotos.";
+  } catch (error) {
+    if (!isCurrent()) return;
     totalEvidenceElement.textContent = "—";
     evidenceCountStatus.textContent = "No se pudo calcular el total. Pulsa Actualizar para reintentar.";
-    console.error("Conteo de evidencias:", failure.code);
-    return;
+    console.error("Conteo de evidencias:", error.code || error.message);
   }
-  totalEvidenceElement.textContent = String(total);
-  evidenceCountStatus.textContent = "Reportes de las misiones de este listado. Cada reporte cuenta una vez, aunque tenga varias fotos.";
 }
+
 
 let currentUser = null;
 let currentUserProfile = null;
