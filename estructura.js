@@ -345,9 +345,10 @@ async function loadCurrentUserProfile(
 
  if (
   ![
-    "admin",
-    "coordinador_municipal"
-  ].includes(profile.role)
+  "admin",
+  "coordinador_municipal",
+  "jefe_estructura"
+].includes(profile.role)
 ) {
   throw new Error(
     "No tienes autorización para administrar esta estructura."
@@ -420,6 +421,20 @@ async function loadStructure() {
 ) {
   throw new Error(
     "No tienes autorización para administrar estructuras de otro municipio."
+  );
+}
+
+  // El responsable sólo puede abrir su estructura asignada.
+if (
+  currentUserProfile.role === "jefe_estructura" &&
+  (
+    !currentUserProfile.structureId ||
+    !structure.id ||
+    structure.id !== currentUserProfile.structureId
+  )
+) {
+  throw new Error(
+    "No tienes autorización para consultar esta estructura."
   );
 }
 
