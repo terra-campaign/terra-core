@@ -813,8 +813,7 @@ function listenStructureUsers() {
           al responsable de estructura.
         </p>
         <p class="muted">
-          El resumen de progreso estará disponible
-          cuando se habilite el módulo de indicadores.
+          Consulta el avance reportado en el resumen de esta estructura.
         </p>
       </div>
     `;
@@ -1420,6 +1419,7 @@ onAuthStateChanged(
       await loadStructure();
 
       listenStructureUsers();
+      void loadStructureProgress();
 
     } catch (error) {
 
@@ -1438,3 +1438,50 @@ onAuthStateChanged(
     }
   }
 );
+// RESUMEN AGREGADO: la autorización y los cálculos se realizan en servidor.
+const progressSection = document.createElement("section");
+progressSection.className = "card";
+progressSection.hidden = true;
+progressSection.innerHTML = '<h2>Avance reportado</h2><p>Historial de misiones de las personas actualmente asignadas a esta estructura, incluido su responsable. Incluye misiones activas e inactivas.</p><p>Una evidencia indica un reporte; no certifica el cumplimiento.</p><button type="button" class="button button--secondary">Actualizar resumen</button><div aria-live="polite"></div>';
+document.querySelector("main.workspace")?.prepend(progressSection);
+const progressButton = progressSection.querySelector("button");
+const progressOutput = progressSection.querySelector("[aria-live]");
+const getStructureProgress = httpsCallable(functions, "getStructureProgress");
+let progressVersion = 0;
+onAuthStateChanged(auth, () => {
+  progressVersion++;
+  progressSection.hidden = true;
+  progressOutput.replaceChildren();
+});
+progressButton.addEventListener("click", loadStructureProgress);
+
+async function loadStructureProgress() {
+  const uid = auth.currentUser?.uid;
+  if (!uid || !currentStructure) return;
+  const version = ++progressVersion;
+  progressSection.hidden = false;
+  progressButton.disabled = true;
+  progressOutput.textContent = "Calculando resumen...";
+  try {
+    const {data} = await getStructureProgress({structureDocumentId});
+    if (version !== progressVersion || auth.currentUser?.uid !== uid) return;
+    progressOutput.replaceChildren();
+    for (const [label, value] of [
+      ["Misiones asignadas", data.total],
+      ["Con evidencia", data.withEvidence],
+      ["Sin evidencia", data.withoutEvidence],
+      ["Avance reportado", data.percentage === null ? "Sin misiones" : data.percentage + "%"],
+      ["Última evidencia", data.lastActivity === null ? "Sin evidencia" : new Date(data.lastActivity).toLocaleString("es-MX")],
+      ["Resumen actualizado", new Date(data.calculatedAt).toLocaleString("es-MX")]
+    ]) {
+      const line = document.createElement("p");
+      line.textContent = label + ": " + value;
+      progressOutput.append(line);
+    }
+  } catch (error) {
+    if (version !== progressVersion || auth.currentUser?.uid !== uid) return;
+    progressOutput.textContent = "No fue posible obtener el resumen. " + getErrorMessage(error);
+  } finally {
+    if (version === progressVersion) progressButton.disabled = false;
+  }
+}
