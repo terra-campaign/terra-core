@@ -1134,24 +1134,19 @@ async function loadMissions() {
   );
 
 
-    const [
+   const [
   receivedSnapshot,
   createdSnapshot,
   supervisedSnapshot
-] =
-  await Promise.all([
-    getDocs(
-      receivedQuery
-    ),
+] = await Promise.all([
+  getDocs(receivedQuery),
 
-    getDocs(
-      createdQuery
-    ),
+  getDocs(createdQuery),
 
-    getDocs(
-      supervisedQuery
-    )
-  ]);
+  currentUserProfile.role === "coordinador_municipal"
+    ? Promise.resolve(null)
+    : getDocs(supervisedQuery)
+]);
 
 
       // ==================================================
@@ -1194,20 +1189,15 @@ async function loadMissions() {
       );
 
 
-      supervisedSnapshot.forEach(
-  (documentSnapshot) => {
-
-    missionMap.set(
-      documentSnapshot.id,
-      {
-        id:
-          documentSnapshot.id,
-
-        ...documentSnapshot.data()
-      }
-    );
-  }
-);
+    supervisedSnapshot?.forEach((documentSnapshot) => {
+  missionMap.set(
+    documentSnapshot.id,
+    {
+      ...documentSnapshot.data(),
+      id: documentSnapshot.id
+    }
+  );
+});
       
 
 
