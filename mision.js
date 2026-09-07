@@ -1,3 +1,4 @@
+import {deadlineText} from "./mission-deadline.js?v=vigencia-001";
 // ======================================================
 // TERRA CAMPAIGN
 // DETALLE PRIVADO DE MISIÓN + EVIDENCIAS
@@ -412,7 +413,7 @@ function renderMission() {
 
   // El destinatario puede registrar evidencia.
   evidenceForm.hidden =
-    !isAssignee;
+    !isAssignee || currentMission.active !== true;
 
   // El creador/supervisor solo consulta.
   if (
@@ -762,6 +763,10 @@ evidenceForm.addEventListener(
       return;
     }
 
+    if (currentMission.active !== true) {
+      evidenceFormMessage.textContent = 'Esta misión está desactivada.';
+      return;
+    }
     if (auth.currentUser?.uid !== currentUser.uid ||
         currentMission.assignedTo !== currentUser.uid) {
       evidenceFormMessage.textContent = "Solo el destinatario puede registrar evidencia.";
@@ -814,6 +819,8 @@ evidenceForm.addEventListener(
       const evidenceId =
         evidenceRef.id;
 
+      await loadMission();
+      if (currentMission.active !== true) throw new Error('La misión fue desactivada. No se guardó el reporte.');
       const imagePaths = [];
       for (const [index, file] of selectedEvidencePhotos.entries()) {
         const compressedPhoto = await compressEvidencePhoto(file);
@@ -1072,7 +1079,10 @@ async function renderEvidence() {
       ["Reportó", evidence.reportedByName || "Sin identificar"],
       ["Nota", evidence.description || "Sin nota"],
       ["Subida por", evidence.uploadedByName || "Sin identificar"],
-      ["Fecha", formatFirestoreDate(evidence.createdAt)]
+      ["Fecha", formatFirestoreDate(evidence.createdAt)],
+      ["Plazo", !currentMission.deadlineAt ? "Sin fecha límite" :
+        !evidence.createdAt?.toMillis ? "Pendiente de confirmar fecha" :
+        evidence.createdAt.toMillis() > Date.parse(currentMission.deadlineAt) ? "Reportado fuera de plazo" : "Reportado dentro del plazo"]
     ]) {
       const line = document.createElement("p");
       line.textContent = label + ": " + value;
@@ -1250,3 +1260,14 @@ function escapeAttribute(value) {
     value
   );
 }
+const deadlineNotice = document.createElement('p');
+deadlineNotice.style.cssText = 'padding:12px;border:1px solid #64748b;border-radius:6px;font-weight:600';
+missionMessage.after(deadlineNotice);
+function refreshDeadlineNotice() {
+  if (!currentMission) return;
+  let message = deadlineText(currentMission);
+  if (currentMission.active === true && currentMission.deadlineAt && Date.parse(currentMission.deadlineAt) <= Date.now() && !evidenceItems.length) message = 'Vencida sin reporte. ' + message;
+  if (currentMission.active === false && currentMission.deactivationReason) message += ' Motivo: ' + currentMission.deactivationReason;
+  deadlineNotice.textContent = message;
+}
+setInterval(refreshDeadlineNotice,1000);
