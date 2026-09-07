@@ -1,90 +1,51 @@
-// ======================================================
-// TERRA CAMPAIGN
-// Login con Firebase Authentication
-// ======================================================
-
+// TERRA Campaign — acceso con destino de misión validado.
 import { auth } from "./firebase-config.js";
-
-import {
-  signInWithEmailAndPassword,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-
+import { signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 const form = document.querySelector("#loginForm");
 const emailInput = document.querySelector("#email");
 const passwordInput = document.querySelector("#password");
 const message = document.querySelector("#loginMessage");
 const submitButton = form.querySelector('button[type="submit"]');
-
-
-//========================================
-// Animación de entrada del formulario
-//========================================
-
+const missionId = new URLSearchParams(window.location.search).get("mission");
+// Solo IDs; nunca aceptamos una URL de redirección enviada desde fuera.
+const validMission = typeof missionId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(missionId);
+const destination = validMission ? `./mision.html?id=${encodeURIComponent(missionId)}` : "./admin.html";
+let redirecting = false;
+function enter() {
+  if (redirecting) return;
+  redirecting = true;
+  window.location.replace(destination);
+}
 window.addEventListener("load", () => {
-
-    setTimeout(() => {
-
-        document.querySelector(".auth-card").style.display = "block";
-
-    },3000);
-
+  setTimeout(() => {
+    const card = document.querySelector(".auth-card");
+    if (card) card.style.display = "block";
+  }, 3000);
 });
-
-
-// Si el usuario ya inició sesión, enviarlo al panel.
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    window.location.href = "./admin.html";
-  }
-});
-
-form.addEventListener("submit", async (event) => {
+onAuthStateChanged(auth, user => { if (user) enter(); });
+form.addEventListener("submit", async event => {
   event.preventDefault();
-
-  const email = emailInput.value.trim();
-  const password = passwordInput.value;
-
+  if (submitButton.disabled) return;
   message.textContent = "";
   submitButton.disabled = true;
   submitButton.textContent = "Ingresando...";
-
   try {
-    await signInWithEmailAndPassword(auth, email, password);
-
+    await signInWithEmailAndPassword(auth, emailInput.value.trim(), passwordInput.value);
     message.textContent = "Acceso correcto.";
-    window.location.href = "./admin.html";
-
+    enter();
   } catch (error) {
-    console.error("Error de autenticación:", error);
-
-    switch (error.code) {
-      case "auth/invalid-credential":
-        message.textContent = "Correo o contraseña incorrectos.";
-        break;
-
-      case "auth/invalid-email":
-        message.textContent = "El correo no es válido.";
-        break;
-
-      case "auth/user-disabled":
-        message.textContent = "Este usuario está deshabilitado.";
-        break;
-
-      case "auth/too-many-requests":
-        message.textContent = "Demasiados intentos. Intenta nuevamente más tarde.";
-        break;
-
-      case "auth/network-request-failed":
-        message.textContent = "No hay conexión con Firebase.";
-        break;
-
-      default:
-        message.textContent = "No fue posible iniciar sesión.";
-    }
-
+    const messages = {
+      "auth/invalid-credential": "Correo o contraseña incorrectos.",
+      "auth/invalid-email": "El correo no es válido.",
+      "auth/user-disabled": "Este usuario está deshabilitado.",
+      "auth/too-many-requests": "Demasiados intentos. Intenta nuevamente más tarde.",
+      "auth/network-request-failed": "No hay conexión con Firebase."
+    };
+    message.textContent = messages[error.code] || "No fue posible iniciar sesión.";
   } finally {
-    submitButton.disabled = false;
-    submitButton.textContent = "Ingresar";
+    if (!redirecting) {
+      submitButton.disabled = false;
+      submitButton.textContent = "Ingresar";
+    }
   }
 });
