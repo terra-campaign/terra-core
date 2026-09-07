@@ -299,17 +299,16 @@ function validateMissionScope(mission) {
     return;
   }
 
-  // Supervisor jerárquico.
-  if (
-    Array.isArray(
-      mission.supervisorIds
-    ) &&
-    mission.supervisorIds.includes(
-      currentUser.uid
-    )
-  ) {
-    return;
-  }
+  // Supervisión del detalle.
+// El Responsable de organización conserva únicamente
+// el acceso como destinatario o creador directo.
+if (
+  currentUserProfile.role !== "coordinador_municipal" &&
+  Array.isArray(mission.supervisorIds) &&
+  mission.supervisorIds.includes(currentUser.uid)
+) {
+  return;
+}
 
   throw new Error(
     "No tienes acceso a esta misión."
