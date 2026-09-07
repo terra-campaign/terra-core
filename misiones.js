@@ -1042,6 +1042,13 @@ function renderMissions() {
                     localityText
                   )}
                 </p>
+                ${mission.createdBy === currentUser.uid ? `
+                <a class="button button--small button--secondary"
+                   href="${escapeHtml(missionWhatsAppUrl(mission))}"
+                   target="_blank" rel="noopener noreferrer">
+                  Enviar por WhatsApp
+                </a>` : ""}
+
 
               </div>
 
@@ -1055,18 +1062,15 @@ function renderMissions() {
                 </p>
 
                 <p>
-  Fecha programada:
-  <strong>
-    ${escapeHtml(dateText)}
-  </strong>
-</p>
+                  Fecha programada:
+                  <strong>
+                    ${escapeHtml(
+                      dateText
+                    )}
+                  </strong>
+                </p>
+                <p>Asignada el: <strong>${escapeHtml(formatFirestoreDate(mission.createdAt))}</strong></p>
 
-<p>
-  Asignada el:
-  <strong>
-    ${escapeHtml(formatFirestoreDate(mission.createdAt))}
-  </strong>
-</p>
 
                 <p>
                   Creada por:
@@ -1288,3 +1292,10 @@ missionsList.addEventListener("click", async event => {
     if (auth.currentUser?.uid === uid) output.textContent = error.message || "No fue posible consultar el avance.";
   } finally { button.disabled = false; }
 });
+
+function missionWhatsAppUrl(mission) {
+  const destination = new URL("./login.html", window.location.href);
+  destination.searchParams.set("mission", mission.id);
+  const text = `Hola, ${mission.assignedToName || ""}. Tienes una misión asignada en TERRA Campaign:\n\n${mission.title || "Misión"}\n\nAbre este enlace con tu cuenta para consultar las instrucciones y registrar tu evidencia:\n${destination.href}`;
+  return "https://wa.me/?text=" + encodeURIComponent(text);
+}
