@@ -497,13 +497,18 @@ in resource.data.supervisorIds
     // =====================================================
 
     match /missionEvidence/{evidenceId} {
+      function missionAcceptsEvidence() {
+        return exists(/databases/$(database)/documents/misiones/$(request.resource.data.missionId)) &&
+          get(/databases/$(database)/documents/misiones/$(request.resource.data.missionId)).data.active == true;
+      }
+
 
       // -------------------------------------------------
       // CREAR — ADMINISTRADOR
       // MODELO ANTERIOR
       // -------------------------------------------------
 
-      allow create: if roleIs("admin") &&
+      allow create: if missionAcceptsEvidence() && roleIs("admin") &&
 
                     request.resource.data.id ==
                     evidenceId &&
@@ -537,7 +542,7 @@ in resource.data.supervisorIds
       // MODELO ANTERIOR
       // -------------------------------------------------
 
-      allow create: if roleIs("coordinador") &&
+      allow create: if missionAcceptsEvidence() && roleIs("coordinador") &&
 
                     request.resource.data.id ==
                     evidenceId &&
@@ -577,8 +582,7 @@ in resource.data.supervisorIds
       // la misión puede registrar su evidencia.
       // -------------------------------------------------
 
-      allow create: if
-        (
+      allow create: if missionAcceptsEvidence() && (
           roleIs("coordinador_municipal") ||
           roleIs("jefe_estructura") ||
           roleIs("integrante") ||
