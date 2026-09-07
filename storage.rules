@@ -1,0 +1,246 @@
+rules_version = '2';
+
+service firebase.storage {
+
+  match /b/{bucket}/o {
+
+    // =====================================================
+    // FUNCIONES AUXILIARES
+    // =====================================================
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath() {
+      return /databases/(default)/documents/usuarios/$(request.auth.uid);
+    }
+
+    function profileExists() {
+      return signedIn() &&
+             firestore.exists(profilePath());
+    }
+
+    function profile() {
+      return firestore.get(profilePath()).data;
+    }
+
+    function active() {
+      return profileExists() &&
+             profile().active == true;
+    }
+
+    function roleIs(roleName) {
+      return active() &&
+             profile().role == roleName;
+    }
+
+    function missionPath(missionId) {
+      return /databases/(default)/documents/misiones/$(missionId);
+    }
+
+    function missionExists(missionId) {
+      return firestore.exists(
+        missionPath(missionId)
+      );
+    }
+
+    function mission(missionId) {
+      return firestore.get(
+        missionPath(missionId)
+      ).data;
+    }
+
+
+    // =====================================================
+    // EVIDENCIAS FOTOGRÁFICAS DE VISITAS
+    // MODELO OPERATIVO ACTUAL / ANTERIOR
+    //
+    // Ruta:
+    // visitas/{campaignId}/{visitId}/{fileName}
+    // =====================================================
+
+    match /visitas/{campaignId}/{visitId}/{fileName} {
+
+      // Lectura para usuarios activos
+      // pertenecientes a la misma campaña.
+      allow read: if active() &&
+                  profile().campaignId ==
+                  campaignId;
+
+      // Escritura del modelo territorial existente.
+      allow create: if active() &&
+                    (
+                      roleIs("admin") ||
+                      roleIs("coordinador") ||
+                      roleIs("brigadista")
+                    ) &&
+                    profile().campaignId ==
+                    campaignId &&
+                    request.resource.size <
+                    5 * 1024 * 1024 &&
+                    request.resource.contentType
+                    .matches("image/.*");
+
+      // Las evidencias no se reemplazan
+      // ni eliminan desde el navegador.
+      allow update, delete: if false;
+    }
+
+
+    // =====================================================
+    // EVIDENCIAS PRIVADAS DE MISIONES
+    // BUILD-116
+    //
+    // Ruta:
+    // missions/{campaignId}/{missionId}/evidence/{fileName}
+    // =====================================================
+
+    match /missions/{campaignId}/{missionId}/evidence/{fileName} {
+
+      // -------------------------------------------------
+      // LEER — ADMINISTRADOR
+      // -------------------------------------------------
+
+      allow read: if roleIs("admin") &&
+                  profile().campaignId ==
+                  campaignId &&
+                  missionExists(missionId) &&
+                  mission(missionId).campaignId ==
+                  campaignId;
+
+
+      // -------------------------------------------------
+      // LEER — COORDINADOR
+      // MODELO ANTERIOR
+      // -------------------------------------------------
+
+      allow read: if roleIs("coordinador") &&
+                  profile().campaignId ==
+                  campaignId &&
+                  missionExists(missionId) &&
+                  mission(missionId).campaignId ==
+                  campaignId &&
+                  mission(missionId).brigadeId
+                  in profile().brigadeIds;
+
+
+      // -------------------------------------------------
+      // LEER — NUEVA JERARQUÍA
+      // BUILD-116
+      //
+      // Puede consultar la imagen:
+      //
+      // 1. La persona que recibió la misión.
+      // 2. La persona que creó la misión.
+      //
+      // No permite consultar evidencia
+      // de misiones ajenas.
+      // -------------------------------------------------
+
+      allow read: if active() &&
+                  (
+                    roleIs("coordinador_municipal") ||
+                    roleIs("jefe_estructura") ||
+                    roleIs("integrante") ||
+                    roleIs("participante")
+                  ) &&
+                  profile().campaignId ==
+                  campaignId &&
+                  missionExists(missionId) &&
+                  mission(missionId).campaignId ==
+                  campaignId &&
+                  (
+                    mission(missionId).assignedTo ==
+                    request.auth.uid ||
+
+                    mission(missionId).createdBy ==
+                    request.auth.uid
+                  );
+
+
+      // -------------------------------------------------
+      // CREAR — ADMINISTRADOR
+      // -------------------------------------------------
+
+      allow create: if roleIs("admin") &&
+                    profile().campaignId ==
+                    campaignId &&
+                    missionExists(missionId) &&
+                    mission(missionId).campaignId ==
+                    campaignId &&
+                    request.resource.size <
+                    8 * 1024 * 1024 &&
+                    request.resource.contentType
+                    .matches("image/.*");
+
+
+      // -------------------------------------------------
+      // CREAR — COORDINADOR
+      // MODELO ANTERIOR
+      // -------------------------------------------------
+
+      allow create: if roleIs("coordinador") &&
+                    profile().campaignId ==
+                    campaignId &&
+                    missionExists(missionId) &&
+                    mission(missionId).campaignId ==
+                    campaignId &&
+                    mission(missionId).brigadeId
+                    in profile().brigadeIds &&
+                    request.resource.size <
+                    8 * 1024 * 1024 &&
+                    request.resource.contentType
+                    .matches("image/.*");
+
+
+      // -------------------------------------------------
+      // CREAR — DESTINATARIO
+      // NUEVA JERARQUÍA / BUILD-116
+      //
+      // Solo la persona que recibió la misión
+      // puede cargar evidencia.
+      // -------------------------------------------------
+
+      allow create: if active() &&
+                    (
+                      roleIs("coordinador_municipal") ||
+                      roleIs("jefe_estructura") ||
+                      roleIs("integrante") ||
+                      roleIs("participante")
+                    ) &&
+                    profile().campaignId ==
+                    campaignId &&
+                    missionExists(missionId) &&
+                    mission(missionId).campaignId ==
+                    campaignId &&
+                    mission(missionId).assignedTo ==
+                    request.auth.uid &&
+                    request.resource.size <
+                    8 * 1024 * 1024 &&
+                    request.resource.contentType
+                    .matches("image/.*");
+
+
+      // -------------------------------------------------
+      // INMUTABILIDAD DE EVIDENCIA
+      // -------------------------------------------------
+
+      // Ningún archivo puede reemplazarse
+      // ni eliminarse desde el navegador.
+      allow update, delete: if false;
+    }
+
+
+    // =====================================================
+    // TODO LO DEMÁS
+    // =====================================================
+
+    match /{allPaths=**} {
+
+      allow read, write: if false;
+    }
+
+  }
+
+}
