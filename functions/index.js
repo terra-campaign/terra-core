@@ -4380,3 +4380,4 @@ exports.getMissionBranchProgress =
   require("./mission-delegation.cjs").getMissionBranchProgress;
 
 
+exports.getMissionEvidenceTotal = require("./mission-delegation.cjs").getMissionEvidenceTotal;
