@@ -21,6 +21,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getCountFromServer,
   query,
   where,
   orderBy
@@ -107,6 +108,50 @@ const missionFormMessage =
 // ======================================================
 // ESTADO
 // ======================================================
+
+let evidenceCountVersion = 0;
+const sessionLabel = document.createElement("p");
+sessionLabel.style.cssText = "margin:8px 0;overflow-wrap:anywhere;font-size:0.9rem";
+sessionLabel.setAttribute("aria-live", "polite");
+(document.querySelector(".topbar-title") || document.querySelector("header")).append(sessionLabel);
+const evidenceCountStatus = document.createElement("p");
+evidenceCountStatus.className = "message";
+evidenceCountStatus.style.fontSize = "0.8rem";
+evidenceCountStatus.setAttribute("aria-live", "polite");
+totalEvidenceElement.after(evidenceCountStatus);
+function renderSession() {
+  const roles = {admin:"Administrador", coordinador_municipal:"Responsable de organización", jefe_estructura:"Responsable de estructura", integrante:"Integrante", participante:"Participante"};
+  sessionLabel.textContent = currentUserProfile ? `Sesión: ${currentUserProfile.name || currentUser?.email || "Sin nombre"} · ${roles[currentUserProfile.role] || currentUserProfile.role}` : "";
+}
+async function loadEvidenceTotal(version) {
+  const uid = currentUser?.uid;
+  const campaignId = currentUserProfile?.campaignId;
+  const ids = [...new Set(missions.map(m => m.id))];
+  const isCurrent = () => version === evidenceCountVersion && auth.currentUser?.uid === uid;
+  let cursor = 0;
+  let total = 0;
+  let failure = null;
+  async function worker() {
+    while (cursor < ids.length && isCurrent() && !failure) {
+      const id = ids[cursor++];
+      try {
+        const result = await getCountFromServer(query(collection(db,"missionEvidence"),
+          where("campaignId","==",campaignId), where("missionId","==",id)));
+        total += result.data().count;
+      } catch (error) { failure = error; }
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(3,ids.length)}, () => worker()));
+  if (!isCurrent()) return;
+  if (failure) {
+    totalEvidenceElement.textContent = "—";
+    evidenceCountStatus.textContent = "No se pudo calcular el total. Pulsa Actualizar para reintentar.";
+    console.error("Conteo de evidencias:", failure.code);
+    return;
+  }
+  totalEvidenceElement.textContent = String(total);
+  evidenceCountStatus.textContent = "Reportes de las misiones de este listado. Cada reporte cuenta una vez, aunque tenga varias fotos.";
+}
 
 let currentUser = null;
 let currentUserProfile = null;
@@ -556,6 +601,10 @@ onAuthStateChanged(
   async (user) => {
 
     if (!user) {
+      evidenceCountVersion++;
+      sessionLabel.textContent = "";
+      totalEvidenceElement.textContent = "—";
+      evidenceCountStatus.textContent = "";
       currentUser = null;
       currentUserProfile = null;
       missions = [];
@@ -574,6 +623,7 @@ onAuthStateChanged(
       const loadedProfile = await loadCurrentUserProfile(user);
       if (auth.currentUser?.uid !== user.uid) return;
       currentUserProfile = loadedProfile;
+      renderSession();
 
       validateMissionAccess(
         currentUserProfile
@@ -713,6 +763,9 @@ async function loadMissions() {
   }
 
   const loadingUid = currentUser.uid;
+  const countVersion = ++evidenceCountVersion;
+  totalEvidenceElement.textContent = "…";
+  evidenceCountStatus.textContent = "Calculando reportes...";
   missionsMessage.textContent =
     "Cargando misiones...";
 
@@ -953,10 +1006,12 @@ async function loadMissions() {
     // RENDER
     // ==================================================
 
-    if (auth.currentUser?.uid !== loadingUid) return;
+    if (auth.currentUser?.uid !== loadingUid || countVersion !== evidenceCountVersion) return;
     renderMissions();
 
     updateMissionMetrics();
+    await loadEvidenceTotal(countVersion);
+    if (auth.currentUser?.uid !== loadingUid || countVersion !== evidenceCountVersion) return;
 
     missionsMessage.textContent =
       missions.length
@@ -972,6 +1027,9 @@ async function loadMissions() {
     );
 
 
+    if (countVersion !== evidenceCountVersion || auth.currentUser?.uid !== loadingUid) return;
+    totalEvidenceElement.textContent = "—";
+    evidenceCountStatus.textContent = "No se pudo calcular el total porque falló la carga de misiones.";
     if (
       error.code ===
       "failed-precondition"
@@ -1130,8 +1188,7 @@ function updateMissionMetrics() {
   activeMissionsElement.textContent =
     active;
 
-  totalEvidenceElement.textContent = "—";
-  totalEvidenceElement.title = "Consulta el avance por misión; el total de evidencias no se calcula en este listado.";
+
   lastActivityElement.previousElementSibling.textContent = "Última misión creada";
 
   if (!missions.length) {
