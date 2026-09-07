@@ -709,8 +709,8 @@ function listenStructureUsers() {
         ),
 
        where(
-  "ancestorIds",
-  "array-contains",
+  "parentUserId",
+  "==",
   currentUser.uid
 ),
 
@@ -783,9 +783,34 @@ function listenStructureUsers() {
           chief
         );
 
-        renderMembers(
-          members
-        );
+        if (
+  currentUserProfile.role ===
+  "coordinador_municipal"
+) {
+
+  currentMembers = [];
+
+  if (memberList) {
+    memberList.innerHTML = `
+      <div class="card">
+        <p class="muted">
+          El detalle del equipo está reservado
+          al responsable de estructura.
+        </p>
+        <p class="muted">
+          El resumen de progreso estará disponible
+          cuando se habilite el módulo de indicadores.
+        </p>
+      </div>
+    `;
+  }
+
+} else {
+
+  renderMembers(
+    members
+  );
+}
 
         showStatus(
           structureChiefStatus,
