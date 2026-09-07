@@ -86,7 +86,7 @@ match /municipios/{municipalityId} {
 }
 
 
-    // =====================================================
+  // =====================================================
 // ESTRUCTURAS
 // =====================================================
 
@@ -112,6 +112,19 @@ match /estructuras/{structureDocId} {
     profile().municipalityId;
 
 
+  // RESPONSABLE DE ESTRUCTURA:
+  // puede consultar exclusivamente
+  // su estructura asignada y de su campaña.
+  allow get, list: if
+    roleIs("jefe_estructura") &&
+    profile().structureId is string &&
+    profile().structureId != "" &&
+    resource.data.campaignId ==
+    profile().campaignId &&
+    resource.data.id ==
+    profile().structureId;
+
+
   // Escritura exclusivamente
   // mediante backend confiable.
   allow create, update, delete:
@@ -119,62 +132,79 @@ match /estructuras/{structureDocId} {
 }
 
 
-    // =====================================================
-    // USUARIOS
-    // =====================================================
+// =====================================================
+// USUARIOS
+// =====================================================
 
-    match /usuarios/{userId} {
+match /usuarios/{userId} {
 
-      // Cada usuario puede leer su propio perfil.
-      allow get: if signedIn() &&
-                 request.auth.uid == userId;
-
-      // Administrador:
-      // usuarios de su campaña.
-      allow get, list: if roleIs("admin") &&
-                       resource.data.campaignId ==
-                       profile().campaignId;
-
-      // -------------------------------------------------
-      // MODELO ANTERIOR
-      // Coordinador → brigadistas
-      // -------------------------------------------------
-
-      allow get, list: if roleIs("coordinador") &&
-                       resource.data.campaignId ==
-                       profile().campaignId &&
-                       resource.data.role ==
-                       "brigadista" &&
-                       resource.data.brigadeId
-                       in profile().brigadeIds;
-
-      // -------------------------------------------------
-      // NUEVA JERARQUÍA
-      // BUILD-116
-      //
-    // Cada nivel consulta a sus subordinados directos.
-// El responsable de organización también puede
-// leer a sus descendientes, sin permisos de escritura.
-      // -------------------------------------------------
-
-      allow get, list: if
-        (
-          roleIs("coordinador_municipal") ||
-          roleIs("jefe_estructura") ||
-          roleIs("integrante")
-        ) &&
-
-        resource.data.campaignId ==
-        profile().campaignId &&
-
-        resource.data.parentUserId ==
-        request.auth.uid;
+  // Cada usuario puede leer su propio perfil.
+  allow get: if
+    signedIn() &&
+    request.auth.uid == userId;
 
 
-      // Altas y modificaciones mediante Cloud Functions.
-      allow create, update, delete: if false;
-    }
+  // ADMIN:
+  // consulta usuarios de su campaña.
+  allow get, list: if
+    roleIs("admin") &&
+    resource.data.campaignId ==
+    profile().campaignId;
 
+
+  // -------------------------------------------------
+  // MODELO ANTERIOR
+  // Coordinador → brigadistas
+  // -------------------------------------------------
+
+  allow get, list: if
+    roleIs("coordinador") &&
+    resource.data.campaignId ==
+    profile().campaignId &&
+    resource.data.role ==
+    "brigadista" &&
+    resource.data.brigadeId
+    in profile().brigadeIds;
+
+
+  // -------------------------------------------------
+  // JERARQUÍA OPERATIVA
+  // Cada nivel consulta a sus subordinados directos.
+  // -------------------------------------------------
+
+  allow get, list: if
+    (
+      roleIs("coordinador_municipal") ||
+      roleIs("jefe_estructura") ||
+      roleIs("integrante")
+    ) &&
+    resource.data.campaignId ==
+    profile().campaignId &&
+    resource.data.parentUserId ==
+    request.auth.uid;
+
+
+  // -------------------------------------------------
+  // RESPONSABLE DE ESTRUCTURA
+  // Consulta a las personas de su estructura asignada,
+  // exclusivamente dentro de su campaña.
+  // Este permiso concede sólo lectura.
+  // -------------------------------------------------
+
+  allow get, list: if
+    roleIs("jefe_estructura") &&
+    profile().structureId is string &&
+    profile().structureId != "" &&
+    resource.data.campaignId ==
+    profile().campaignId &&
+    resource.data.structureId ==
+    profile().structureId;
+
+
+  // Altas y modificaciones mediante Cloud Functions.
+  allow create, update, delete: if false;
+}
+   
 
     // =====================================================
     // VISITAS
