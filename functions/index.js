@@ -24,7 +24,7 @@ const {
 
 
 // ======================================================
-// INICIALIZACIÓN
+// INICIALIZACIÓN 
 // ======================================================
 
 initializeApp();
@@ -4381,3 +4381,6 @@ exports.getMissionBranchProgress =
 
 
 exports.getMissionEvidenceTotal = require("./mission-delegation.cjs").getMissionEvidenceTotal;
+
+exports.manageMissionLifecycle = require("./mission-delegation.cjs").manageMissionLifecycle;
+
