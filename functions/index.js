@@ -4369,3 +4369,7 @@ createdBy:
 );
 
 
+exports.getStructureProgress =
+  require("./structure-progress.cjs").getStructureProgress;
+
+
