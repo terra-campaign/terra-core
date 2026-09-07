@@ -124,3 +124,39 @@ exports.getMissionBranchProgress = onCall(OPTIONS, async request => {
       lastEvidence:latest ? new Date(latest).toISOString() : null, calculatedAt:new Date().toISOString()};
   });
 });
+
+// Aggregate only: descendants are authorized through the private registry.
+exports.getMissionEvidenceTotal = onCall(OPTIONS, async request => {
+  const db = getFirestore();
+  return db.runTransaction(async tx => {
+    const p = await caller(tx, db, request);
+    const read = name => tx.get(db.collection(name).where('campaignId','==',p.campaignId).limit(5001));
+    const missions = await read('misiones');
+    const links = await read('missionLinks');
+    const evidence = await read('missionEvidence');
+    if ([missions,links,evidence].some(s => s.size > 5000)) fail('resource-exhausted','El total supera el límite de esta versión. No se muestran cifras parciales.');
+    const allowed = new Set();
+    const roots = new Map();
+    for (const s of missions.docs) {
+      const m = s.data();
+      if (p.role === 'admin' || m.createdBy === p.uid || m.assignedTo === p.uid ||
+          (p.role !== 'coordinador_municipal' && Array.isArray(m.supervisorIds) && m.supervisorIds.includes(p.uid))) allowed.add(s.id);
+    }
+    for (const s of links.docs) {
+      const l = s.data();
+      if (p.role === 'admin' || l.createdBy === p.uid || l.assignedTo === p.uid) roots.set(s.id,l.groupId);
+    }
+    const assignees = new Map();
+    for (const s of links.docs) {
+      const l = s.data();
+      if (roots.has(s.id) || (Array.isArray(l.ancestorMissionIds) && l.ancestorMissionIds.some(a => roots.has(a) && roots.get(a) === l.groupId))) allowed.add(s.id);
+      assignees.set(s.id,l.assignedTo);
+    }
+    let total = 0;
+    for (const s of evidence.docs) {
+      const e = s.data();
+      if (allowed.has(e.missionId) && (!assignees.has(e.missionId) || assignees.get(e.missionId) === e.uploadedBy)) total++;
+    }
+    return {total, calculatedAt:new Date().toISOString()};
+  });
+});
