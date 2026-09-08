@@ -412,7 +412,7 @@ function renderMission() {
     currentUser.uid;
 
   // El destinatario puede registrar evidencia.
-  evidenceForm.hidden =
+  evidenceForm.closest("section").hidden = evidenceForm.hidden =
     !isAssignee || currentMission.active !== true;
 
   // El creador/supervisor solo consulta.
@@ -485,7 +485,7 @@ onAuthStateChanged(
         error.message ||
         "No fue posible cargar la misión.";
 
-      evidenceForm.hidden =
+      evidenceForm.closest("section").hidden = evidenceForm.hidden =
         true;
     }
   }
