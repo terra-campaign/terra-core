@@ -4384,3 +4384,10 @@ exports.getMissionEvidenceTotal = require("./mission-delegation.cjs").getMission
 
 exports.manageMissionLifecycle = require("./mission-delegation.cjs").manageMissionLifecycle;
 
+
+// VALIDACION-001: immutable evidence, audited decisions and fixed reconsideration window.
+exports.getMissionReview = require('./mission-review.cjs').getMissionReview;
+exports.listMissionReviews = require('./mission-review.cjs').listMissionReviews;
+exports.decideMissionReview = require('./mission-review.cjs').decideMissionReview;
+
+exports.getMissionReviewImage = require('./mission-review.cjs').getMissionReviewImage;
