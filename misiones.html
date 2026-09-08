@@ -26,6 +26,32 @@
     rel="stylesheet"
     href="./styles.css?v=missions-002"
   >
+
+<style id="mission-list-layout-001">
+  #missionsList > .visit-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  #missionsList > .visit-item > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #missionsList [data-branch-progress] {
+    white-space: normal;
+  }
+
+  @media (max-width: 640px) {
+    #missionsList > .visit-item {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+    }
+  }
+</style>
+
 </head>
 
 
