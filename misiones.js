@@ -1,4 +1,4 @@
-import {deadlineText, deadlineInputValue, inputDeadline} from "./mission-deadline.js?v=vigencia-001";
+import {deadlineText, deadlineInputValue, inputDeadline, missionOpen, missionState} from "./mission-deadline.js?v=cierre-001";
 // ======================================================
 // TERRA CAMPAIGN
 // MÓDULO PRIVADO DE MISIONES
@@ -1080,9 +1080,7 @@ function renderMissions() {
             "Sin zona definida";
 
           const statusText =
-            mission.active === true
-              ? "ACTIVA"
-              : "INACTIVA";
+            missionState(mission);
 
           return `
 
@@ -1152,7 +1150,7 @@ function renderMissions() {
                 </button>
                 ${mission.linkedVersion === 1 && (currentUserProfile.role === "admin" || mission.createdBy === currentUser.uid || mission.assignedTo === currentUser.uid) ? `
                   <button class="button button--small button--secondary" type="button" data-progress-mission="${escapeHtml(mission.id)}">Ver avance</button>` : ""}
-                ${mission.linkedVersion === 1 && mission.active === true && mission.assignedTo === currentUser.uid && getAssignableRole(currentUserProfile) ? `
+                ${mission.linkedVersion === 1 && missionOpen(mission) && mission.assignedTo === currentUser.uid && getAssignableRole(currentUserProfile) ? `
                   <button class="button button--small button--secondary" type="button" data-delegate-mission="${escapeHtml(mission.id)}">Delegar</button>` : ""}
                 ${mission.createdBy === currentUser.uid && mission.active === true ? `
                   <button type="button" class="button button--small button--secondary" data-deactivate="${escapeHtml(mission.id)}">Desactivar</button>
@@ -1185,7 +1183,7 @@ function updateMissionMetrics() {
   const active =
     missions.filter(
       (mission) =>
-        mission.active === true
+        missionOpen(mission)
     ).length;
 
   totalMissionsElement.textContent =
@@ -1366,9 +1364,17 @@ function missionWhatsAppUrl(mission) {
 setInterval(() => {
   document.querySelectorAll('[data-deadline-id]').forEach(el => {
     const m = missions.find(m => m.id === el.dataset.deadlineId);
-    if (m) el.textContent = deadlineText(m);
+    if (m) {
+      el.textContent = deadlineText(m);
+      const row = el.closest('article');
+      const status = row && Array.from(row.querySelectorAll('p')).find(p => p.textContent.trim().startsWith('Estado:'));
+      if (status) status.textContent = 'Estado: ' + missionState(m);
+      const delegate = row?.querySelector('[data-delegate-mission]');
+      if (delegate) delegate.hidden = !missionOpen(m);
+    }
   });
-},30000);
+  updateMissionMetrics();
+},1000);
 let managingLifecycle = false;
 document.addEventListener('click', async event => {
   const button = event.target.closest('[data-deactivate],[data-deadline-set]');

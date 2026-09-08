@@ -1,4 +1,4 @@
-import {deadlineText} from "./mission-deadline.js?v=vigencia-001";
+import {deadlineText, missionOpen, missionState} from "./mission-deadline.js?v=cierre-001";
 // ======================================================
 // TERRA CAMPAIGN
 // DETALLE PRIVADO DE MISIÓN + EVIDENCIAS
@@ -392,9 +392,7 @@ function renderMission() {
     "Sin brigada";
 
   missionStatusElement.textContent =
-    currentMission.active === true
-      ? "ACTIVA"
-      : "INACTIVA";
+    missionState(currentMission);
 
   missionMessage.textContent =
     "";
@@ -413,7 +411,7 @@ function renderMission() {
 
   // El destinatario puede registrar evidencia.
   evidenceForm.closest("section").hidden = evidenceForm.hidden =
-    !isAssignee || currentMission.active !== true;
+    !isAssignee || !missionOpen(currentMission);
 
   // El creador/supervisor solo consulta.
   if (
@@ -763,8 +761,8 @@ evidenceForm.addEventListener(
       return;
     }
 
-    if (currentMission.active !== true) {
-      evidenceFormMessage.textContent = 'Esta misión está desactivada.';
+    if (!missionOpen(currentMission)) {
+      evidenceFormMessage.textContent = 'Esta misión está desactivada o vencida.';
       return;
     }
     if (auth.currentUser?.uid !== currentUser.uid ||
@@ -820,7 +818,7 @@ evidenceForm.addEventListener(
         evidenceRef.id;
 
       await loadMission();
-      if (currentMission.active !== true) throw new Error('La misión fue desactivada. No se guardó el reporte.');
+      if (!missionOpen(currentMission)) throw new Error('La misión está desactivada o vencida. No se guardó el reporte.');
       const imagePaths = [];
       for (const [index, file] of selectedEvidencePhotos.entries()) {
         const compressedPhoto = await compressEvidencePhoto(file);
@@ -1265,6 +1263,9 @@ deadlineNotice.style.cssText = 'padding:12px;border:1px solid #64748b;border-rad
 missionMessage.after(deadlineNotice);
 function refreshDeadlineNotice() {
   if (!currentMission) return;
+  missionStatusElement.textContent = missionState(currentMission);
+  evidenceForm.closest("section").hidden = evidenceForm.hidden =
+    !currentUser || currentMission.assignedTo !== currentUser.uid || !missionOpen(currentMission);
   let message = deadlineText(currentMission);
   if (currentMission.active === true && currentMission.deadlineAt && Date.parse(currentMission.deadlineAt) <= Date.now() && !evidenceItems.length) message = 'Vencida sin reporte. ' + message;
   if (currentMission.active === false && currentMission.deactivationReason) message += ' Motivo: ' + currentMission.deactivationReason;

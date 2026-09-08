@@ -1,3 +1,9 @@
+export function missionOpen(mission) {
+  return mission.active === true && (!mission.deadlineAt || (Number.isFinite(Date.parse(mission.deadlineAt)) && Date.now() < Date.parse(mission.deadlineAt)));
+}
+export function missionState(mission) {
+  return mission.active !== true ? 'INACTIVA' : missionOpen(mission) ? 'ACTIVA' : 'VENCIDA';
+}
 export function deadlineText(mission) {
   if (mission.active !== true) return "DESACTIVADA. No admite nuevos reportes.";
   if (!mission.deadlineAt) return "Sin fecha límite.";
@@ -5,7 +11,7 @@ export function deadlineText(mission) {
   if (!Number.isFinite(end)) return "Fecha límite no disponible.";
   const label = new Date(end).toLocaleString('es-MX');
   const minutes = Math.ceil((end-Date.now())/60000);
-  if (minutes <= 0) return `Plazo vencido: ${label}. Los nuevos reportes se registran fuera de plazo.`;
+  if (minutes <= 0) return `Plazo vencido: ${label}. No admite nuevos reportes ni delegaciones.`;
   return `Vence: ${label}. Te quedan ${Math.floor(minutes/60)} h ${minutes%60} min para reportar.`;
 }
 export function deadlineInputValue(iso) {

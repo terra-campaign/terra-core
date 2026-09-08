@@ -97,6 +97,12 @@ service firebase.storage {
     // =====================================================
 
     match /missions/{campaignId}/{missionId}/evidence/{fileName} {
+      function missionAcceptsUpload(id) {
+        let m = mission(id);
+        return m.active == true &&
+          (m.get('deadlineAt', null) == null || m.get('deadlineAt', null) == '' ||
+           (m.get('deadlineAtMillis', null) is number && request.time.toMillis() < m.deadlineAtMillis));
+      }
 
       // -------------------------------------------------
       // LEER — ADMINISTRADOR
@@ -163,7 +169,7 @@ service firebase.storage {
       // CREAR — ADMINISTRADOR
       // -------------------------------------------------
 
-      allow create: if roleIs("admin") &&
+      allow create: if missionAcceptsUpload(missionId) && roleIs("admin") &&
                     profile().campaignId ==
                     campaignId &&
                     missionExists(missionId) &&
@@ -180,7 +186,7 @@ service firebase.storage {
       // MODELO ANTERIOR
       // -------------------------------------------------
 
-      allow create: if roleIs("coordinador") &&
+      allow create: if missionAcceptsUpload(missionId) && roleIs("coordinador") &&
                     profile().campaignId ==
                     campaignId &&
                     missionExists(missionId) &&
@@ -202,7 +208,7 @@ service firebase.storage {
       // puede cargar evidencia.
       // -------------------------------------------------
 
-      allow create: if active() &&
+      allow create: if missionAcceptsUpload(missionId) && active() &&
                     (
                       roleIs("coordinador_municipal") ||
                       roleIs("jefe_estructura") ||

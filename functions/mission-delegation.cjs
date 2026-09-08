@@ -83,7 +83,7 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
       const t = target.data();
       const content = parent ? parent.content : fields;
       const data = {
-        id:missionId, campaignId:p.campaignId, ...content, active:true,
+        id:missionId, campaignId:p.campaignId, ...content, deadlineAtMillis:content.deadlineAt ? Date.parse(content.deadlineAt) : null, active:true,
         createdBy:p.uid, createdByName:p.name || 'Sin nombre', createdByRole:p.role,
         assignedTo:uid, assignedToName:t.name || 'Sin nombre', assignedToRole:t.role,
         supervisorIds:[...new Set([p.uid,...(Array.isArray(p.ancestorIds) ? p.ancestorIds : [])])],
@@ -201,7 +201,7 @@ exports.manageMissionLifecycle = onCall(OPTIONS, async request => {
     for (const r of records) {
       const patch = action === 'deactivate'
         ? {active:false,deactivatedBy:p.uid,deactivatedAt:FieldValue.serverTimestamp(),deactivationReason:reason}
-        : {deadlineAt:due,deadlineSetBy:p.uid,deadlineSetAt:FieldValue.serverTimestamp()};
+        : {deadlineAt:due,deadlineAtMillis:Date.parse(due),deadlineSetBy:p.uid,deadlineSetAt:FieldValue.serverTimestamp()};
       // Preserve an earlier cancellation and its audit fields.
       if (action === 'deactivate' && r.mission.active === false) continue;
       tx.update(db.collection('misiones').doc(r.id),{...patch,updatedAt:FieldValue.serverTimestamp()});
