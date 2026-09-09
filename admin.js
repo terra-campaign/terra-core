@@ -312,7 +312,8 @@ async function loadCurrentUserProfile(user) {
   "integrante",
   "participante",
   "brigadista",
-  "consulta"
+  "consulta",
+  "lider_principal"
 ];
 
   if (!allowedRoles.includes(profile.role)) {
@@ -549,6 +550,17 @@ onAuthStateChanged(auth, async (user) => {
       await loadCurrentUserProfile(user);
 
 
+      if (currentUserProfile.role === "lider_principal") {
+        window.location.replace("./direccion.html");
+        return;
+      }
+      if (currentUserProfile.role === "admin") {
+        const link = document.createElement("a");
+        link.href = "./direccion.html";
+        link.textContent = "Panel de dirección";
+        link.className = "button button--secondary";
+        document.querySelector("main").prepend(link);
+      }
       applyRoleInterface();
 
 

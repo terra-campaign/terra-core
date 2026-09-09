@@ -4391,3 +4391,7 @@ exports.listMissionReviews = require('./mission-review.cjs').listMissionReviews;
 exports.decideMissionReview = require('./mission-review.cjs').decideMissionReview;
 
 exports.getMissionReviewImage = require('./mission-review.cjs').getMissionReviewImage;
+
+// LIDER-001: acceso exclusivo y panel de consulta por campaña.
+exports.assignPrincipalLeader = require('./leader-panel.cjs').assignPrincipalLeader;
+exports.getPrincipalLeaderPanel = require('./leader-panel.cjs').getPrincipalLeaderPanel;
