@@ -9,12 +9,13 @@ function filters(data={}){const r={};for(const n of ['from','to']){r[n]=text(dat
 function summarize(rows,f){
  const localities=[...new Set(rows.map(v=>text(v.locality)||'Sin localidad'))].sort((a,b)=>a.localeCompare(b,'es'));
  const selected=rows.filter(v=>{const d=day(v.createdAt);return (!f.locality||(text(v.locality)||'Sin localidad')===f.locality)&&(!f.from||(d&&d>=f.from))&&(!f.to||(d&&d<=f.to));});
+ const points=selected.filter(v=>v.hasLocation===true&&Number.isFinite(v.latitude)&&Number.isFinite(v.longitude)&&Math.abs(v.latitude)<=90&&Math.abs(v.longitude)<=180).map(v=>({lat:v.latitude,lng:v.longitude}));
  const homes=new Set(),workers=new Set(),zones=new Map(),days=new Map();let unknownAddress=0,unknownDate=0,flyers=0;
  for(const v of selected){const l=text(v.locality)||'Sin localidad',d=day(v.createdAt),a=key(v.normalizedAddress);if(a&&key(v.locality))homes.add(JSON.stringify([key(v.locality),a]));else unknownAddress++;
  if(text(v.interviewerId))workers.add(v.interviewerId);if(v.flyerDelivered===true)flyers++;
  zones.set(l,(zones.get(l)||0)+1);if(d)days.set(d,(days.get(d)||0)+1);else unknownDate++;
  }
- return {visits:selected.length,identifiedHomes:homes.size,unknownAddress,unknownDate,flyerVisits:flyers,activeReporters:workers.size,localities,zones:[...zones].map(([name,visits])=>({name,visits})).sort((a,b)=>b.visits-a.visits),daily:[...days].sort(([a],[b])=>a.localeCompare(b)).map(([date,visits])=>({date,visits})),undatedTotal:rows.filter(v=>!day(v.createdAt)).length};
+ return {points,withoutLocation:selected.length-points.length,visits:selected.length,identifiedHomes:homes.size,unknownAddress,unknownDate,flyerVisits:flyers,activeReporters:workers.size,localities,zones:[...zones].map(([name,visits])=>({name,visits})).sort((a,b)=>b.visits-a.visits),daily:[...days].sort(([a],[b])=>a.localeCompare(b)).map(([date,visits])=>({date,visits})),undatedTotal:rows.filter(v=>!day(v.createdAt)).length};
 }
 exports.getPrincipalLeaderTerritory=onCall({region:'us-central1',timeoutSeconds:60},async request=>{
  if(!request.auth)throw new HttpsError('unauthenticated','Inicie sesión.');
