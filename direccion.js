@@ -13,7 +13,7 @@ async function refresh(){
  try{const {data}=await fetchPanel();if(version!==epoch)return;
  $('session').textContent=data.name;
  $('coverage').textContent=`Municipios registrados: ${data.municipalities.length}. Objetivo de cobertura: 20 municipios de Nayarit.`;
- $('unmatched').textContent=data.unmatchedMissions?`${data.unmatchedMissions} asignaciones no se pudieron asociar a un municipio registrado; no están incluidas en las tarjetas.`:'';
+ $('unmatched').textContent=[data.unassignedMissions?`${data.unassignedMissions} misiones sin destinatario individual; no se incluyen en el avance municipal.`:'',data.unmatchedMissions?`${data.unmatchedMissions} asignaciones con destinatario no se pudieron asociar a un municipio registrado; no están incluidas en las tarjetas.`:''].filter(Boolean).join(' ');
  for(const m of data.municipalities){const card=document.createElement('article');const h=document.createElement('h2');h.textContent=m.name;card.append(h);line(card,`${m.id} · ${m.active?'Activo':'Inactivo'} · Estructuras: ${m.structures}`);
  line(card,m.coordinators.length?'Coordinadores: '+m.coordinators.map(c=>c.name+(c.active?'':' (inactivo)')).join(', '):'Sin coordinador registrado');
  line(card,`Asignaciones: ${m.total} · Con evidencia: ${m.withEvidence} · Sin evidencia: ${m.withoutEvidence}`);line(card,'Avance reportado: '+(m.percentage===null?'Sin asignaciones':m.percentage+'%'));$('municipalities').append(card);}

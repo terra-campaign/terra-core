@@ -51,9 +51,11 @@ function buildPanel(municipalities,users,structures,missions,evidence){
  const reported=new Set();const missionMap=new Map(missions.map(m=>[m._id,m]));
  for(const e of evidence){const m=missionMap.get(e.missionId);if(m&&e.uploadedBy===m.assignedTo)reported.add(m._id);}
  const known=new Set(municipalities.map(m=>m.id));
- const unmatched=missions.filter(m=>!known.has(userMap.get(m.assignedTo)?.municipalityId)).length;
- return {unmatchedMissions:unmatched,municipalities:municipalities.map(m=>{
-  const selected=missions.filter(x=>userMap.get(x.assignedTo)?.municipalityId===m.id);
+ const assignments=missions.filter(m=>typeof m.assignedTo==='string'&&m.assignedTo.trim());
+ const unassignedMissions=missions.length-assignments.length;
+ const unmatched=assignments.filter(m=>!known.has(userMap.get(m.assignedTo)?.municipalityId)).length;
+ return {unassignedMissions,unmatchedMissions:unmatched,municipalities:municipalities.map(m=>{
+  const selected=assignments.filter(x=>userMap.get(x.assignedTo)?.municipalityId===m.id);
   const withEvidence=selected.filter(x=>reported.has(x._id)).length;
   return {id:m.id||m._id,name:m.name||'Sin nombre',active:m.active===true,structures:structures.filter(s=>s.municipalityId===m.id).length,
    coordinators:users.filter(u=>u.role==='coordinador_municipal'&&u.municipalityId===m.id).map(u=>({name:u.name||'Sin nombre',active:u.active===true})),
