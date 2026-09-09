@@ -19,7 +19,7 @@ async function reload(){
  if(!coordinators.length)$('people').append(node('p','No hay coordinadores municipales activos.'));
  $('missions').replaceChildren();
  for(const m of data.missions){const card=node('article','');card.append(node('h3',m.title),node('p','Asignada a: '+m.assignedToName),node('p',m.description),node('p','Lugar: '+(m.locality||'Sin especificar')),node('p','Límite: '+(m.deadlineAt?new Date(m.deadlineAt).toLocaleString('es-MX'):'Sin fecha')),node('p',!m.active?'Inactiva':m.deadlineAt&&Date.parse(m.deadlineAt)<=Date.now()?'Vencida':'Activa'));
- const wa=node('button','Comunicar misión por WhatsApp');wa.onclick=()=>communicate(m);card.append(wa);
+ const wa=node('button','Comunicar misión por WhatsApp');wa.classList.add('button-whatsapp');wa.onclick=()=>communicate(m);card.append(wa);
  const advance=node('button','Ver avance');const output=node('p','');advance.onclick=async()=>{advance.disabled=true;try{const {data:r}=await progress({missionId:m.id});if(g!==generation)return;output.textContent=`Asignaciones en la cadena: ${r.total} · Con evidencia: ${r.withEvidence} · Sin evidencia: ${r.withoutEvidence}. La evidencia no certifica validación.`;}catch(e){output.textContent=e.message;}finally{advance.disabled=false;}};card.append(advance,output);$('missions').append(card);}
  if(!data.missions.length)$('missions').append(node('p','Aún no has asignado misiones.'));
  $('status').textContent='Misiones actualizadas.';
