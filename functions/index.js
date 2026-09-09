@@ -4397,3 +4397,5 @@ exports.assignPrincipalLeader = require('./leader-panel.cjs').assignPrincipalLea
 exports.getPrincipalLeaderPanel = require('./leader-panel.cjs').getPrincipalLeaderPanel;
 
 exports.getPrincipalLeaderMissions = require('./leader-missions.cjs').getPrincipalLeaderMissions;
+
+exports.getPrincipalLeaderTerritory = require('./leader-territory.cjs').getPrincipalLeaderTerritory;
