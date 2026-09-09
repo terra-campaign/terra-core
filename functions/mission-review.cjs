@@ -20,11 +20,22 @@ async function context(tx,db,uid,evidenceId) {
   const subject = profile(await tx.get(db.collection('usuarios').doc(l.assignedTo)));
   const ref = db.collection('missionReviews').doc(evidenceId);
   const r = (await tx.get(ref)).data() || null;
-  const hierarchy = parentOf(reviewer,subject);
+  let leaderDirect = false;
+  if (reviewer?.role === 'lider_principal' && reviewer.active === true && subject?.active === true &&
+      reviewer.campaignId === p.campaignId && subject.campaignId === p.campaignId && subject.role === 'coordinador_municipal') {
+    const lock = await tx.get(db.collection('principalLeaders').doc(p.campaignId));
+    leaderDirect = lock.data()?.uid === reviewer.uid;
+  }
+  const hierarchy = leaderDirect || parentOf(reviewer,subject);
   const direct = hierarchy && reviewer.uid === uid && uid !== e.uploadedBy;
-  const superior = hierarchy && parentOf(p,reviewer) && uid !== e.uploadedBy;
+  const superior = !leaderDirect && hierarchy && parentOf(p,reviewer) && uid !== e.uploadedBy;
   if (!(direct || (p.uid === e.uploadedBy) || (superior && r?.pendingAppeal))) fail('permission-denied','No tienes permiso para revisar este reporte.');
-  return {p,e,m,l,r,ref,reviewer,subject,direct,superior};
+  return {p,e,m,l,r,ref,reviewer,subject,direct,superior,leaderDirect};
+}
+function reviewActions(c, now) {
+  const result = actions(c.r,c.direct,c.superior,now);
+  if (c.leaderDirect) result.canRequest = false;
+  return result;
 }
 function images(e) {
   const prefix = `missions/${e.campaignId}/${e.missionId}/evidence/`;
@@ -43,8 +54,8 @@ exports.getMissionReview = onCall(options,async request => {
       description:c.e.description || '',reportedByName:c.e.reportedByName || '',
       uploadedByName:c.e.uploadedByName || '',imagePaths:images(c.e),
       submittedAt:c.e.createdAt?.toMillis?.() || null,
-      review:c.r,history:history.docs.map(s=>s.data()),serverNow:Date.now(),
-      ...actions(c.r,c.direct,c.superior,Date.now())};
+      imageViaCallable:c.leaderDirect && c.direct,review:c.r,history:history.docs.map(s=>s.data()),serverNow:Date.now(),
+      ...reviewActions(c,Date.now())};
   });
 });
 exports.listMissionReviews = onCall(options,async request => {
@@ -65,7 +76,7 @@ exports.listMissionReviews = onCall(options,async request => {
         return {evidenceId:s.id,title:c.m.title || 'Misión',name:c.e.uploadedByName || 'Sin nombre',
           status:c.r?.status || 'pending',pendingAppeal:!!c.r?.pendingAppeal,
           revision:c.r?.revision || 0,submittedAt:c.e.createdAt?.toMillis?.() || 0,
-          ...actions(c.r,c.direct,c.superior,Date.now())};
+          ...reviewActions(c,Date.now())};
       });
       result.push(row);
     } catch(error) { if (!['permission-denied','failed-precondition'].includes(error.code)) throw error; }
@@ -83,7 +94,7 @@ exports.decideMissionReview = onCall(options,async request => {
   return db.runTransaction(async tx => {
     const c = await context(tx,db,request.auth.uid,d.evidenceId);
     const now = Date.now();
-    const rights = actions(c.r,c.direct,c.superior,now);
+    const rights = reviewActions(c,now);
     const fingerprint = JSON.stringify([d.action,d.status || null,d.reason.trim(),d.expectedRevision]);
     if (c.r?.lastRequestId === d.requestId && c.r?.lastActor === request.auth.uid) {
       if (c.r.lastFingerprint !== fingerprint) fail('already-exists','Este intento tiene otros datos. Actualiza el reporte.');
@@ -121,7 +132,7 @@ exports.getMissionReviewImage = onCall({...options,memory:'256MiB'},async reques
   const db = getFirestore();
   const path = await db.runTransaction(async tx => {
     const c = await context(tx,db,request.auth.uid,evidenceId);
-    if (!c.superior || !c.r?.pendingAppeal) fail('permission-denied','No tienes una revisión superior pendiente.');
+    if (!(c.leaderDirect && c.direct) && !(c.superior && c.r?.pendingAppeal)) fail('permission-denied','No tienes una revisión superior pendiente.');
     const value = images(c.e)[index];
     if (!value) fail('not-found','Imagen no disponible.');
     return value;

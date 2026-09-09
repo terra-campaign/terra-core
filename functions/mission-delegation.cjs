@@ -2,7 +2,7 @@
 const {onCall, HttpsError} = require('firebase-functions/v2/https');
 const {getFirestore, FieldValue} = require('firebase-admin/firestore');
 const {createHash} = require('node:crypto');
-const NEXT = {admin:'coordinador_municipal', coordinador_municipal:'jefe_estructura', jefe_estructura:'integrante', integrante:'participante'};
+const NEXT = {lider_principal:'coordinador_municipal', admin:'coordinador_municipal', coordinador_municipal:'jefe_estructura', jefe_estructura:'integrante', integrante:'participante'};
 const OPTIONS = {region:'us-central1', timeoutSeconds:60};
 const fail = (code, message) => { throw new HttpsError(code, message); };
 const hash = (...parts) => createHash('sha256').update(JSON.stringify(parts)).digest('hex');
@@ -20,11 +20,15 @@ async function caller(tx, db, request) {
   const s = await tx.get(db.collection('usuarios').doc(request.auth.uid));
   const p = s.data();
   if (!p || p.active !== true || !p.campaignId || ![...Object.keys(NEXT),'participante'].includes(p.role)) fail('permission-denied','Perfil no autorizado.');
+  if (p.role === 'lider_principal') {
+    const lock = await tx.get(db.collection('principalLeaders').doc(p.campaignId));
+    if (lock.data()?.uid !== s.id) fail('permission-denied','Líder no registrado para esta campaña.');
+  }
   return {...p, uid:s.id};
 }
 function targetAllowed(p, t) {
   return t && t.active === true && t.campaignId === p.campaignId && t.role === NEXT[p.role] &&
-    (p.role === 'admin' || (t.parentUserId === p.uid && !!p.municipalityId && t.municipalityId === p.municipalityId)) &&
+    (['admin','lider_principal'].includes(p.role) || (t.parentUserId === p.uid && !!p.municipalityId && t.municipalityId === p.municipalityId)) &&
     (!['jefe_estructura','integrante'].includes(p.role) || (!!p.structureId && t.structureId === p.structureId));
 }
 function deadline(value) {
@@ -47,6 +51,7 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
   const db = getFirestore();
   return db.runTransaction(async tx => {
     const p = await caller(tx,db,request);
+    if (p.role === 'lider_principal' && (parentId || !fields?.deadlineAt)) fail('invalid-argument','El líder debe crear una misión con fecha límite.');
     if (!NEXT[p.role]) fail('permission-denied','Tu nivel no puede delegar.');
     const receiptRef = db.collection('missionDispatches').doc(hash(p.uid,requestId));
     const receipt = await tx.get(receiptRef);

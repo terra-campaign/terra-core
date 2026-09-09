@@ -48,3 +48,31 @@ test('reason required',()=>denied(()=>decision('chief',{reason:' '}),'invalid-ar
 test('unlinked legacy assignment is not silently validated',async()=>{records.delete('missionLinks/m1');await denied(()=>decision(),'failed-precondition');});
 test('request cannot inject evidence change',async()=>{await decision('chief',{description:'Tampered'});assert.equal(records.get('missionEvidence/e1').description,'Original');});
 process.on('exit',()=>{Date.now=realNow;});
+
+function leaderReview(){
+ records.set('usuarios/leader',{role:'lider_principal',active:true,campaignId:'C'});
+ records.set('principalLeaders/C',{uid:'leader'});
+ for(const path of ['misiones/m1','missionLinks/m1'])Object.assign(records.get(path),{createdBy:'leader',assignedTo:'coord'});
+ records.get('missionEvidence/e1').uploadedBy='coord';
+}
+test('leader reviews own coordinator assignment without hierarchy mutation',async()=>{
+ leaderReview();await decision('leader');assert.equal(records.get('usuarios/coord').parentUserId,'admin');
+ const r=await api.getMissionReview(request('leader',{evidenceId:'e1'}));assert.equal(r.imageViaCallable,true);assert.equal(r.canDecide,true);
+ now+=WINDOW_MS;const expired=await api.getMissionReview(request('leader',{evidenceId:'e1'}));assert.equal(expired.canRequest,false);
+ await denied(()=>decision('leader',{requestId:'later',expectedRevision:1}));
+});
+test('leader cannot review another creators report or act without singleton',async()=>{
+ records.set('usuarios/leader',{role:'lider_principal',active:true,campaignId:'C'});records.set('principalLeaders/C',{uid:'leader'});
+ await denied(()=>decision('leader'));leaderReview();records.set('principalLeaders/C',{uid:'other'});await denied(()=>decision('leader'));
+});
+test('leader review denied for inactive leader, inactive coordinator and foreign coordinator',async()=>{
+ leaderReview();records.get('usuarios/leader').active=false;await denied(()=>decision('leader'));
+ records.get('usuarios/leader').active=true;records.get('usuarios/coord').active=false;await denied(()=>decision('leader'));
+ records.get('usuarios/coord').active=true;records.get('usuarios/coord').campaignId='OTHER';await denied(()=>decision('leader'));
+});
+test('admin cannot bypass first review of leader assignment',async()=>{leaderReview();await denied(()=>decision('admin'));});
+test('leader image transfer authorizes own report and rejects other reviewers',async()=>{
+ leaderReview();records.get('missionEvidence/e1').imagePaths=['missions/C/m1/evidence/photo.jpg'];
+ const old=Module._load;Module._load=function(id,...rest){if(id==='firebase-admin/storage')return {getStorage:()=>({bucket:()=>({file:path=>{assert.equal(path,'missions/C/m1/evidence/photo.jpg');return {getMetadata:async()=>[{size:3,contentType:'image/jpeg'}],download:async()=>[Buffer.from('img')]};}})})};return old.call(this,id,...rest);};
+ try{const image=await api.getMissionReviewImage(request('leader',{evidenceId:'e1',index:0}));assert.equal(image.base64,Buffer.from('img').toString('base64'));await denied(()=>api.getMissionReviewImage(request('admin',{evidenceId:'e1',index:0})));}finally{Module._load=old;}
+});

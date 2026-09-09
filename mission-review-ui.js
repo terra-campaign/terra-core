@@ -74,7 +74,7 @@ async function open(evidenceId){
       const offset=d.serverNow-Date.now();
       const timer=setInterval(()=>{
         if(token!==generation){clearInterval(timer);return;}
-        if(Date.now()+offset>=d.review.reconsiderUntil){buttons.forEach(b=>b.disabled=true);feedback.textContent='Terminó el plazo. Actualiza para solicitar revisión superior.';clearInterval(timer);}
+        if(Date.now()+offset>=d.review.reconsiderUntil){buttons.forEach(b=>b.disabled=true);feedback.textContent='Terminó el plazo de reconsideración. Actualiza para consultar las acciones disponibles.';clearInterval(timer);}
       },1000);
     }
     const history=el('details');history.append(el('summary','Historial de decisiones (últimas 30)'));
@@ -82,7 +82,7 @@ async function open(evidenceId){
     detail.append(history);detail.scrollIntoView({behavior:'smooth',block:'start'});
     for(const [index,path] of d.imagePaths.entries()){
       try{let blob;
-        if(d.canResolve){const {data:image}=await getImage({evidenceId,index});blob=new Blob([Uint8Array.from(atob(image.base64),c=>c.charCodeAt(0))],{type:image.contentType});}
+        if(d.canResolve || d.imageViaCallable){const {data:image}=await getImage({evidenceId,index});blob=new Blob([Uint8Array.from(atob(image.base64),c=>c.charCodeAt(0))],{type:image.contentType});}
         else blob=await getBlob(ref(storage,path),8*1024*1024);if(token!==generation||auth.currentUser?.uid!==uid)return;
         const url=URL.createObjectURL(blob);urls.push(url);const img=el('img');img.alt='Evidencia original';img.src=url;img.style.cssText='max-width:100%;max-height:440px;display:block;margin:10px 0';photoBox.append(img);
       }catch{if(token===generation)photoBox.append(el('p','No se pudo cargar una fotografía con tu permiso actual.'));}
