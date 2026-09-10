@@ -15,7 +15,7 @@ exports.getPrincipalLeaderMissions=onCall({region:'us-central1',timeoutSeconds:6
   if(users.size>5000||missions.size>5000)throw new HttpsError('resource-exhausted','El listado requiere paginación; no se muestran resultados parciales.');
   const coordinators=users.docs.filter(d=>d.data().role==='coordinador_municipal'&&d.data().active===true).map(d=>({uid:d.id,name:d.data().name||'Sin nombre',municipalityId:d.data().municipalityId||'',phone:typeof d.data().phone==='string'?d.data().phone:''}));
   return {name:p.name||'Líder principal',coordinators,missions:missions.docs.filter(d=>d.data().campaignId===p.campaignId&&d.data().linkedVersion===1&&d.data().assignedToRole==='coordinador_municipal').map(d=>{
-   const m=d.data();return {id:d.id,title:m.title||'Misión',description:m.description||'',locality:m.locality||'',deadlineAt:m.deadlineAt||null,active:m.active===true,assignedTo:m.assignedTo,assignedToName:m.assignedToName||'Sin nombre'};
+   const m=d.data();const recipient=users.docs.find(u=>u.id===m.assignedTo)?.data();return {id:d.id,municipalityId:recipient?.municipalityId||'',title:m.title||'Misión',description:m.description||'',locality:m.locality||'',deadlineAt:m.deadlineAt||null,active:m.active===true,assignedTo:m.assignedTo,assignedToName:m.assignedToName||'Sin nombre'};
   })};
  });
 });

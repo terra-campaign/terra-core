@@ -22,9 +22,10 @@ const date=x=>x?new Date(x).toLocaleString('es-MX'):'Sin fecha';
 function clear(){generation++;urls.forEach(URL.revokeObjectURL);urls=[];detail.replaceChildren();current=null;}
 async function reload(){
   const uid=auth.currentUser?.uid;if(!uid)return;
-  clear();const token=generation;refresh.disabled=true;message.textContent='Consultando revisiones...';rows.replaceChildren();
+  clear();const token=generation;window.dispatchEvent(new CustomEvent('terra-review-summary',{detail:{uid,loading:true}}));refresh.disabled=true;message.textContent='Consultando revisiones...';rows.replaceChildren();
   try {
     const {data}=await list({});if(token!==generation||auth.currentUser?.uid!==uid)return;
+    window.dispatchEvent(new CustomEvent('terra-review-summary',{detail:{uid,pending:data.items.filter(i=>i.status==='pending').length,validated:data.items.filter(i=>i.status==='validated').length,rejected:data.items.filter(i=>i.status==='rejected').length,correction:data.items.filter(i=>i.status==='correction_requested').length}}));
     message.textContent=data.items.length?'':'No hay reportes disponibles para revisión en tus asignaciones vinculadas.';
     for(const item of data.items){
       const row=el('article');row.style.cssText='padding:12px 0;border-bottom:1px solid #dbe3eb';
@@ -32,7 +33,7 @@ async function reload(){
       const button=el('button',item.canResolve?'Revisar solicitud':item.canDecide?'Revisar reporte':'Ver decisión');button.type='button';button.className='button button--secondary';
       button.onclick=()=>open(item.evidenceId);row.append(button);rows.append(row);
     }
-  }catch(error){if(token!==generation||auth.currentUser?.uid!==uid)return;message.textContent=error.message || 'No fue posible cargar las revisiones.';}
+  }catch(error){if(token!==generation||auth.currentUser?.uid!==uid)return;window.dispatchEvent(new CustomEvent('terra-review-summary',{detail:{uid,error:true}}));message.textContent=error.message || 'No fue posible cargar las revisiones.';}
   finally{refresh.disabled=false;}
 }
 async function open(evidenceId){

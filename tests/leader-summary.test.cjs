@@ -1,0 +1,6 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const api=import('data:text/javascript;base64,'+fs.readFileSync(path.join(__dirname,'../leader-summary.js')).toString('base64'));
+const now=Date.parse('2026-09-09T12:00:00Z');
+const rows=[{id:1,active:true,deadlineAt:'2026-09-10T12:00:00Z',municipalityId:'M1',assignedTo:'u'},{id:2,active:true,deadlineAt:'2026-09-09T12:00:00Z',municipalityId:'M1',assignedTo:'v'},{id:3,active:false,deadlineAt:'2026-09-10T12:00:00Z',municipalityId:'M2',assignedTo:'u'},{id:4,active:true,deadlineAt:null,assignedTo:'z'}];
+test('deadline boundary, inactive and missing date have distinct counts',async()=>{const a=await api;assert.deepEqual(a.summarizeMissions(rows,now),{active:1,expired:1,inactive:1,undated:1});});
+test('combined filters, missing municipality, zero and reset',async()=>{const a=await api;assert.deepEqual(a.selectMissions(rows,{municipality:'M1',coordinator:'u',state:'active'},now).map(m=>m.id),[1]);assert.equal(a.selectMissions(rows,{municipality:'__missing'},now)[0].id,4);assert.equal(a.selectMissions(rows,{municipality:'M2',state:'active'},now).length,0);assert.equal(a.selectMissions(rows,{},now).length,4);});
