@@ -20,7 +20,7 @@ async function reload(){
  if(!coordinators.length)$('people').append(node('p','No hay coordinadores municipales activos.'));
  allMissions=data.missions;populateFilters();renderMissions();
  $('status').textContent='Misiones actualizadas.';
- await import('./mission-review-ui.js?v=lider-006');
+ await import('./mission-review-ui.js?v=lider-007');
  }catch(e){if(g===generation)$('status').textContent=e.message;}finally{if(g===generation)$('refresh').disabled=false;}
 }
 function communicate(m){const p=coordinators.find(p=>p.uid===m.assignedTo);$('recipient').textContent='Destinatario: '+m.assignedToName;$('phone').value=p?.phone||'';

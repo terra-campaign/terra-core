@@ -57,6 +57,30 @@ async function reload(){
   }catch(error){if(token!==generation||auth.currentUser?.uid!==uid)return;window.dispatchEvent(new CustomEvent('terra-review-summary',{detail:{uid,error:true}}));message.textContent=error.message || 'No fue posible cargar las revisiones.';}
   finally{refresh.disabled=false;}
 }
+
+function addDecisionCommunication(d,evidenceId,token,uid){
+  if(!d.imageViaCallable || !['validated','rejected','correction_requested'].includes(d.review?.status))return;
+  const box=el('div'),prepare=el('button','Comunicar decisión por WhatsApp'),status=el('p'),content=el('div');
+  prepare.type='button';prepare.className='button-whatsapp';status.setAttribute('role','status');box.append(prepare,status,content);detail.append(box);
+  prepare.onclick=async()=>{
+    prepare.disabled=true;content.replaceChildren();status.textContent='Consultando la decisión guardada…';
+    try{
+      const {data:fresh}=await get({evidenceId});
+      if(token!==generation||auth.currentUser?.uid!==uid)return;
+      if(!fresh.imageViaCallable)throw new Error('Actualiza el reporte para consultar las acciones disponibles.');
+      const decision=(fresh.history||[]).find(h=>['decide','resolve'].includes(h.action));
+      if(!decision || decision.status!==fresh.review?.status)throw new Error('No hay una decisión con motivo disponible para comunicar.');
+      const link=new URL('./login.html',location.href);link.searchParams.set('mission',fresh.missionId);
+      const text=['TERRA CAMPAIGN · Revisión de reporte',`Misión: ${fresh.title}`,`Reportó: ${fresh.reportedByName||fresh.uploadedByName||'Sin nombre'}`,`Resultado: ${labels[decision.status]}`,`Motivo: ${decision.reason}`,`Decisión registrada: ${date(decision.at)}`,fresh.review.pendingAppeal?'Hay una solicitud de revisión superior pendiente.':'', 'Consulta el estado actual en TERRA:',link.href].filter(Boolean).join('\n');
+      const label=el('label','Mensaje preparado'),preview=el('textarea');preview.readOnly=true;preview.rows=9;preview.value=text;preview.style.cssText='display:block;width:100%;box-sizing:border-box';label.append(preview);
+      const send=el('a','Elegir contacto en WhatsApp');send.href='https://wa.me/?text='+encodeURIComponent(text);send.target='_blank';send.rel='noopener noreferrer';send.style.cssText='display:inline-block;background:#25D366;color:#073b21;padding:12px 16px;border-radius:8px;font-weight:600;text-decoration:none;margin:10px 0';
+      content.append(label,send,el('p','Selecciona el contacto del autor del reporte y revisa el destinatario antes de enviar. El envío se completa en WhatsApp. TERRA no confirma entrega ni lectura.'));
+      status.textContent='Mensaje listo con la decisión guardada. Si cambia la revisión, vuelve a preparar el mensaje.';
+    }catch(error){if(token===generation&&auth.currentUser?.uid===uid)status.textContent=error.message||'No fue posible preparar el mensaje.';}
+    finally{prepare.disabled=false;}
+  };
+}
+
 async function open(evidenceId){
   clear();const token=generation,uid=auth.currentUser?.uid;if(!uid)return;
   detail.append(el('p','Cargando reporte...'));
@@ -101,7 +125,7 @@ async function open(evidenceId){
     }
     const history=el('details');history.append(el('summary','Historial de decisiones (últimas 30)'));
     for(const h of d.history)history.append(el('p',`${date(h.at)} · ${h.actorName} · ${h.action==='request'?'Solicitó revisión superior':`${labels[h.previousStatus]} → ${labels[h.status]}`} · ${h.reason}`));
-    detail.append(history);detail.scrollIntoView({behavior:'smooth',block:'start'});
+    detail.append(history);addDecisionCommunication(d,evidenceId,token,uid);detail.scrollIntoView({behavior:'smooth',block:'start'});
     for(const [index,path] of d.imagePaths.entries()){
       try{let blob;
         if(d.canResolve || d.imageViaCallable){const {data:image}=await getImage({evidenceId,index});blob=new Blob([Uint8Array.from(atob(image.base64),c=>c.charCodeAt(0))],{type:image.contentType});}
