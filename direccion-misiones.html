@@ -7,8 +7,13 @@ button.button-whatsapp::before{content:"";display:block;width:22px;height:22px;f
 button.button-whatsapp:hover:not(:disabled){background:#20bd5a}
 button.button-whatsapp:focus-visible{outline:3px solid #075e54;outline-offset:3px}
 #missionSummary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}#missionSummary article{background:#edf3f7;margin:0;padding:14px}#missionSummary strong{display:block;font-size:1.8rem}.mission-filters{display:flex;gap:14px;flex-wrap:wrap}.mission-filters select{max-width:100%;padding:8px}
+
+/* Navegación visible del panel de dirección */
+a.direction-button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:44px;max-width:100%;padding:12px 16px;border:0;border-radius:8px;background:#164a70;color:#fff;font:inherit;font-weight:600;line-height:1.4;text-align:center;text-decoration:none;overflow-wrap:anywhere}
+a.direction-button:hover{background:#103954}
+a.direction-button:focus-visible{outline:3px solid #164a70;outline-offset:3px}
 </style></head><body><header>TERRA CAMPAIGN<h1>Misiones del Líder principal</h1><span id="session"></span></header><main>
-<a href="./direccion.html">Volver al Panel de dirección</a><p id="status" role="status">Validando acceso…</p>
+<a class="direction-button" href="./direccion.html">Volver al Panel de dirección</a><p id="status" role="status">Validando acceso…</p>
 <div id="workspace" hidden><button id="refresh">Actualizar misiones</button>
 <section><h2>Resumen de misiones</h2><div id="missionSummary"></div><p id="reviewSummary" role="status">Reportes: pendientes de consultar.</p><small>Los estados de misión indican vigencia. Los reportes validados indican decisiones sobre entregas; son conteos distintos. El resumen de reportes corresponde a toda tu bandeja autorizada.</small></section>
 <section><h2>Nueva misión</h2><form id="create"><label>Título<input id="title" required maxlength="150"></label><label>Instrucciones<textarea id="description" maxlength="1500"></textarea></label><label>Lugar<input id="locality" maxlength="120"></label><label>Fecha y hora límite<input id="deadline" type="datetime-local" required></label><fieldset><legend>Coordinadores municipales (máximo 50)</legend><div id="people"></div></fieldset><button id="save">Guardar misión</button><p id="saveStatus" role="status"></p></form></section>
