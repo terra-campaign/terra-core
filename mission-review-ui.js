@@ -17,9 +17,30 @@ const message=el('p');message.setAttribute('role','status');
 const rows=el('div'),detail=el('div');
 panel.append(title,help,refresh,message,rows,detail);
 document.querySelector('main').append(panel);
+
+const galleryStyle=el('style');galleryStyle.textContent=`
+.review-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,180px));gap:12px;margin:16px 0}
+.review-gallery button{margin:0;padding:8px;width:100%;background:#edf3f7;color:#17324d;border:1px solid #c5d5e2;border-radius:8px;cursor:zoom-in}
+.review-gallery img{width:100%;height:130px;object-fit:contain;display:block;background:white;border-radius:4px}
+.review-gallery span{display:block;padding-top:8px}
+.review-gallery button:focus-visible,.review-viewer button:focus-visible{outline:3px solid #267cb5;outline-offset:3px}
+.review-viewer{box-sizing:border-box;width:min(960px,94vw);max-height:94vh;padding:16px;border:0;border-radius:12px;background:white;color:#17324d}
+.review-viewer::backdrop{background:rgba(0,0,0,.78)}
+.review-viewer img{display:block;width:100%;height:70vh;object-fit:contain;background:#edf3f7}
+.review-viewer button{padding:12px 16px;min-height:44px;background:#164a70;color:white;border:0;border-radius:8px;cursor:pointer}
+.review-viewer p{margin:0 0 12px;font-weight:600}
+`;document.head.append(galleryStyle);
+const viewer=el('dialog');viewer.className='review-viewer';viewer.setAttribute('aria-label','Fotografía de evidencia ampliada');
+const viewerCaption=el('p'),viewerImage=el('img'),closeViewer=el('button','Cerrar fotografía');closeViewer.type='button';
+viewer.append(viewerCaption,viewerImage,closeViewer);document.body.append(viewer);
+closeViewer.onclick=()=>viewer.close();
+viewer.addEventListener('click',event=>{if(event.target===viewer){const r=viewer.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)viewer.close();}});
+viewer.addEventListener('close',()=>{viewerImage.removeAttribute('src');viewerImage.alt='';});
+function showPhoto(url,index,total){viewerCaption.textContent=`Fotografía ${index+1} de ${total}`;viewerImage.alt=`Evidencia original, fotografía ${index+1}`;viewerImage.src=url;viewer.showModal();}
+
 let generation=0,urls=[],current=null,busy=false;
 const date=x=>x?new Date(x).toLocaleString('es-MX'):'Sin fecha';
-function clear(){generation++;urls.forEach(URL.revokeObjectURL);urls=[];detail.replaceChildren();current=null;}
+function clear(){if(viewer.open)viewer.close();viewerImage.removeAttribute('src');generation++;urls.forEach(URL.revokeObjectURL);urls=[];detail.replaceChildren();current=null;}
 async function reload(){
   const uid=auth.currentUser?.uid;if(!uid)return;
   clear();const token=generation;window.dispatchEvent(new CustomEvent('terra-review-summary',{detail:{uid,loading:true}}));refresh.disabled=true;message.textContent='Consultando revisiones...';rows.replaceChildren();
@@ -43,7 +64,7 @@ async function open(evidenceId){
     const {data:d}=await get({evidenceId});if(token!==generation||auth.currentUser?.uid!==uid)return;
     current=d;detail.replaceChildren();detail.style.cssText='padding:16px 0;overflow-wrap:anywhere';
     detail.append(el('h3',d.title),el('p',`Reportó: ${d.reportedByName || d.uploadedByName}`),el('p',`Entregado: ${date(d.submittedAt)}`),el('p',d.description || 'Sin nota'));
-    const photoBox=el('div');detail.append(photoBox);
+    const photoBox=el('div');photoBox.className='review-gallery';detail.append(el('h4','Fotografías de evidencia'),el('p',d.imagePaths.length?'Pulsa una fotografía para ampliarla. Cierra con el botón o la tecla Esc.':'Este reporte no contiene fotografías.'),photoBox);
     detail.append(el('p',`Decisión: ${labels[d.review?.status || 'pending']}`));
     if(d.review){detail.append(el('p',`Reconsideración hasta: ${date(d.review.reconsiderUntil)}. El plazo no se reinicia.`));
       if(d.review.pendingAppeal)detail.append(el('p','Solicitud pendiente de revisión por el superior.'));
@@ -85,7 +106,9 @@ async function open(evidenceId){
       try{let blob;
         if(d.canResolve || d.imageViaCallable){const {data:image}=await getImage({evidenceId,index});blob=new Blob([Uint8Array.from(atob(image.base64),c=>c.charCodeAt(0))],{type:image.contentType});}
         else blob=await getBlob(ref(storage,path),8*1024*1024);if(token!==generation||auth.currentUser?.uid!==uid)return;
-        const url=URL.createObjectURL(blob);urls.push(url);const img=el('img');img.alt='Evidencia original';img.src=url;img.style.cssText='max-width:100%;max-height:440px;display:block;margin:10px 0';photoBox.append(img);
+        const url=URL.createObjectURL(blob);urls.push(url);const img=el('img');img.alt=`Evidencia, fotografía ${index+1}`;img.src=url;
+        const thumbnail=el('button');thumbnail.type='button';thumbnail.setAttribute('aria-label',`Ampliar fotografía ${index+1} de ${d.imagePaths.length}`);thumbnail.append(img,el('span',`Foto ${index+1} · Ampliar`));thumbnail.onclick=()=>showPhoto(url,index,d.imagePaths.length);photoBox.append(thumbnail);
+        img.onerror=()=>{thumbnail.replaceWith(el('p',`No se pudo mostrar la fotografía ${index+1}.`));};
       }catch{if(token===generation)photoBox.append(el('p','No se pudo cargar una fotografía con tu permiso actual.'));}
     }
   }catch(error){if(token===generation)detail.replaceChildren(el('p',error.message || 'Reporte no disponible.'));}
