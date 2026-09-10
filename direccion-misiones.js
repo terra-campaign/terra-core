@@ -1,3 +1,4 @@
+import {whatsappPhone} from './whatsapp-phone.js?v=lider-009';
 import {missionState,selectMissions,summarizeMissions} from './leader-summary.js?v=lider-005';
 import {auth} from './firebase-config.js';
 import {onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
@@ -43,12 +44,17 @@ async function cancelMission(m){
  finally{cancellationBusy=false;if(g===generation)renderMissions();}
 }
 
-function communicate(m){const p=coordinators.find(p=>p.uid===m.assignedTo);$('recipient').textContent='Destinatario: '+m.assignedToName;$('phone').value=p?.phone||'';
+function communicate(m){const p=coordinators.find(p=>p.uid===m.assignedTo);$('recipient').textContent='Destinatario: '+m.assignedToName;$('phone').value=p?.phone||'';const saved=String(p?.phone||'').replace(/[\s()+.-]/g,'');$('phoneCountry').value=/^(?:\d{10}|52\d{10})$/.test(saved)||!saved?'mx':'international';updatePhonePreview();
  const link=new URL('./login.html',location.href);link.searchParams.set('mission',m.id);
  $('message').value=`Hola, ${m.assignedToName}. Tienes una misión en TERRA Campaign:\n\n${m.title}\n${m.description}\nLugar: ${m.locality||'Consulta las instrucciones'}\nFecha límite: ${m.deadlineAt?new Date(m.deadlineAt).toLocaleString('es-MX'):'Consulta la plataforma'}\nEstado: ${!m.active?'Inactiva':m.deadlineAt&&Date.parse(m.deadlineAt)<=Date.now()?'Vencida':'Activa'}\n\nConsulta la misión y registra tu evidencia con tu cuenta:\n${link.href}`;
  $('communicationStatus').textContent='';$('communication').hidden=false;$('communication').scrollIntoView({behavior:'smooth'});
 }
-$('send').onclick=()=>{const phone=$('phone').value.replace(/[\s()+.-]/g,'');if(!/^[1-9]\d{7,14}$/.test(phone)){$('communicationStatus').textContent='Escribe el número completo con código de país, o elige el contacto en WhatsApp.';return;}window.open('https://wa.me/'+phone+'?text='+encodeURIComponent($('message').value),'_blank','noopener,noreferrer');};
+function updatePhonePreview(){
+ const mx=$('phoneCountry').value==='mx';$('phoneHelp').textContent=mx?'México: escribe 10 dígitos. Si ya incluye +52, no se duplicará.':'Escribe el número completo con su código de país.';$('phone').placeholder=mx?'Ejemplo: 3221234567':'Ejemplo: +1 202 555 0123';
+ try{$('phonePreview').textContent=$('phone').value.trim()?'Se abrirá WhatsApp para: +'+whatsappPhone($('phone').value,$('phoneCountry').value):'';}catch(e){$('phonePreview').textContent=e.message;}
+}
+$('phone').oninput=updatePhonePreview;$('phoneCountry').onchange=updatePhonePreview;
+$('send').onclick=()=>{try{const phone=whatsappPhone($('phone').value,$('phoneCountry').value);$('communicationStatus').textContent='Abriendo WhatsApp para +'+phone;window.open('https://wa.me/'+phone+'?text='+encodeURIComponent($('message').value),'_blank','noopener,noreferrer');}catch(e){$('communicationStatus').textContent=e.message;}};
 $('choose').onclick=()=>window.open('https://wa.me/?text='+encodeURIComponent($('message').value),'_blank','noopener,noreferrer');
 $('create').onsubmit=async event=>{
  event.preventDefault();if(busy)return;

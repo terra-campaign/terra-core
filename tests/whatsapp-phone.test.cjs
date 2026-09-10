@@ -1,0 +1,4 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
+const modulePromise=import('data:text/javascript;base64,'+fs.readFileSync(path.join(__dirname,'../whatsapp-phone.js')).toString('base64'));
+test('Mexico: adds country code once and rejects malformed inputs',async()=>{const {whatsappPhone:p}=await modulePromise;assert.equal(p('322 123 4567'),'523221234567');assert.equal(p('+52 (322) 123-4567'),'523221234567');for(const v of ['', '322123', '3221234567 ext 2','5213221234567'])assert.throws(()=>p(v));});
+test('International mode preserves supplied country code',async()=>{const {whatsappPhone:p}=await modulePromise;assert.equal(p('+1 202 555 0123','international'),'12025550123');assert.throws(()=>p('0012025550123','international'));assert.throws(()=>p('1234567890123456','international'));});
