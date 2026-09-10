@@ -7,6 +7,7 @@ const functions=getFunctions(auth.app,'us-central1');
 const list=httpsCallable(functions,'getPrincipalLeaderMissions');
 const create=httpsCallable(functions,'createLinkedMissions');
 const progress=httpsCallable(functions,'getMissionBranchProgress');
+const lifecycle=httpsCallable(functions,'manageMissionLifecycle');
 const node=(tag,text)=>{const e=document.createElement(tag);e.textContent=text;return e;};
 let allMissions=[],generation=0,coordinators=[],attempt=null,busy=false;
 async function reload(){
@@ -23,6 +24,25 @@ async function reload(){
  await import('./mission-review-ui.js?v=lider-007');
  }catch(e){if(g===generation)$('status').textContent=e.message;}finally{if(g===generation)$('refresh').disabled=false;}
 }
+
+let cancellationBusy=false;
+async function cancelMission(m){
+ if(cancellationBusy||!m.active)return;
+ const reason=window.prompt(`Cancelar: ${m.title}\nAsignada a: ${m.assignedToName}\n\nEscribe el motivo (máximo 500 caracteres):`);
+ if(reason===null)return;
+ const clean=reason.trim();
+ if(!clean||clean.length>500){window.alert('Escribe un motivo de entre 1 y 500 caracteres.');return;}
+ if(!window.confirm(`¿Confirmas cancelar «${m.title}» para ${m.assignedToName}?\n\nTambién se cerrarán sus asignaciones delegadas. Se conservarán las evidencias, decisiones e historial. La misión aparecerá como Inactiva.\n\nMotivo: ${clean}`))return;
+ const g=generation;cancellationBusy=true;renderMissions();$('communication').hidden=true;$('status').textContent='Cancelando la misión y sus delegaciones…';
+ try{
+  await lifecycle({missionId:m.id,action:'deactivate',reason:clean});
+  if(g!==generation)return;
+  m.active=false;renderMissions();await reload();
+  if(g===generation)$('status').textContent='Cancelación confirmada. Se conservaron las evidencias y el historial. Consulta la misión con el filtro Inactivas; si aún aparece activa, pulsa Actualizar misiones.';
+ }catch(error){if(g===generation)$('status').textContent=(error.message||'No se pudo confirmar la cancelación.')+' Actualiza las misiones para comprobar el estado antes de reintentar.';}
+ finally{cancellationBusy=false;if(g===generation)renderMissions();}
+}
+
 function communicate(m){const p=coordinators.find(p=>p.uid===m.assignedTo);$('recipient').textContent='Destinatario: '+m.assignedToName;$('phone').value=p?.phone||'';
  const link=new URL('./login.html',location.href);link.searchParams.set('mission',m.id);
  $('message').value=`Hola, ${m.assignedToName}. Tienes una misión en TERRA Campaign:\n\n${m.title}\n${m.description}\nLugar: ${m.locality||'Consulta las instrucciones'}\nFecha límite: ${m.deadlineAt?new Date(m.deadlineAt).toLocaleString('es-MX'):'Consulta la plataforma'}\nEstado: ${!m.active?'Inactiva':m.deadlineAt&&Date.parse(m.deadlineAt)<=Date.now()?'Vencida':'Activa'}\n\nConsulta la misión y registra tu evidencia con tu cuenta:\n${link.href}`;
@@ -60,7 +80,7 @@ function renderMissions(){
  $('missions').replaceChildren();
  for(const m of visible){const card=node('article','');card.append(node('h3',m.title),node('p','Asignada a: '+m.assignedToName),node('p',m.description),node('p','Lugar: '+(m.locality||'Sin especificar')),node('p','Límite: '+(m.deadlineAt?new Date(m.deadlineAt).toLocaleString('es-MX'):'Sin fecha')),node('p',({active:'Activa',expired:'Vencida',inactive:'Inactiva',undated:'Sin fecha válida'})[missionState(m)]));
  const wa=node('button','Comunicar misión por WhatsApp');wa.classList.add('button-whatsapp');wa.onclick=()=>communicate(m);card.append(wa);
- const advance=node('button','Ver avance');const output=node('p','');advance.onclick=async()=>{advance.disabled=true;try{const {data:r}=await progress({missionId:m.id});if(g!==generation)return;output.textContent=`Asignaciones en la cadena: ${r.total} · Con evidencia: ${r.withEvidence} · Sin evidencia: ${r.withoutEvidence}. La evidencia no certifica validación.`;}catch(e){output.textContent=e.message;}finally{advance.disabled=false;}};card.append(advance,output);$('missions').append(card);}
+ const advance=node('button','Ver avance');const output=node('p','');advance.onclick=async()=>{advance.disabled=true;try{const {data:r}=await progress({missionId:m.id});if(g!==generation)return;output.textContent=`Asignaciones en la cadena: ${r.total} · Con evidencia: ${r.withEvidence} · Sin evidencia: ${r.withoutEvidence}. La evidencia no certifica validación.`;}catch(e){output.textContent=e.message;}finally{advance.disabled=false;}};card.append(advance,output);if(m.active){const cancel=node('button','Cancelar misión');cancel.type='button';cancel.style.cssText='background:#9b2525;color:white';cancel.disabled=cancellationBusy;cancel.onclick=()=>cancelMission(m);card.append(cancel);}$('missions').append(card);}
  if(!visible.length)$('missions').append(node('p',allMissions.length?'No hay misiones con estos filtros.':'Aún no has asignado misiones.'));
 
 }
