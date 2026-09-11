@@ -49,7 +49,14 @@ const participantForm = document.querySelector("#participantForm");
 const participantNameInput = document.querySelector("#participantName");
 const participantEmailInput = document.querySelector("#participantEmail");
 const participantPhoneInput = document.querySelector("#participantPhone");
+const participantWhatsAppYesInput =
+  document.querySelector("#participantWhatsAppYes");
+const participantWhatsAppNoInput =
+  document.querySelector("#participantWhatsAppNo");
 const participantLocalityInput = document.querySelector("#participantLocality");
+const participantStreetInput = document.querySelector("#participantStreet");
+const participantHouseNumberInput =
+  document.querySelector("#participantHouseNumber");
 const participantPasswordInput = document.querySelector("#participantPassword");
 
 const saveParticipantButton = document.querySelector("#saveParticipantButton");
@@ -443,7 +450,22 @@ async function handleCreateParticipant(event) {
 
   const phone = String(participantPhoneInput?.value || "").trim();
 
+  const hasWhatsApp =
+    participantWhatsAppYesInput?.checked
+      ? true
+      : participantWhatsAppNoInput?.checked
+        ? false
+        : null;
+
   const locality = String(participantLocalityInput?.value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  const street = String(participantStreetInput?.value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  const houseNumber = String(participantHouseNumberInput?.value || "")
     .trim()
     .replace(/\s+/g, " ");
 
@@ -461,13 +483,55 @@ async function handleCreateParticipant(event) {
     return;
   }
 
+  if (hasWhatsApp === null) {
+    showStatus(
+      participantFormStatus,
+      "Indique si el teléfono tiene WhatsApp.",
+      "error"
+    );
+    return;
+  }
+
+  if (
+    hasWhatsApp === true &&
+    !phone
+  ) {
+    showStatus(
+      participantFormStatus,
+      "Ingrese el teléfono que tiene WhatsApp.",
+      "error"
+    );
+    participantPhoneInput?.focus();
+    return;
+  }
+
   if (locality.length < 2) {
     showStatus(
       participantFormStatus,
-      "Ingrese la localidad del participante.",
+      "Ingrese la población del participante.",
       "error"
     );
     participantLocalityInput?.focus();
+    return;
+  }
+
+  if (street.length < 2) {
+    showStatus(
+      participantFormStatus,
+      "Ingrese la calle del participante.",
+      "error"
+    );
+    participantStreetInput?.focus();
+    return;
+  }
+
+  if (!houseNumber) {
+    showStatus(
+      participantFormStatus,
+      "Ingrese el número o S/N.",
+      "error"
+    );
+    participantHouseNumberInput?.focus();
     return;
   }
 
@@ -494,7 +558,10 @@ async function handleCreateParticipant(event) {
       name,
       email,
       phone,
+      hasWhatsApp,
       locality,
+      street,
+      houseNumber,
       password,
       parentUserId: currentUser.uid
     });

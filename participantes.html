@@ -238,17 +238,71 @@
           >
         </label>
 
-        <label>
-  Localidad *
 
-  <input
-    id="participantLocality"
-    type="text"
-    maxlength="120"
-    placeholder="Ej. agregue localidad, colonia y referencia "
-    required
-  >
-</label>
+        <fieldset>
+          <legend>
+            ¿Este teléfono tiene WhatsApp? *
+          </legend>
+
+          <label>
+            <input
+              id="participantWhatsAppYes"
+              type="radio"
+              name="participantHasWhatsApp"
+              value="yes"
+              required
+            >
+            Sí
+          </label>
+
+          <label>
+            <input
+              id="participantWhatsAppNo"
+              type="radio"
+              name="participantHasWhatsApp"
+              value="no"
+              required
+            >
+            No
+          </label>
+        </fieldset>
+
+
+        <label>
+          Población *
+
+          <input
+            id="participantLocality"
+            type="text"
+            maxlength="120"
+            required
+          >
+        </label>
+
+
+        <label>
+          Calle *
+
+          <input
+            id="participantStreet"
+            type="text"
+            maxlength="160"
+            required
+          >
+        </label>
+
+
+        <label>
+          Número *
+
+          <input
+            id="participantHouseNumber"
+            type="text"
+            maxlength="30"
+            placeholder="Ej. 125 o S/N"
+            required
+          >
+        </label>
 
         <label>
           Contraseña temporal *
@@ -291,7 +345,7 @@
 
   <script
     type="module"
-    src="./participantes.js?v=002"
+    src="./participantes.js?v=build-116d-001"
   ></script>
 
 </body>

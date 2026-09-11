@@ -148,6 +148,21 @@ const memberEmailInput =
 const memberPhoneInput =
   document.querySelector("#memberPhone");
 
+const memberWhatsAppYesInput =
+  document.querySelector("#memberWhatsAppYes");
+
+const memberWhatsAppNoInput =
+  document.querySelector("#memberWhatsAppNo");
+
+const memberLocalityInput =
+  document.querySelector("#memberLocality");
+
+const memberStreetInput =
+  document.querySelector("#memberStreet");
+
+const memberHouseNumberInput =
+  document.querySelector("#memberHouseNumber");
+
 const memberPasswordInput =
   document.querySelector("#memberPassword");
 
@@ -1391,6 +1406,25 @@ async function handleCreateMember(event) {
   const phone = String(memberPhoneInput?.value || "")
     .trim();
 
+  const hasWhatsApp =
+    memberWhatsAppYesInput?.checked
+      ? true
+      : memberWhatsAppNoInput?.checked
+        ? false
+        : null;
+
+  const locality = String(memberLocalityInput?.value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  const street = String(memberStreetInput?.value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  const houseNumber = String(memberHouseNumberInput?.value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
   const password = String(memberPasswordInput?.value || "");
 
   if (name.length < 2) {
@@ -1410,6 +1444,58 @@ async function handleCreateMember(event) {
       "error"
     );
     memberEmailInput?.focus();
+    return;
+  }
+
+  if (hasWhatsApp === null) {
+    showStatus(
+      memberFormStatus,
+      "Indique si el teléfono tiene WhatsApp.",
+      "error"
+    );
+    return;
+  }
+
+  if (
+    hasWhatsApp === true &&
+    !phone
+  ) {
+    showStatus(
+      memberFormStatus,
+      "Ingrese el teléfono que tiene WhatsApp.",
+      "error"
+    );
+    memberPhoneInput?.focus();
+    return;
+  }
+
+  if (locality.length < 2) {
+    showStatus(
+      memberFormStatus,
+      "Ingrese la población.",
+      "error"
+    );
+    memberLocalityInput?.focus();
+    return;
+  }
+
+  if (street.length < 2) {
+    showStatus(
+      memberFormStatus,
+      "Ingrese la calle.",
+      "error"
+    );
+    memberStreetInput?.focus();
+    return;
+  }
+
+  if (!houseNumber) {
+    showStatus(
+      memberFormStatus,
+      "Ingrese el número o S/N.",
+      "error"
+    );
+    memberHouseNumberInput?.focus();
     return;
   }
 
@@ -1437,6 +1523,10 @@ async function handleCreateMember(event) {
       name,
       email,
       phone,
+      hasWhatsApp,
+      locality,
+      street,
+      houseNumber,
       password,
       structureDocumentId
     });

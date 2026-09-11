@@ -3374,6 +3374,21 @@ const locality =
     data.locality || ""
   );
 
+const hasWhatsApp =
+  typeof data.hasWhatsApp === "boolean"
+    ? data.hasWhatsApp
+    : null;
+
+const street =
+  cleanText(
+    data.street || ""
+  );
+
+const houseNumber =
+  cleanText(
+    data.houseNumber || ""
+  );
+
 const password =
   String(
     data.password || ""
@@ -3418,6 +3433,55 @@ const password =
       throw new HttpsError(
         "invalid-argument",
         "Ingrese un teléfono válido de entre 10 y 15 dígitos."
+      );
+    }
+
+    if (
+      hasWhatsApp === null
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Debe indicar si el teléfono tiene WhatsApp."
+      );
+    }
+
+    if (
+      hasWhatsApp === true &&
+      !phone
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Debe ingresar el teléfono que tiene WhatsApp."
+      );
+    }
+
+    if (
+      locality.length < 2 ||
+      locality.length > 120
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese una población válida."
+      );
+    }
+
+    if (
+      street.length < 2 ||
+      street.length > 160
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese una calle válida."
+      );
+    }
+
+    if (
+      houseNumber.length < 1 ||
+      houseNumber.length > 30
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un número válido o S/N."
       );
     }
 
@@ -3644,6 +3708,14 @@ const ancestorIds = [
 
         phone,
 
+        hasWhatsApp,
+
+        locality,
+
+        street,
+
+        houseNumber,
+
         role:
           "integrante",
 
@@ -3756,6 +3828,16 @@ createdBy:
           targetUserEmail:
             email,
 
+          phone,
+
+          hasWhatsApp,
+
+          locality,
+
+          street,
+
+          houseNumber,
+
           parentUserId,
 
           createdBy:
@@ -3788,6 +3870,14 @@ createdBy:
           email,
 
           phone,
+
+          hasWhatsApp,
+
+          locality,
+
+          street,
+
+          houseNumber,
 
           role:
             "integrante",
@@ -3990,6 +4080,21 @@ const locality =
     data.locality || ""
   );
 
+const hasWhatsApp =
+  typeof data.hasWhatsApp === "boolean"
+    ? data.hasWhatsApp
+    : null;
+
+const street =
+  cleanText(
+    data.street || ""
+  );
+
+const houseNumber =
+  cleanText(
+    data.houseNumber || ""
+  );
+
 const password =
   String(
     data.password || ""
@@ -4042,12 +4147,51 @@ if (
 }
 
 if (
+  hasWhatsApp === null
+) {
+  throw new HttpsError(
+    "invalid-argument",
+    "Debe indicar si el teléfono tiene WhatsApp."
+  );
+}
+
+if (
+  hasWhatsApp === true &&
+  !phone
+) {
+  throw new HttpsError(
+    "invalid-argument",
+    "Debe ingresar el teléfono que tiene WhatsApp."
+  );
+}
+
+if (
   locality.length < 2 ||
   locality.length > 120
 ) {
   throw new HttpsError(
     "invalid-argument",
-    "Ingrese una localidad válida."
+    "Ingrese una población válida."
+  );
+}
+
+if (
+  street.length < 2 ||
+  street.length > 160
+) {
+  throw new HttpsError(
+    "invalid-argument",
+    "Ingrese una calle válida."
+  );
+}
+
+if (
+  houseNumber.length < 1 ||
+  houseNumber.length > 30
+) {
+  throw new HttpsError(
+    "invalid-argument",
+    "Ingrese un número válido o S/N."
   );
 }
 
@@ -4231,7 +4375,13 @@ if (!parentUserId) {
 
         phone,
 
+        hasWhatsApp,
+
         locality,
+
+        street,
+
+        houseNumber,
 
         role:
           "participante",
@@ -4335,7 +4485,15 @@ createdBy:
           targetUserEmail:
             email,
 
+          phone,
+
+          hasWhatsApp,
+
           locality,
+
+          street,
+
+          houseNumber,
 
           createdBy:
             creatorUid,
@@ -4368,7 +4526,13 @@ createdBy:
 
           phone,
 
+          hasWhatsApp,
+
           locality,
+
+          street,
+
+          houseNumber,
 
           role:
             "participante",
