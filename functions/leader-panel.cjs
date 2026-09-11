@@ -57,9 +57,23 @@ function buildPanel(municipalities,users,structures,missions,evidence){
  return {unassignedMissions,unmatchedMissions:unmatched,municipalities:municipalities.map(m=>{
   const selected=assignments.filter(x=>userMap.get(x.assignedTo)?.municipalityId===m.id);
   const withEvidence=selected.filter(x=>reported.has(x._id)).length;
-  return {id:m.id||m._id,name:m.name||'Sin nombre',active:m.active===true,structures:structures.filter(s=>s.municipalityId===m.id).length,
+  return {
+   id:m.id||m._id,
+   name:m.name||'Sin nombre',
+   officialName:m.officialName||m.name||'Sin nombre',
+   municipalityCode:m.municipalityCode||'',
+   cvegeo:m.cvegeo||'',
+   active:m.active===true,
+   structures:structures.filter(s=>s.municipalityId===m.id).length,
    coordinators:users.filter(u=>u.role==='coordinador_municipal'&&u.municipalityId===m.id).map(u=>({name:u.name||'Sin nombre',active:u.active===true})),
-   total:selected.length,withEvidence,withoutEvidence:selected.length-withEvidence,percentage:selected.length?Math.round(withEvidence*1000/selected.length)/10:null};
- }).sort((a,b)=>a.name.localeCompare(b.name,'es'))};
+   total:selected.length,
+   withEvidence,
+   withoutEvidence:selected.length-withEvidence,
+   percentage:selected.length?Math.round(withEvidence*1000/selected.length)/10:null
+  };
+ }).sort((a,b)=>
+   (a.municipalityCode||'999').localeCompare(b.municipalityCode||'999')
+   || a.name.localeCompare(b.name,'es')
+ )};
 }
 exports._buildPanel=buildPanel;

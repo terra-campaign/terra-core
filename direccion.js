@@ -22,10 +22,12 @@ async function refresh(){
  for(const m of data.municipalities){
  const card=document.createElement('article');
  const h=document.createElement('h2');
- h.textContent=m.name;
+ h.textContent=m.municipalityCode
+   ? `${m.municipalityCode} · ${m.name}`
+   : m.name;
  card.append(h);
 
- line(card,`${m.id} · ${m.active?'Activo':'Inactivo'} · Estructuras: ${m.structures}`);
+ line(card,`${m.active?'Activo':'Inactivo'} · Estructuras: ${m.structures}`);
 
  const activeCoordinator=m.coordinators.some(c=>c.active===true);
 
