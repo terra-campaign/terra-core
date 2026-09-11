@@ -15,6 +15,39 @@
     rel="stylesheet"
     href="./styles.css"
   >
+
+  <style>
+    .structure-whatsapp-message{
+      display:block;
+      box-sizing:border-box;
+      width:100%;
+      min-height:220px;
+      padding:10px;
+      margin:8px 0 15px;
+      font:inherit;
+      resize:vertical;
+    }
+
+    a.structure-whatsapp-link{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      box-sizing:border-box;
+      background:#25D366;
+      color:#073b21;
+      font-weight:600;
+      text-decoration:none;
+    }
+
+    a.structure-whatsapp-link:hover{
+      background:#20bd5a;
+    }
+
+    a.structure-whatsapp-link:focus-visible{
+      outline:3px solid #075e54;
+      outline-offset:3px;
+    }
+  </style>
 </head>
 
 <body>
@@ -335,6 +368,62 @@
         hidden
       ></div>
 
+
+      <div
+        id="structureChiefWelcome"
+        hidden
+      >
+        <hr>
+
+        <h3>
+          Enviar bienvenida y acceso por WhatsApp
+        </h3>
+
+        <p id="structureChiefWelcomeRecipient"></p>
+
+        <p id="structureChiefWelcomePhone"></p>
+
+        <label>
+          Mensaje preparado
+
+          <textarea
+            id="structureChiefWelcomeMessage"
+            class="structure-whatsapp-message"
+            rows="12"
+          ></textarea>
+        </label>
+
+        <div class="form-actions">
+
+          <a
+            id="structureChiefWelcomeDirect"
+            class="button structure-whatsapp-link"
+            target="_blank"
+            rel="noopener noreferrer"
+            hidden
+          >
+            Abrir WhatsApp con este responsable
+          </a>
+
+          <a
+            id="structureChiefWelcomeManual"
+            class="button structure-whatsapp-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Elegir contacto en WhatsApp
+          </a>
+
+        </div>
+
+        <p class="muted">
+          TERRA prepara el mensaje y el destinatario.
+          El envío se confirma dentro de WhatsApp.
+          La contraseña temporal no se incluye en el mensaje.
+        </p>
+
+      </div>
+
     </section>
 
   </div>
@@ -471,7 +560,7 @@
 
   <script
     type="module"
-    src="./estructura.js?v=007"
+    src="./estructura.js?v=build-116c-001"
   ></script>
 
 </body>

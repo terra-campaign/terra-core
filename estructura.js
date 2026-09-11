@@ -98,6 +98,24 @@ const saveStructureChiefButton =
 const structureChiefFormStatus =
   document.querySelector("#structureChiefFormStatus");
 
+const structureChiefWelcome =
+  document.querySelector("#structureChiefWelcome");
+
+const structureChiefWelcomeRecipient =
+  document.querySelector("#structureChiefWelcomeRecipient");
+
+const structureChiefWelcomePhone =
+  document.querySelector("#structureChiefWelcomePhone");
+
+const structureChiefWelcomeMessage =
+  document.querySelector("#structureChiefWelcomeMessage");
+
+const structureChiefWelcomeDirect =
+  document.querySelector("#structureChiefWelcomeDirect");
+
+const structureChiefWelcomeManual =
+  document.querySelector("#structureChiefWelcomeManual");
+
 
 // ======================================================
 // INTEGRANTES
@@ -864,6 +882,192 @@ function listenStructureUsers() {
 
 
 // ======================================================
+// WHATSAPP · BIENVENIDA RESPONSABLE DE ESTRUCTURA
+// ======================================================
+
+function normalizeStructureChiefWhatsAppPhone(
+  value
+) {
+
+  const digits =
+    String(value || "")
+      .replace(/\D/g, "");
+
+
+  if (
+    /^52\d{10}$/.test(digits)
+  ) {
+    return digits;
+  }
+
+
+  if (
+    /^\d{10}$/.test(digits)
+  ) {
+    return `52${digits}`;
+  }
+
+
+  return "";
+}
+
+
+function showStructureChiefWelcome(
+  user
+) {
+
+  const name =
+    String(
+      user?.name ||
+      "Responsable de estructura"
+    ).trim();
+
+
+  const email =
+    String(
+      user?.email || ""
+    ).trim();
+
+
+  const structureName =
+    String(
+      user?.structureName ||
+      currentStructure?.name ||
+      ""
+    ).trim();
+
+
+  const municipalityName =
+    String(
+      user?.municipalityName ||
+      currentStructure?.municipalityName ||
+      ""
+    ).trim();
+
+
+  const whatsappNumber =
+    normalizeStructureChiefWhatsAppPhone(
+      user?.phone
+    );
+
+
+  const message = [
+    "TERRA CAMPAIGN · Bienvenida",
+    "",
+    `Hola, ${name}.`,
+    "",
+    `Has sido registrado como Responsable de estructura${structureName ? " de " + structureName : ""}.`,
+    municipalityName
+      ? `Municipio: ${municipalityName}.`
+      : "",
+    "",
+    "Tu acceso a TERRA CAMPAIGN ya está habilitado.",
+    "",
+    "Usuario:",
+    email,
+    "",
+    "Ingresa aquí:",
+    "https://terra-campaign.github.io/terra-core/login.html",
+    "",
+    "Por seguridad, tu contraseña temporal no se comparte en este mensaje.",
+    "Recíbela por separado del responsable que realizó tu registro.",
+    "",
+    "Bienvenido al equipo territorial."
+  ]
+    .filter(
+      (line, index, array) =>
+        line !== "" ||
+        index === 0 ||
+        array[index - 1] !== ""
+    )
+    .join("\n");
+
+
+  if (structureChiefWelcomeRecipient) {
+    structureChiefWelcomeRecipient.textContent =
+      `Destinatario: ${name}`;
+  }
+
+
+  if (structureChiefWelcomePhone) {
+    structureChiefWelcomePhone.textContent =
+      whatsappNumber
+        ? `Teléfono: +${whatsappNumber}`
+        : "Teléfono registrado no disponible o inválido.";
+  }
+
+
+  if (structureChiefWelcomeMessage) {
+    structureChiefWelcomeMessage.value =
+      message;
+  }
+
+
+  const updateLinks = () => {
+
+    const preparedMessage =
+      structureChiefWelcomeMessage?.value ||
+      message;
+
+
+    if (structureChiefWelcomeManual) {
+      structureChiefWelcomeManual.href =
+        "https://wa.me/?text=" +
+        encodeURIComponent(
+          preparedMessage
+        );
+    }
+
+
+    if (
+      structureChiefWelcomeDirect
+    ) {
+
+      if (whatsappNumber) {
+
+        structureChiefWelcomeDirect.hidden =
+          false;
+
+        structureChiefWelcomeDirect.textContent =
+          `Abrir WhatsApp con ${name}`;
+
+        structureChiefWelcomeDirect.href =
+          "https://wa.me/" +
+          whatsappNumber +
+          "?text=" +
+          encodeURIComponent(
+            preparedMessage
+          );
+
+      } else {
+
+        structureChiefWelcomeDirect.hidden =
+          true;
+
+        structureChiefWelcomeDirect
+          .removeAttribute("href");
+      }
+    }
+  };
+
+
+  if (structureChiefWelcomeMessage) {
+    structureChiefWelcomeMessage.oninput =
+      updateLinks;
+  }
+
+
+  updateLinks();
+
+
+  if (structureChiefWelcome) {
+    structureChiefWelcome.hidden =
+      false;
+  }
+}
+
+
+// ======================================================
 // MODAL RESPONSABLE DE ESTRUCTURA
 // ======================================================
 
@@ -876,6 +1080,16 @@ function openStructureChiefModal() {
   }
 
   structureChiefForm?.reset();
+
+  if (structureChiefWelcome) {
+    structureChiefWelcome.hidden =
+      true;
+  }
+
+  if (structureChiefWelcomeMessage) {
+    structureChiefWelcomeMessage.value =
+      "";
+  }
 
   showStatus(
     structureChiefFormStatus,
@@ -904,6 +1118,16 @@ function closeStructureChiefModal() {
   }
 
   structureChiefForm?.reset();
+
+  if (structureChiefWelcome) {
+    structureChiefWelcome.hidden =
+      true;
+  }
+
+  if (structureChiefWelcomeMessage) {
+    structureChiefWelcomeMessage.value =
+      "";
+  }
 
   showStatus(
     structureChiefFormStatus,
@@ -1027,11 +1251,25 @@ async function handleCreateStructureChief(
       "success"
     );
 
-    setTimeout(
-      () => {
-        closeStructureChiefModal();
-      },
-      900
+    const createdChief =
+      chief || {
+        name,
+        email,
+        phone,
+        structureName:
+          currentStructure?.name || "",
+        municipalityName:
+          currentStructure?.municipalityName || "",
+        mustChangePassword:
+          true
+      };
+
+
+    structureChiefForm?.reset();
+
+
+    showStructureChiefWelcome(
+      createdChief
     );
 
   } catch (error) {
