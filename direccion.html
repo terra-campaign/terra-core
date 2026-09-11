@@ -12,5 +12,67 @@ a.direction-button:focus-visible{outline:3px solid #164a70;outline-offset:3px}
 <p id="leaderMissions" hidden><a class="direction-button" href="./direccion-misiones.html">Misiones del Líder principal</a></p>
 <p><a class="direction-button" href="./direccion-territorio.html">Operación territorial · Avance del brigadeo</a></p>
 <div id="municipalities"></div>
+
+<section id="coordinatorRegistration" hidden>
+  <h2>Registrar coordinador municipal</h2>
+
+  <p id="selectedMunicipality"></p>
+
+  <form id="coordinatorForm">
+    <label>
+      Nombre completo
+      <input
+        id="coordinatorName"
+        type="text"
+        maxlength="120"
+        autocomplete="name"
+        required
+      >
+    </label>
+
+    <label>
+      Correo electrónico
+      <input
+        id="coordinatorEmail"
+        type="email"
+        maxlength="160"
+        autocomplete="email"
+        required
+      >
+    </label>
+
+    <label>
+      Teléfono
+      <input
+        id="coordinatorPhone"
+        type="tel"
+        inputmode="tel"
+        maxlength="25"
+        placeholder="Ejemplo: 3111234567"
+      >
+    </label>
+
+    <label>
+      Contraseña temporal
+      <input
+        id="coordinatorPassword"
+        type="password"
+        minlength="6"
+        autocomplete="new-password"
+        required
+      >
+    </label>
+
+    <button id="saveCoordinator" type="submit">
+      Registrar coordinador
+    </button>
+
+    <button id="cancelCoordinator" type="button">
+      Cancelar
+    </button>
+
+    <p id="coordinatorStatus" role="status" aria-live="polite"></p>
+  </form>
+</section>
 <section id="setup" hidden><details><summary>Asignar al Líder principal · Administración</summary><p>Primero crea una cuenta nueva en Firebase Authentication. Copia su UID aquí. Se admite un solo líder por campaña; esta operación no cambia a los coordinadores existentes.</p><form id="assign"><label>Nombre completo<input id="name" required maxlength="120"></label><label>UID de la cuenta nueva<input id="uid" required maxlength="128" autocomplete="off"></label><button id="save">Asignar Líder principal</button></form><p id="assignmentStatus" role="status"></p></details><p><a href="./admin.html">Volver a administración</a></p></section>
-</main><script type="module" src="./direccion.js?v=lider-002"></script></body></html>
+</main><script type="module" src="./direccion.js?v=build-116b-001"></script></body></html>

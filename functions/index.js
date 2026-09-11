@@ -1629,15 +1629,20 @@ exports.createMunicipalCoordinator = onCall(
     if (adminProfile.active !== true) {
       throw new HttpsError(
         "permission-denied",
-        "El administrador está desactivado."
+        "El usuario está desactivado."
       );
     }
 
 
-    if (adminProfile.role !== "admin") {
+    if (
+      ![
+        "admin",
+        "lider_principal"
+      ].includes(adminProfile.role)
+    ) {
       throw new HttpsError(
         "permission-denied",
-        "Solo el administrador puede crear coordinadores municipales."
+        "No tiene autorización para crear coordinadores municipales."
       );
     }
 
@@ -1649,8 +1654,37 @@ exports.createMunicipalCoordinator = onCall(
     if (!campaignId) {
       throw new HttpsError(
         "failed-precondition",
-        "El administrador no tiene campaña asignada."
+        "El usuario no tiene campaña asignada."
       );
+    }
+
+
+    // ==================================================
+    // VALIDAR LÍDER PRINCIPAL OFICIAL
+    // ==================================================
+
+    if (
+      adminProfile.role ===
+      "lider_principal"
+    ) {
+
+      const leaderSnapshot =
+        await db
+          .collection("principalLeaders")
+          .doc(campaignId)
+          .get();
+
+
+      if (
+        !leaderSnapshot.exists ||
+        leaderSnapshot.data()?.uid !==
+          adminUid
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "El Líder principal no está registrado para esta campaña."
+        );
+      }
     }
 
 
@@ -1778,6 +1812,51 @@ exports.createMunicipalCoordinator = onCall(
 
 
     // ==================================================
+    // UN COORDINADOR ACTIVO POR MUNICIPIO
+    // ==================================================
+
+    const coordinatorSnapshot =
+      await db
+        .collection("usuarios")
+        .where(
+          "campaignId",
+          "==",
+          campaignId
+        )
+        .where(
+          "role",
+          "==",
+          "coordinador_municipal"
+        )
+        .limit(100)
+        .get();
+
+
+    const existingCoordinator =
+      coordinatorSnapshot.docs.find(
+        (document) => {
+
+          const profile =
+            document.data();
+
+          return (
+            profile.active === true &&
+            profile.municipalityId ===
+              municipalityId
+          );
+        }
+      );
+
+
+    if (existingCoordinator) {
+      throw new HttpsError(
+        "already-exists",
+        "Este municipio ya tiene un coordinador municipal activo."
+      );
+    }
+
+
+    // ==================================================
     // CREAR USUARIO AUTH
     // ==================================================
 
@@ -1878,6 +1957,9 @@ exports.createMunicipalCoordinator = onCall(
 
           createdBy:
             adminUid,
+
+          createdByRole:
+            adminProfile.role,
 
           createdAt:
             FieldValue.serverTimestamp()
