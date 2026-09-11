@@ -5,6 +5,9 @@ body{margin:0;background:#edf3f7;color:#17324d;font:16px system-ui}header{backgr
 a.direction-button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:44px;max-width:100%;padding:12px 16px;border:0;border-radius:8px;background:#164a70;color:#fff;font:inherit;font-weight:600;line-height:1.4;text-align:center;text-decoration:none;overflow-wrap:anywhere}
 a.direction-button:hover{background:#103954}
 a.direction-button:focus-visible{outline:3px solid #164a70;outline-offset:3px}
+a.whatsapp-link{display:inline-block;box-sizing:border-box;padding:12px 16px;margin:6px 8px 6px 0;border-radius:8px;background:#25D366;color:#073b21;font-weight:600;text-decoration:none}
+a.whatsapp-link:hover{background:#20bd5a}
+a.whatsapp-link:focus-visible{outline:3px solid #075e54;outline-offset:3px}
 </style></head><body><header>TERRA CAMPAIGN<h1>Panel de dirección</h1><span id="session"></span></header><main>
 <button id="refresh" disabled>Actualizar resumen</button> <button id="logout">Salir</button>
 <p id="status" role="status" aria-live="polite">Validando acceso…</p>
@@ -73,6 +76,49 @@ a.direction-button:focus-visible{outline:3px solid #164a70;outline-offset:3px}
 
     <p id="coordinatorStatus" role="status" aria-live="polite"></p>
   </form>
+
+  <div id="coordinatorWelcome" hidden>
+    <hr>
+
+    <h3>Enviar bienvenida y acceso por WhatsApp</h3>
+
+    <p id="welcomeRecipient"></p>
+    <p id="welcomePhone"></p>
+
+    <label>
+      Mensaje preparado
+      <textarea
+        id="welcomeMessage"
+        rows="12"
+      ></textarea>
+    </label>
+
+    <p>
+      <a
+        id="welcomeDirect"
+        class="whatsapp-link"
+        target="_blank"
+        rel="noopener noreferrer"
+        hidden
+      >
+        Abrir WhatsApp con este coordinador
+      </a>
+
+      <a
+        id="welcomeManual"
+        class="whatsapp-link"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Elegir contacto en WhatsApp
+      </a>
+    </p>
+
+    <small>
+      TERRA prepara el mensaje y el destinatario. El envío se confirma dentro de WhatsApp.
+      La contraseña temporal no se incluye en el mensaje.
+    </small>
+  </div>
 </section>
 <section id="setup" hidden><details><summary>Asignar al Líder principal · Administración</summary><p>Primero crea una cuenta nueva en Firebase Authentication. Copia su UID aquí. Se admite un solo líder por campaña; esta operación no cambia a los coordinadores existentes.</p><form id="assign"><label>Nombre completo<input id="name" required maxlength="120"></label><label>UID de la cuenta nueva<input id="uid" required maxlength="128" autocomplete="off"></label><button id="save">Asignar Líder principal</button></form><p id="assignmentStatus" role="status"></p></details><p><a href="./admin.html">Volver a administración</a></p></section>
-</main><script type="module" src="./direccion.js?v=build-116b-002"></script></body></html>
+</main><script type="module" src="./direccion.js?v=build-116b-004"></script></body></html>

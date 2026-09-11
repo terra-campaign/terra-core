@@ -66,6 +66,92 @@ onAuthStateChanged(auth,async user=>{const version=++epoch;$('municipalities').r
 $('assign').onsubmit=async e=>{e.preventDefault();$('save').disabled=true;try{await assign({uid:$('uid').value.trim(),name:$('name').value.trim()});$('assignmentStatus').textContent='Líder asignado. Puede entrar con su cuenta desde el acceso habitual.';$('assign').reset();}catch(e){$('assignmentStatus').textContent=e.message;}finally{$('save').disabled=false;}};
 
 
+function normalizeWelcomePhone(value){
+ const digits=String(value||'').replace(/\D/g,'');
+
+ if(/^52\d{10}$/.test(digits)){
+   return digits;
+ }
+
+ if(/^\d{10}$/.test(digits)){
+   return '52'+digits;
+ }
+
+ return '';
+}
+
+function showCoordinatorWelcome(user){
+ const name=String(user?.name||'Coordinador municipal').trim();
+ const email=String(user?.email||'').trim();
+ const municipality=String(
+   user?.municipalityName||
+   selectedMunicipalityName||
+   ''
+ ).trim();
+
+ const whatsappNumber=
+   normalizeWelcomePhone(user?.phone);
+
+ const text=[
+   'TERRA CAMPAIGN · Bienvenida',
+   '',
+   `Hola, ${name}.`,
+   '',
+   `Has sido registrado como Coordinador municipal${municipality?' de '+municipality:''}.`,
+   '',
+   'Tu acceso a TERRA CAMPAIGN ya está habilitado.',
+   '',
+   'Usuario:',
+   email,
+   '',
+   'Ingresa aquí:',
+   'https://terra-campaign.github.io/terra-core/login.html',
+   '',
+   'Por seguridad, tu contraseña temporal no se comparte en este mensaje.',
+   'Recíbela por separado del responsable que realizó tu registro.',
+   '',
+   'Bienvenido al equipo territorial.'
+ ].join('\n');
+
+ $('welcomeRecipient').textContent=
+   'Destinatario: '+name;
+
+ $('welcomePhone').textContent=
+   whatsappNumber
+     ? 'Teléfono: +'+whatsappNumber
+     : 'Teléfono registrado no disponible o inválido.';
+
+ $('welcomeMessage').value=text;
+
+ const updateLinks=()=>{
+   const message=$('welcomeMessage').value;
+
+   $('welcomeManual').href=
+     'https://wa.me/?text='+
+     encodeURIComponent(message);
+
+   if(whatsappNumber){
+     $('welcomeDirect').hidden=false;
+     $('welcomeDirect').textContent=
+       'Abrir WhatsApp con '+name;
+     $('welcomeDirect').href=
+       'https://wa.me/'+
+       whatsappNumber+
+       '?text='+
+       encodeURIComponent(message);
+   }else{
+     $('welcomeDirect').hidden=true;
+     $('welcomeDirect').removeAttribute('href');
+   }
+ };
+
+ $('welcomeMessage').oninput=updateLinks;
+
+ updateLinks();
+
+ $('coordinatorWelcome').hidden=false;
+}
+
 function openCoordinatorRegistration(municipality){
  selectedMunicipalityId=municipality.id;
  selectedMunicipalityName=municipality.name;
@@ -75,6 +161,8 @@ function openCoordinatorRegistration(municipality){
 
  $('coordinatorStatus').textContent='';
  $('coordinatorForm').reset();
+ $('coordinatorWelcome').hidden=true;
+ $('welcomeMessage').value='';
  $('coordinatorRegistration').hidden=false;
 
  $('coordinatorRegistration').scrollIntoView({
@@ -89,7 +177,9 @@ $('cancelCoordinator').onclick=()=>{
  selectedMunicipalityId='';
  selectedMunicipalityName='';
  $('coordinatorRegistration').hidden=true;
+ $('coordinatorWelcome').hidden=true;
  $('coordinatorForm').reset();
+ $('welcomeMessage').value='';
  $('coordinatorStatus').textContent='';
 };
 
@@ -126,18 +216,22 @@ $('coordinatorForm').onsubmit=async event=>{
      municipalityId:selectedMunicipalityId
    });
 
+   const createdUser=data?.user||{
+     name,
+     email,
+     phone,
+     municipalityName:selectedMunicipalityName,
+     mustChangePassword:true
+   };
+
    $('coordinatorStatus').textContent=
-     (data?.user?.name||name)+' registrado correctamente.';
+     (createdUser.name||name)+' registrado correctamente.';
 
    $('coordinatorForm').reset();
 
-   await refresh();
+   showCoordinatorWelcome(createdUser);
 
-   setTimeout(()=>{
-     $('coordinatorRegistration').hidden=true;
-     selectedMunicipalityId='';
-     selectedMunicipalityName='';
-   },1200);
+   await refresh();
 
  }catch(error){
    $('coordinatorStatus').textContent=
