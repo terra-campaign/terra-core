@@ -13,7 +13,7 @@
 
   <link
     rel="stylesheet"
-    href="./styles.css"
+    href="./styles.css?v=build-116d-002"
   >
 </head>
 
@@ -239,32 +239,36 @@
         </label>
 
 
-        <fieldset>
+        <fieldset class="binary-choice">
           <legend>
             ¿Este teléfono tiene WhatsApp? *
           </legend>
 
-          <label>
-            <input
-              id="participantWhatsAppYes"
-              type="radio"
-              name="participantHasWhatsApp"
-              value="yes"
-              required
-            >
-            Sí
-          </label>
+          <div class="binary-choice__options">
 
-          <label>
-            <input
-              id="participantWhatsAppNo"
-              type="radio"
-              name="participantHasWhatsApp"
-              value="no"
-              required
-            >
-            No
-          </label>
+            <label>
+              <input
+                id="participantWhatsAppYes"
+                type="radio"
+                name="participantHasWhatsApp"
+                value="yes"
+                required
+              >
+              Sí
+            </label>
+
+            <label>
+              <input
+                id="participantWhatsAppNo"
+                type="radio"
+                name="participantHasWhatsApp"
+                value="no"
+                required
+              >
+              No
+            </label>
+
+          </div>
         </fieldset>
 
 
@@ -346,6 +350,12 @@
   <script
     type="module"
     src="./participantes.js?v=build-116d-001"
+  ></script>
+
+
+  <script
+    src="./password-toggle.js?v=build-116d-002"
+    defer
   ></script>
 
 </body>
