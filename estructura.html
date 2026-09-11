@@ -621,6 +621,71 @@
         hidden
       ></div>
 
+
+      <div
+        id="memberWelcome"
+        hidden
+      >
+        <hr>
+
+        <h3>
+          Bienvenida y acceso del integrante
+        </h3>
+
+        <p id="memberWelcomeRecipient"></p>
+
+        <p id="memberWelcomePhone"></p>
+
+        <p
+          id="memberWelcomeChannelStatus"
+          class="muted"
+        ></p>
+
+        <div id="memberWelcomeWhatsApp" hidden>
+
+          <label>
+            Mensaje preparado
+
+            <textarea
+              id="memberWelcomeMessage"
+              class="structure-whatsapp-message"
+              rows="12"
+            ></textarea>
+          </label>
+
+          <div class="form-actions">
+
+            <a
+              id="memberWelcomeDirect"
+              class="button structure-whatsapp-link"
+              target="_blank"
+              rel="noopener noreferrer"
+              hidden
+            >
+              Abrir WhatsApp con este integrante
+            </a>
+
+            <a
+              id="memberWelcomeManual"
+              class="button structure-whatsapp-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Elegir contacto en WhatsApp
+            </a>
+
+          </div>
+
+          <p class="muted">
+            TERRA prepara el mensaje y el destinatario.
+            El envío se confirma dentro de WhatsApp.
+            La contraseña temporal no se incluye en el mensaje.
+          </p>
+
+        </div>
+
+      </div>
+
     </section>
 
   </div>
@@ -632,7 +697,7 @@
 
   <script
     type="module"
-    src="./estructura.js?v=build-116d-001"
+    src="./estructura.js?v=build-116e-001"
   ></script>
 
 

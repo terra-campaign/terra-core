@@ -62,6 +62,30 @@ const participantPasswordInput = document.querySelector("#participantPassword");
 const saveParticipantButton = document.querySelector("#saveParticipantButton");
 const participantFormStatus = document.querySelector("#participantFormStatus");
 
+const participantWelcome =
+  document.querySelector("#participantWelcome");
+
+const participantWelcomeRecipient =
+  document.querySelector("#participantWelcomeRecipient");
+
+const participantWelcomePhone =
+  document.querySelector("#participantWelcomePhone");
+
+const participantWelcomeChannelStatus =
+  document.querySelector("#participantWelcomeChannelStatus");
+
+const participantWelcomeWhatsApp =
+  document.querySelector("#participantWelcomeWhatsApp");
+
+const participantWelcomeMessage =
+  document.querySelector("#participantWelcomeMessage");
+
+const participantWelcomeDirect =
+  document.querySelector("#participantWelcomeDirect");
+
+const participantWelcomeManual =
+  document.querySelector("#participantWelcomeManual");
+
 // ======================================================
 // ESTADO Y URL
 // ======================================================
@@ -397,6 +421,253 @@ function listenParticipants(version) {
 }
 
 // ======================================================
+// WHATSAPP · BIENVENIDA PARTICIPANTE
+// BUILD-116E-2
+// ======================================================
+
+function normalizeParticipantWhatsAppPhone(value) {
+
+  const digits =
+    String(value || "")
+      .replace(/\D/g, "");
+
+  if (/^52\d{10}$/.test(digits)) {
+    return digits;
+  }
+
+  if (/^\d{10}$/.test(digits)) {
+    return `52${digits}`;
+  }
+
+  return "";
+}
+
+
+function resetParticipantWelcome() {
+
+  if (participantWelcome) {
+    participantWelcome.hidden = true;
+  }
+
+  if (participantWelcomeWhatsApp) {
+    participantWelcomeWhatsApp.hidden = true;
+  }
+
+  if (participantWelcomeMessage) {
+    participantWelcomeMessage.value = "";
+    participantWelcomeMessage.oninput = null;
+  }
+
+  if (participantWelcomeDirect) {
+    participantWelcomeDirect.hidden = true;
+    participantWelcomeDirect.removeAttribute("href");
+  }
+
+  if (participantWelcomeManual) {
+    participantWelcomeManual.removeAttribute("href");
+  }
+}
+
+
+function showParticipantWelcome(user) {
+
+  const name =
+    String(
+      user?.name ||
+      "Participante"
+    ).trim();
+
+  const email =
+    String(
+      user?.email || ""
+    ).trim();
+
+  const phone =
+    String(
+      user?.phone || ""
+    ).trim();
+
+  const hasWhatsApp =
+    user?.hasWhatsApp === true;
+
+  const parentUserName =
+    String(
+      user?.parentUserName ||
+      currentMember?.name ||
+      ""
+    ).trim();
+
+  const structureName =
+    String(
+      user?.structureName ||
+      currentMember?.structureName ||
+      ""
+    ).trim();
+
+  const municipalityName =
+    String(
+      user?.municipalityName ||
+      currentMember?.municipalityName ||
+      ""
+    ).trim();
+
+  const whatsappNumber =
+    normalizeParticipantWhatsAppPhone(
+      phone
+    );
+
+
+  if (participantWelcomeRecipient) {
+    participantWelcomeRecipient.textContent =
+      `Destinatario: ${name}`;
+  }
+
+  if (participantWelcomePhone) {
+    participantWelcomePhone.textContent =
+      phone
+        ? `Teléfono: ${phone}`
+        : "Teléfono: no registrado";
+  }
+
+  if (participantWelcome) {
+    participantWelcome.hidden =
+      false;
+  }
+
+
+  // --------------------------------------------------
+  // SIN WHATSAPP
+  // --------------------------------------------------
+
+  if (!hasWhatsApp) {
+
+    if (participantWelcomeChannelStatus) {
+      participantWelcomeChannelStatus.textContent =
+        "WhatsApp: No. Entregue el usuario y la contraseña temporal por otro medio.";
+    }
+
+    if (participantWelcomeWhatsApp) {
+      participantWelcomeWhatsApp.hidden =
+        true;
+    }
+
+    return;
+  }
+
+
+  // --------------------------------------------------
+  // CON WHATSAPP
+  // --------------------------------------------------
+
+  if (participantWelcomeChannelStatus) {
+    participantWelcomeChannelStatus.textContent =
+      "WhatsApp: Sí.";
+  }
+
+
+  const message = [
+    "TERRA CAMPAIGN · Bienvenida",
+    "",
+    `Hola, ${name}.`,
+    "",
+    "Has sido registrado como Participante de TERRA CAMPAIGN.",
+    parentUserName
+      ? `Integrante responsable: ${parentUserName}.`
+      : "",
+    structureName
+      ? `Estructura: ${structureName}.`
+      : "",
+    municipalityName
+      ? `Municipio: ${municipalityName}.`
+      : "",
+    "",
+    "Tu acceso a TERRA CAMPAIGN ya está habilitado.",
+    "",
+    "Usuario:",
+    email,
+    "",
+    "Ingresa aquí:",
+    "https://terra-campaign.github.io/terra-core/login.html",
+    "",
+    "Por seguridad, tu contraseña temporal no se comparte en este mensaje.",
+    "Recíbela por separado de la persona que realizó tu registro.",
+    "",
+    "Bienvenido al equipo territorial."
+  ]
+    .filter(
+      (line, index, array) =>
+        line !== "" ||
+        index === 0 ||
+        array[index - 1] !== ""
+    )
+    .join("\n");
+
+
+  if (participantWelcomeMessage) {
+    participantWelcomeMessage.value =
+      message;
+  }
+
+
+  const updateLinks = () => {
+
+    const preparedMessage =
+      participantWelcomeMessage?.value ||
+      message;
+
+    if (participantWelcomeManual) {
+      participantWelcomeManual.href =
+        "https://wa.me/?text=" +
+        encodeURIComponent(
+          preparedMessage
+        );
+    }
+
+    if (participantWelcomeDirect) {
+
+      if (whatsappNumber) {
+
+        participantWelcomeDirect.hidden =
+          false;
+
+        participantWelcomeDirect.textContent =
+          `Abrir WhatsApp con ${name}`;
+
+        participantWelcomeDirect.href =
+          "https://wa.me/" +
+          whatsappNumber +
+          "?text=" +
+          encodeURIComponent(
+            preparedMessage
+          );
+
+      } else {
+
+        participantWelcomeDirect.hidden =
+          true;
+
+        participantWelcomeDirect
+          .removeAttribute("href");
+      }
+    }
+  };
+
+
+  if (participantWelcomeMessage) {
+    participantWelcomeMessage.oninput =
+      updateLinks;
+  }
+
+  updateLinks();
+
+  if (participantWelcomeWhatsApp) {
+    participantWelcomeWhatsApp.hidden =
+      false;
+  }
+}
+
+
+// ======================================================
 // MODAL
 // ======================================================
 
@@ -404,6 +675,7 @@ function openParticipantModal() {
   if (!canCreateParticipant() || savingParticipant) return;
 
   participantForm?.reset();
+  resetParticipantWelcome();
   showStatus(participantFormStatus, "");
 
   if (participantModal) {
@@ -419,6 +691,7 @@ function closeParticipantModal() {
   }
 
   participantForm?.reset();
+  resetParticipantWelcome();
   showStatus(participantFormStatus, "");
 }
 
@@ -568,19 +841,52 @@ async function handleCreateParticipant(event) {
 
     if (version !== sessionVersion) return;
 
-    const participant = result?.data?.user;
+    const participant =
+      result?.data?.user;
 
-    closeParticipantModal();
+    const createdParticipant =
+      participant || {
+        name,
+        email,
+        phone,
+        hasWhatsApp,
+        locality,
+        street,
+        houseNumber,
+        parentUserId:
+          currentUser.uid,
+        parentUserName:
+          currentMember?.name || "",
+        structureName:
+          currentMember?.structureName || "",
+        municipalityName:
+          currentMember?.municipalityName || "",
+        mustChangePassword:
+          true
+      };
+
+
+    participantForm?.reset();
+
 
     showStatus(
       participantFormStatus,
-      ""
+      createdParticipant?.name
+        ? `${createdParticipant.name} registrado correctamente.`
+        : "Participante registrado correctamente.",
+      "success"
     );
+
+
+    showParticipantWelcome(
+      createdParticipant
+    );
+
 
     showStatus(
       memberInfoStatus,
-      participant?.name
-        ? `${participant.name} registrado correctamente.`
+      createdParticipant?.name
+        ? `${createdParticipant.name} registrado correctamente.`
         : "Participante registrado correctamente.",
       "success"
     );

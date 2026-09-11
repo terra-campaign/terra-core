@@ -172,6 +172,30 @@ const saveMemberButton =
 const memberFormStatus =
   document.querySelector("#memberFormStatus");
 
+const memberWelcome =
+  document.querySelector("#memberWelcome");
+
+const memberWelcomeRecipient =
+  document.querySelector("#memberWelcomeRecipient");
+
+const memberWelcomePhone =
+  document.querySelector("#memberWelcomePhone");
+
+const memberWelcomeChannelStatus =
+  document.querySelector("#memberWelcomeChannelStatus");
+
+const memberWelcomeWhatsApp =
+  document.querySelector("#memberWelcomeWhatsApp");
+
+const memberWelcomeMessage =
+  document.querySelector("#memberWelcomeMessage");
+
+const memberWelcomeDirect =
+  document.querySelector("#memberWelcomeDirect");
+
+const memberWelcomeManual =
+  document.querySelector("#memberWelcomeManual");
+
 
 // ======================================================
 // ESTADO
@@ -1312,12 +1336,243 @@ async function handleCreateStructureChief(
 
 
 // ======================================================
+// WHATSAPP · BIENVENIDA INTEGRANTE
+// BUILD-116E-1
+// ======================================================
+
+function normalizeMemberWhatsAppPhone(value) {
+
+  const digits =
+    String(value || "")
+      .replace(/\D/g, "");
+
+  if (/^52\d{10}$/.test(digits)) {
+    return digits;
+  }
+
+  if (/^\d{10}$/.test(digits)) {
+    return `52${digits}`;
+  }
+
+  return "";
+}
+
+
+function resetMemberWelcome() {
+
+  if (memberWelcome) {
+    memberWelcome.hidden = true;
+  }
+
+  if (memberWelcomeWhatsApp) {
+    memberWelcomeWhatsApp.hidden = true;
+  }
+
+  if (memberWelcomeMessage) {
+    memberWelcomeMessage.value = "";
+    memberWelcomeMessage.oninput = null;
+  }
+
+  if (memberWelcomeDirect) {
+    memberWelcomeDirect.hidden = true;
+    memberWelcomeDirect.removeAttribute("href");
+  }
+
+  if (memberWelcomeManual) {
+    memberWelcomeManual.removeAttribute("href");
+  }
+}
+
+
+function showMemberWelcome(user) {
+
+  const name =
+    String(
+      user?.name ||
+      "Integrante"
+    ).trim();
+
+  const email =
+    String(
+      user?.email || ""
+    ).trim();
+
+  const phone =
+    String(
+      user?.phone || ""
+    ).trim();
+
+  const hasWhatsApp =
+    user?.hasWhatsApp === true;
+
+  const structureName =
+    String(
+      user?.structureName ||
+      currentStructure?.name ||
+      ""
+    ).trim();
+
+  const municipalityName =
+    String(
+      user?.municipalityName ||
+      currentStructure?.municipalityName ||
+      ""
+    ).trim();
+
+  const whatsappNumber =
+    normalizeMemberWhatsAppPhone(phone);
+
+
+  if (memberWelcomeRecipient) {
+    memberWelcomeRecipient.textContent =
+      `Destinatario: ${name}`;
+  }
+
+  if (memberWelcomePhone) {
+    memberWelcomePhone.textContent =
+      phone
+        ? `Teléfono: ${phone}`
+        : "Teléfono: no registrado";
+  }
+
+  if (memberWelcome) {
+    memberWelcome.hidden = false;
+  }
+
+
+  // --------------------------------------------------
+  // USUARIO SIN WHATSAPP
+  // --------------------------------------------------
+
+  if (!hasWhatsApp) {
+
+    if (memberWelcomeChannelStatus) {
+      memberWelcomeChannelStatus.textContent =
+        "WhatsApp: No. Entregue el usuario y la contraseña temporal por otro medio.";
+    }
+
+    if (memberWelcomeWhatsApp) {
+      memberWelcomeWhatsApp.hidden = true;
+    }
+
+    return;
+  }
+
+
+  // --------------------------------------------------
+  // USUARIO CON WHATSAPP
+  // --------------------------------------------------
+
+  if (memberWelcomeChannelStatus) {
+    memberWelcomeChannelStatus.textContent =
+      "WhatsApp: Sí.";
+  }
+
+
+  const message = [
+    "TERRA CAMPAIGN · Bienvenida",
+    "",
+    `Hola, ${name}.`,
+    "",
+    `Has sido registrado como Integrante${structureName ? " de " + structureName : ""}.`,
+    municipalityName
+      ? `Municipio: ${municipalityName}.`
+      : "",
+    "",
+    "Tu acceso a TERRA CAMPAIGN ya está habilitado.",
+    "",
+    "Usuario:",
+    email,
+    "",
+    "Ingresa aquí:",
+    "https://terra-campaign.github.io/terra-core/login.html",
+    "",
+    "Por seguridad, tu contraseña temporal no se comparte en este mensaje.",
+    "Recíbela por separado del responsable que realizó tu registro.",
+    "",
+    "Bienvenido al equipo territorial."
+  ]
+    .filter(
+      (line, index, array) =>
+        line !== "" ||
+        index === 0 ||
+        array[index - 1] !== ""
+    )
+    .join("\n");
+
+
+  if (memberWelcomeMessage) {
+    memberWelcomeMessage.value = message;
+  }
+
+
+  const updateLinks = () => {
+
+    const preparedMessage =
+      memberWelcomeMessage?.value ||
+      message;
+
+    if (memberWelcomeManual) {
+      memberWelcomeManual.href =
+        "https://wa.me/?text=" +
+        encodeURIComponent(
+          preparedMessage
+        );
+    }
+
+    if (memberWelcomeDirect) {
+
+      if (whatsappNumber) {
+
+        memberWelcomeDirect.hidden =
+          false;
+
+        memberWelcomeDirect.textContent =
+          `Abrir WhatsApp con ${name}`;
+
+        memberWelcomeDirect.href =
+          "https://wa.me/" +
+          whatsappNumber +
+          "?text=" +
+          encodeURIComponent(
+            preparedMessage
+          );
+
+      } else {
+
+        memberWelcomeDirect.hidden =
+          true;
+
+        memberWelcomeDirect
+          .removeAttribute("href");
+      }
+    }
+  };
+
+
+  if (memberWelcomeMessage) {
+    memberWelcomeMessage.oninput =
+      updateLinks;
+  }
+
+  updateLinks();
+
+  if (memberWelcomeWhatsApp) {
+    memberWelcomeWhatsApp.hidden =
+      false;
+  }
+}
+
+
+// ======================================================
 // MODAL INTEGRANTE
 // ======================================================
 
 function openMemberModal() {
 
   memberForm?.reset();
+
+  resetMemberWelcome();
 
   showStatus(
     memberFormStatus,
@@ -1346,6 +1601,8 @@ function closeMemberModal() {
   }
 
   memberForm?.reset();
+
+  resetMemberWelcome();
 
   showStatus(
     memberFormStatus,
@@ -1541,15 +1798,29 @@ async function handleCreateMember(event) {
       "success"
     );
 
-    if (memberPasswordInput) {
-      memberPasswordInput.value = "";
-    }
+    const createdMember =
+      member || {
+        name,
+        email,
+        phone,
+        hasWhatsApp,
+        locality,
+        street,
+        houseNumber,
+        structureName:
+          currentStructure?.name || "",
+        municipalityName:
+          currentStructure?.municipalityName || "",
+        mustChangePassword:
+          true
+      };
 
-    setTimeout(
-      () => {
-        closeMemberModal();
-      },
-      900
+
+    memberForm?.reset();
+
+
+    showMemberWelcome(
+      createdMember
     );
 
   } catch (error) {

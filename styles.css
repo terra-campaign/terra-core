@@ -1109,3 +1109,37 @@ TOPBAR ADMIN RESPONSIVE
   outline: 3px solid #164a70;
   outline-offset: 2px;
 }
+
+
+/* BUILD-116E · WHATSAPP */
+
+.whatsapp-message {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 220px;
+  padding: 10px;
+  margin: 8px 0 15px;
+  font: inherit;
+  resize: vertical;
+}
+
+a.whatsapp-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: #25D366;
+  color: #073b21;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+a.whatsapp-link:hover {
+  background: #20bd5a;
+}
+
+a.whatsapp-link:focus-visible {
+  outline: 3px solid #075e54;
+  outline-offset: 3px;
+}
