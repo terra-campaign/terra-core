@@ -73,8 +73,45 @@ function addDecisionCommunication(d,evidenceId,token,uid){
       const link=new URL('./login.html',location.href);link.searchParams.set('mission',fresh.missionId);
       const text=['TERRA CAMPAIGN · Revisión de reporte',`Misión: ${fresh.title}`,`Reportó: ${fresh.reportedByName||fresh.uploadedByName||'Sin nombre'}`,`Resultado: ${labels[decision.status]}`,`Motivo: ${decision.reason}`,`Decisión registrada: ${date(decision.at)}`,fresh.review.pendingAppeal?'Hay una solicitud de revisión superior pendiente.':'', 'Consulta el estado actual en TERRA:',link.href].filter(Boolean).join('\n');
       const label=el('label','Mensaje preparado'),preview=el('textarea');preview.readOnly=true;preview.rows=9;preview.value=text;preview.style.cssText='display:block;width:100%;box-sizing:border-box';label.append(preview);
-      const send=el('a','Elegir contacto en WhatsApp');send.href='https://wa.me/?text='+encodeURIComponent(text);send.target='_blank';send.rel='noopener noreferrer';send.style.cssText='display:inline-block;background:#25D366;color:#073b21;padding:12px 16px;border-radius:8px;font-weight:600;text-decoration:none;margin:10px 0';
-      content.append(label,send,el('p','Selecciona el contacto del autor del reporte y revisa el destinatario antes de enviar. El envío se completa en WhatsApp. TERRA no confirma entrega ni lectura.'));
+
+      const recipientName=fresh.reportedByName||fresh.uploadedByName||'Sin nombre';
+      const rawPhone=String(fresh.reportedByPhone||'').trim();
+      const digits=rawPhone.replace(/\D/g,'');
+      let whatsappNumber='';
+
+      if(/^52\d{10}$/.test(digits)) whatsappNumber=digits;
+      else if(/^\d{10}$/.test(digits)) whatsappNumber='52'+digits;
+
+      const recipient=el('p',`Destinatario: ${recipientName}`);
+      const phoneInfo=el('p',whatsappNumber?`Teléfono: +${whatsappNumber}`:'Teléfono registrado no disponible o inválido.');
+
+      const actions=el('div');
+
+      if(whatsappNumber){
+        const direct=el('a',`Abrir WhatsApp con ${recipientName}`);
+        direct.href='https://wa.me/'+whatsappNumber+'?text='+encodeURIComponent(text);
+        direct.target='_blank';
+        direct.rel='noopener noreferrer';
+        direct.style.cssText='display:inline-block;background:#25D366;color:#073b21;padding:12px 16px;border-radius:8px;font-weight:600;text-decoration:none;margin:10px 10px 10px 0';
+        actions.append(direct);
+      }
+
+      const choose=el('a',whatsappNumber?'Elegir otro contacto en WhatsApp':'Elegir contacto en WhatsApp');
+      choose.href='https://wa.me/?text='+encodeURIComponent(text);
+      choose.target='_blank';
+      choose.rel='noopener noreferrer';
+      choose.style.cssText='display:inline-block;background:#25D366;color:#073b21;padding:12px 16px;border-radius:8px;font-weight:600;text-decoration:none;margin:10px 0';
+      actions.append(choose);
+
+      content.append(
+        recipient,
+        phoneInfo,
+        label,
+        actions,
+        el('p',whatsappNumber
+          ?'TERRA preparó el destinatario registrado. Revisa el número y confirma el envío en WhatsApp. También puedes elegir otro contacto manualmente.'
+          :'No hay un teléfono mexicano válido registrado para este usuario. Puedes elegir el contacto manualmente en WhatsApp.')
+      );
       status.textContent='Mensaje listo con la decisión guardada. Si cambia la revisión, vuelve a preparar el mensaje.';
     }catch(error){if(token===generation&&auth.currentUser?.uid===uid)status.textContent=error.message||'No fue posible preparar el mensaje.';}
     finally{prepare.disabled=false;}

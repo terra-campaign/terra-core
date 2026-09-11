@@ -52,7 +52,9 @@ exports.getMissionReview = onCall(options,async request => {
     const history = await tx.get(c.ref.collection('history').orderBy('revision','desc').limit(30));
     return {evidenceId:eid,missionId:c.e.missionId,title:c.m.title || 'Misión',
       description:c.e.description || '',reportedByName:c.e.reportedByName || '',
-      uploadedByName:c.e.uploadedByName || '',imagePaths:images(c.e),
+      uploadedByName:c.e.uploadedByName || '',
+      reportedByPhone:c.subject?.phone || '',
+      imagePaths:images(c.e),
       submittedAt:c.e.createdAt?.toMillis?.() || null,
       imageViaCallable:c.leaderDirect && c.direct,review:c.r,history:history.docs.map(s=>s.data()),serverNow:Date.now(),
       ...reviewActions(c,Date.now())};

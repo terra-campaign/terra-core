@@ -8,6 +8,19 @@ button.button-whatsapp:hover:not(:disabled){background:#20bd5a}
 button.button-whatsapp:focus-visible{outline:3px solid #075e54;outline-offset:3px}
 #missionSummary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}#missionSummary article{background:#edf3f7;margin:0;padding:14px}#missionSummary strong{display:block;font-size:1.8rem}.mission-filters{display:flex;gap:14px;flex-wrap:wrap}.mission-filters select{max-width:100%;padding:8px}
 
+/* Delimitación visual de bloques */
+#workspace>section,
+main>section.card,
+#missions>article,
+#missionSummary>article{
+  border:1px solid #c5d5e2;
+  box-shadow:0 2px 8px rgba(23,50,77,.06);
+}
+
+#missions>article{
+  margin:14px 0;
+}
+
 /* Navegación visible del panel de dirección */
 a.direction-button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:44px;max-width:100%;padding:12px 16px;border:0;border-radius:8px;background:#164a70;color:#fff;font:inherit;font-weight:600;line-height:1.4;text-align:center;text-decoration:none;overflow-wrap:anywhere}
 a.direction-button:hover{background:#103954}
@@ -19,4 +32,4 @@ a.direction-button:focus-visible{outline:3px solid #164a70;outline-offset:3px}
 <section><h2>Nueva misión</h2><form id="create"><label>Título<input id="title" required maxlength="150"></label><label>Instrucciones<textarea id="description" maxlength="1500"></textarea></label><label>Lugar<input id="locality" maxlength="120"></label><label>Fecha y hora límite<input id="deadline" type="datetime-local" required></label><fieldset><legend>Coordinadores municipales (máximo 50)</legend><div id="people"></div></fieldset><button id="save">Guardar misión</button><p id="saveStatus" role="status"></p></form></section>
 <section><h2>Misiones asignadas</h2><p>Después de guardar, comunica cada asignación por WhatsApp. El envío se completa dentro de WhatsApp.</p><div class="mission-filters"><label>Municipio actual del coordinador<select id="filterMunicipality"><option value="">Todos</option></select></label><label>Coordinador<select id="filterCoordinator"><option value="">Todos</option></select></label><label>Estado<select id="filterState"><option value="">Todos</option><option value="active">Activa</option><option value="expired">Vencida</option><option value="inactive">Inactiva</option><option value="undated">Sin fecha válida</option></select></label></div><button type="button" id="clearFilters">Limpiar filtros</button><p id="filterStatus"></p><div id="missions"></div></section>
 <section id="communication" hidden><h2>Comunicar misión por WhatsApp</h2><p id="recipient"></p><label>País del teléfono<select id="phoneCountry"><option value="mx">México (+52)</option><option value="international">Otro país · número completo</option></select></label><label>Teléfono<input id="phone" type="tel" inputmode="tel" placeholder="Ejemplo: 3221234567" aria-describedby="phoneHelp phonePreview"></label><p id="phoneHelp">México: escribe 10 dígitos. Si ya incluye +52, no se duplicará.</p><p id="phonePreview" role="status"></p><label>Mensaje preparado<textarea id="message"></textarea></label><button id="send" class="button-whatsapp">Abrir WhatsApp con este número</button><button id="choose" class="button-whatsapp">Elegir contacto en WhatsApp</button><p id="communicationStatus" role="status"></p><p>Revisa el destinatario y completa el envío. Abrir WhatsApp no confirma que el mensaje se haya enviado.</p></section>
-</div></main><script type="module" src="./direccion-misiones.js?v=lider-009"></script></body></html>
+</div></main><script type="module" src="./direccion-misiones.js?v=build-116a-002"></script></body></html>
