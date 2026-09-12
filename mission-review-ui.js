@@ -18,6 +18,44 @@ const rows=el('div'),detail=el('div');
 panel.append(title,help,refresh,message,rows,detail);
 document.querySelector('main').append(panel);
 
+// ======================================================
+// ATAJO SUPERIOR — SOLO PANTALLA GENERAL DE MISIONES
+// ======================================================
+
+if(document.querySelector('#missionsList')){
+  const shortcutBar=el('div');
+  shortcutBar.className='review-shortcuts';
+
+  const shortcutButton=el('button','↓ Revisar reportes');
+  shortcutButton.type='button';
+  shortcutButton.className='button button--secondary';
+
+  shortcutButton.onclick=()=>{
+    panel.scrollIntoView({
+      behavior:'smooth',
+      block:'start'
+    });
+  };
+
+  shortcutBar.append(shortcutButton);
+
+  const main=document.querySelector('main');
+
+  const operationsCard=
+    document
+      .querySelector('#newMissionButton')
+      ?.closest('.card');
+
+  if(operationsCard){
+    operationsCard.insertAdjacentElement(
+      'afterend',
+      shortcutBar
+    );
+  }else{
+    main?.prepend(shortcutBar);
+  }
+}
+
 const galleryStyle=el('style');galleryStyle.textContent=`
 .review-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,180px));gap:12px;margin:16px 0}
 .review-gallery button{margin:0;padding:8px;width:100%;background:#edf3f7;color:#17324d;border:1px solid #c5d5e2;border-radius:8px;cursor:zoom-in}
@@ -37,6 +75,8 @@ const galleryStyle=el('style');galleryStyle.textContent=`
 .review-status--correction_requested{background:#fff8e6;border-color:#d98a12;color:#7a4a00}
 .review-status--pending{background:#eef5fb;border-color:#5a8db5;color:#17324d}
 .review-form-title{margin:20px 0 8px}
+.review-shortcuts{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin:10px 0 12px}
+.review-shortcuts .button{min-height:38px}
 `;document.head.append(galleryStyle);
 const viewer=el('dialog');viewer.className='review-viewer';viewer.setAttribute('aria-label','Fotografía de evidencia ampliada');
 const viewerCaption=el('p'),viewerImage=el('img'),closeViewer=el('button','Cerrar fotografía');closeViewer.type='button';
@@ -46,18 +86,19 @@ viewer.addEventListener('click',event=>{if(event.target===viewer){const r=viewer
 viewer.addEventListener('close',()=>{viewerImage.removeAttribute('src');viewerImage.alt='';});
 function showPhoto(url,index,total){viewerCaption.textContent=`Fotografía ${index+1} de ${total}`;viewerImage.alt=`Evidencia original, fotografía ${index+1}`;viewerImage.src=url;viewer.showModal();}
 
-let generation=0,urls=[],current=null,busy=false;
+let generation=0,urls=[],current=null,busy=false,rowByEvidence=new Map();
 const date=x=>x?new Date(x).toLocaleString('es-MX'):'Sin fecha';
 function clear(){if(viewer.open)viewer.close();viewerImage.removeAttribute('src');generation++;urls.forEach(URL.revokeObjectURL);urls=[];detail.replaceChildren();current=null;}
 async function reload(){
   const uid=auth.currentUser?.uid;if(!uid)return;
-  clear();const token=generation;window.dispatchEvent(new CustomEvent('terra-review-summary',{detail:{uid,loading:true}}));refresh.disabled=true;message.textContent='Consultando revisiones...';rows.replaceChildren();
+  clear();const token=generation;window.dispatchEvent(new CustomEvent('terra-review-summary',{detail:{uid,loading:true}}));refresh.disabled=true;message.textContent='Consultando revisiones...';rows.replaceChildren();rowByEvidence.clear();
   try {
     const {data}=await list({});if(token!==generation||auth.currentUser?.uid!==uid)return;
     window.dispatchEvent(new CustomEvent('terra-review-summary',{detail:{uid,pending:data.items.filter(i=>i.status==='pending').length,validated:data.items.filter(i=>i.status==='validated').length,rejected:data.items.filter(i=>i.status==='rejected').length,correction:data.items.filter(i=>i.status==='correction_requested').length}}));
     message.textContent=data.items.length?'':'No hay reportes disponibles para revisión en tus asignaciones vinculadas.';
     for(const item of data.items){
       const row=el('article');row.style.cssText='padding:12px 0;border-bottom:1px solid #dbe3eb';
+      rowByEvidence.set(item.evidenceId,row);
       row.append(el('strong',item.title),el('p',`${item.name} · ${labels[item.status]}${item.pendingAppeal?' · Revisión superior solicitada':''}`));
       const button=el('button',item.canResolve?'Revisar solicitud':item.canDecide?'Revisar reporte':'Ver decisión');button.type='button';button.className='button button--secondary';
       button.onclick=()=>open(item.evidenceId);row.append(button);rows.append(row);
@@ -128,7 +169,21 @@ function addDecisionCommunication(d,evidenceId,token,uid){
 
 async function open(evidenceId){
   clear();const token=generation,uid=auth.currentUser?.uid;if(!uid)return;
+
+  const anchorRow=rowByEvidence.get(evidenceId);
+
+  if(anchorRow?.isConnected){
+    anchorRow.after(detail);
+  }else if(!detail.isConnected){
+    panel.append(detail);
+  }
+
   detail.append(el('p','Cargando reporte...'));
+
+  detail.scrollIntoView({
+    behavior:'smooth',
+    block:'center'
+  });
   try{
     const {data:d}=await get({evidenceId});if(token!==generation||auth.currentUser?.uid!==uid)return;
     current=d;detail.replaceChildren();detail.style.cssText='padding:16px 0;overflow-wrap:anywhere';
@@ -276,7 +331,7 @@ async function open(evidenceId){
     }
     const history=el('details');history.append(el('summary','Historial de decisiones (últimas 30)'));
     for(const h of d.history)history.append(el('p',`${date(h.at)} · ${h.actorName} · ${h.action==='request'?'Solicitó revisión superior':`${labels[h.previousStatus]} → ${labels[h.status]}`} · ${h.reason}`));
-    detail.append(history);addDecisionCommunication(d,evidenceId,token,uid);detail.scrollIntoView({behavior:'smooth',block:'start'});
+    detail.append(history);addDecisionCommunication(d,evidenceId,token,uid);
     for(const [index,path] of d.imagePaths.entries()){
       try{let blob;
         if(d.canResolve || d.imageViaCallable){const {data:image}=await getImage({evidenceId,index});blob=new Blob([Uint8Array.from(atob(image.base64),c=>c.charCodeAt(0))],{type:image.contentType});}
