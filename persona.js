@@ -1,6 +1,6 @@
 // ======================================================
 // TERRA CAMPAIGN
-// BUILD-115 — PERFIL OPERATIVO DE PERSONA
+// BUILD-117A — PERFIL OPERATIVO DE PERSONA
 // ======================================================
 
 import {
@@ -55,8 +55,17 @@ const personEmail =
 const personPhone =
   document.getElementById("personPhone");
 
+const personWhatsApp =
+  document.getElementById("personWhatsApp");
+
 const personLocality =
   document.getElementById("personLocality");
+
+const personStreet =
+  document.getElementById("personStreet");
+
+const personHouseNumber =
+  document.getElementById("personHouseNumber");
 
 const personStatus =
   document.getElementById("personStatus");
@@ -127,6 +136,9 @@ function roleLabel(role) {
 
     admin:
       "Administrador",
+
+    lider_principal:
+      "Líder principal",
 
     coordinador:
       "Coordinador",
@@ -267,13 +279,28 @@ async function loadPersonProfile(uid) {
     personPhone.textContent =
       cleanText(person.phone) || "—";
 
+    personWhatsApp.textContent =
+      person.hasWhatsApp === true
+        ? "Sí"
+        : person.hasWhatsApp === false
+          ? "No"
+          : "No registrado";
+
     personLocality.textContent =
       cleanText(person.locality) || "—";
+
+    personStreet.textContent =
+      cleanText(person.street) || "—";
+
+    personHouseNumber.textContent =
+      cleanText(person.houseNumber) || "—";
 
     personStatus.textContent =
       person.active === true
         ? "Activo"
-        : "Inactivo";
+        : person.active === false
+          ? "Inactivo"
+          : "Sin definir";
 
 
     // ==================================================
@@ -301,35 +328,37 @@ async function loadPersonProfile(uid) {
       ) ||
       "—";
 
-   if (
-  person.role === "coordinador_municipal"
-) {
+    if (
+      person.role === "admin" ||
+      person.role === "lider_principal" ||
+      person.role === "coordinador_municipal"
+    ) {
 
-  personStructure.textContent =
-    "No aplica";
+      personStructure.textContent =
+        "No aplica";
 
-  personStructureChief.textContent =
-    "No aplica";
+      personStructureChief.textContent =
+        "No aplica";
 
-} else if (
-  person.role === "jefe_estructura"
-) {
+    } else if (
+      person.role === "jefe_estructura"
+    ) {
 
-  personStructureChief.textContent =
-    cleanText(person.name) ||
-    "—";
+      personStructureChief.textContent =
+        cleanText(person.name) ||
+        "—";
 
-} else {
+    } else {
 
-  personStructureChief.textContent =
-    cleanText(
-      person.structureChiefName
-    ) ||
-    cleanText(
-      person.chiefName
-    ) ||
-    "—";
-}
+      personStructureChief.textContent =
+        cleanText(
+          person.structureChiefName
+        ) ||
+        cleanText(
+          person.chiefName
+        ) ||
+        "—";
+    }
 
     personParent.textContent =
       parentName;
@@ -357,16 +386,16 @@ async function loadPersonProfile(uid) {
     // ==================================================
 
     missionsAssigned.textContent =
-      "0";
+      "—";
 
     missionsCompleted.textContent =
-      "0";
+      "—";
 
     evidenceCount.textContent =
-      "0";
+      "—";
 
     eventsCount.textContent =
-      "0";
+      "—";
 
 
     // ==================================================
