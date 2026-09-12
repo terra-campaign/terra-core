@@ -29,6 +29,14 @@ const galleryStyle=el('style');galleryStyle.textContent=`
 .review-viewer img{display:block;width:100%;height:70vh;object-fit:contain;background:#edf3f7}
 .review-viewer button{padding:12px 16px;min-height:44px;background:#164a70;color:white;border:0;border-radius:8px;cursor:pointer}
 .review-viewer p{margin:0 0 12px;font-weight:600}
+.review-status{margin:16px 0;padding:14px 16px;border:2px solid #cbd5e1;border-radius:10px;background:#f8fafc}
+.review-status strong{display:block;font-size:1.05rem;margin-bottom:6px}
+.review-status p{margin:0}
+.review-status--validated{background:#ecfdf3;border-color:#138a4b;color:#0d5c34}
+.review-status--rejected{background:#fff1f2;border-color:#c83b4a;color:#8f1f2d}
+.review-status--correction_requested{background:#fff8e6;border-color:#d98a12;color:#7a4a00}
+.review-status--pending{background:#eef5fb;border-color:#5a8db5;color:#17324d}
+.review-form-title{margin:20px 0 8px}
 `;document.head.append(galleryStyle);
 const viewer=el('dialog');viewer.className='review-viewer';viewer.setAttribute('aria-label','Fotografía de evidencia ampliada');
 const viewerCaption=el('p'),viewerImage=el('img'),closeViewer=el('button','Cerrar fotografía');closeViewer.type='button';
@@ -126,20 +134,126 @@ async function open(evidenceId){
     current=d;detail.replaceChildren();detail.style.cssText='padding:16px 0;overflow-wrap:anywhere';
     detail.append(el('h3',d.title),el('p',`Reportó: ${d.reportedByName || d.uploadedByName}`),el('p',`Entregado: ${date(d.submittedAt)}`),el('p',d.description || 'Sin nota'));
     const photoBox=el('div');photoBox.className='review-gallery';detail.append(el('h4','Fotografías de evidencia'),el('p',d.imagePaths.length?'Pulsa una fotografía para ampliarla. Cierra con el botón o la tecla Esc.':'Este reporte no contiene fotografías.'),photoBox);
-    detail.append(el('p',`Decisión: ${labels[d.review?.status || 'pending']}`));
-    if(d.review){detail.append(el('p',`Reconsideración hasta: ${date(d.review.reconsiderUntil)}. El plazo no se reinicia.`));
-      if(d.review.pendingAppeal)detail.append(el('p','Solicitud pendiente de revisión por el superior.'));
+    const currentStatus=d.review?.status || 'pending';
+
+    const statusBox=el('div');
+    statusBox.className=`review-status review-status--${currentStatus}`;
+
+    statusBox.append(
+      el('strong',`Estado actual: ${labels[currentStatus]}`)
+    );
+
+    let statusHelp='Este reporte todavía no tiene una decisión registrada.';
+
+    if(d.review?.pendingAppeal){
+      statusHelp='La decisión ya está registrada y existe una revisión superior pendiente.';
+    }else if(d.review && d.canDecide){
+      statusHelp=`Esta entrega ya tiene una decisión registrada. Puedes modificarla hasta ${date(d.review.reconsiderUntil)}.`;
+    }else if(d.review && d.canRequest){
+      statusHelp='Terminó el plazo para modificar directamente esta decisión. Puedes solicitar una revisión superior.';
+    }else if(d.review && d.canResolve){
+      statusHelp='Existe una solicitud de revisión superior pendiente de resolver.';
+    }else if(d.review){
+      statusHelp='La decisión ya está registrada y no puede modificarse desde tu nivel actual.';
     }
+
+    statusBox.append(
+      el('p',statusHelp)
+    );
+
+    detail.append(statusBox);
+
+    if(d.review){
+      detail.append(
+        el(
+          'p',
+          `Reconsideración hasta: ${date(d.review.reconsiderUntil)}. El plazo no se reinicia.`
+        )
+      );
+
+      if(d.review.pendingAppeal){
+        detail.append(
+          el(
+            'p',
+            'Solicitud pendiente de revisión por el superior.'
+          )
+        );
+      }
+    }
+
     const form=el('form');
-    const selectLabel=el('label','Decisión '),select=el('select');
-    for(const status of ['validated','rejected','correction_requested']){const o=el('option',labels[status]);o.value=status;select.append(o);}
+
+    const formTitle=el(
+      'h4',
+      d.canResolve
+        ? 'Resolver revisión superior'
+        : d.canRequest && !d.canDecide
+          ? 'Solicitar revisión superior'
+          : d.review
+            ? 'Modificar decisión'
+            : 'Registrar decisión'
+    );
+
+    formTitle.className='review-form-title';
+
+    const selectLabel=el('label','Decisión ');
+    const select=el('select');
+
+    for(const status of ['validated','rejected','correction_requested']){
+      const o=el('option',labels[status]);
+      o.value=status;
+      select.append(o);
+    }
+
+    if(
+      d.review?.status &&
+      ['validated','rejected','correction_requested'].includes(
+        d.review.status
+      )
+    ){
+      select.value=d.review.status;
+    }
+
     selectLabel.append(select);
-    const reasonLabel=el('label','Motivo obligatorio '),reason=el('textarea');reason.maxLength=1000;reason.required=true;reason.rows=3;reason.style.cssText='display:block;width:100%;box-sizing:border-box';reasonLabel.append(reason);
-    const hint=el('p','Solicitar corrección registra lo que falta; esta entrega no habilita la edición de evidencia ni nuevas cargas fuera de plazo.');
-    const feedback=el('p');feedback.setAttribute('role','status');
-    form.append(selectLabel,reasonLabel,hint,feedback);
+
+    const reasonLabel=el('label','Motivo obligatorio ');
+    const reason=el('textarea');
+
+    reason.maxLength=1000;
+    reason.required=true;
+    reason.rows=3;
+    reason.style.cssText='display:block;width:100%;box-sizing:border-box';
+
+    reasonLabel.append(reason);
+
+    const hint=el(
+      'p',
+      'Solicitar corrección registra lo que falta; esta entrega no habilita la edición de evidencia ni nuevas cargas fuera de plazo.'
+    );
+
+    const feedback=el('p');
+    feedback.setAttribute('role','status');
+
+    form.append(
+      formTitle,
+      selectLabel,
+      reasonLabel,
+      hint,
+      feedback
+    );
+
     const buttons=[];
-    for(const [action,enabled,label] of [['decide',d.canDecide,'Guardar decisión'],['request',d.canRequest,'Solicitar revisión superior'],['resolve',d.canResolve,'Resolver revisión superior']]){
+
+    const decisionButtonLabel=
+      d.review
+        ? 'Actualizar decisión'
+        : 'Guardar decisión';
+
+    for(const [action,enabled,label] of [
+      ['decide',d.canDecide,decisionButtonLabel],
+      ['request',d.canRequest,'Solicitar revisión superior'],
+      ['resolve',d.canResolve,'Resolver revisión superior']
+    ]){
       if(!enabled)continue;
       const b=el('button',label);b.type='button';b.className='button';b.style.margin='6px';buttons.push(b);form.append(b);
       b.onclick=async()=>{
