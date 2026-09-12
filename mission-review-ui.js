@@ -28,7 +28,7 @@ if(document.querySelector('#missionsList')){
 
   const shortcutButton=el('button','↓ Revisar reportes');
   shortcutButton.type='button';
-  shortcutButton.className='button button--secondary';
+  shortcutButton.className='button review-shortcuts__button';
 
   shortcutButton.onclick=()=>{
     panel.scrollIntoView({
@@ -77,6 +77,18 @@ const galleryStyle=el('style');galleryStyle.textContent=`
 .review-form-title{margin:20px 0 8px}
 .review-shortcuts{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin:10px 0 12px}
 .review-shortcuts .button{min-height:38px}
+.review-shortcuts__button{
+  background:#164a70;
+  color:#ffffff;
+  border:1px solid #164a70;
+}
+.review-shortcuts__button:hover{
+  filter:brightness(1.05);
+}
+.review-shortcuts__button:focus-visible{
+  outline:3px solid #267cb5;
+  outline-offset:3px;
+}
 `;document.head.append(galleryStyle);
 const viewer=el('dialog');viewer.className='review-viewer';viewer.setAttribute('aria-label','Fotografía de evidencia ampliada');
 const viewerCaption=el('p'),viewerImage=el('img'),closeViewer=el('button','Cerrar fotografía');closeViewer.type='button';
