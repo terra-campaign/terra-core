@@ -1189,3 +1189,20 @@ a.structure-whatsapp-link:hover,
 button.button-whatsapp:hover:not(:disabled) {
   border-color: #075e36;
 }
+
+
+/* BUILD-116F-1 · MÉTRICAS ADMIN */
+.metric-card {
+  background: #fff;
+  border: 1px solid var(--terra-border-blue);
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 8px 24px rgba(23,50,77,.08);
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+
+.metric-card strong {
+  font-size: 2rem;
+}
