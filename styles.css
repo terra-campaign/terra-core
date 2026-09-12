@@ -1206,3 +1206,39 @@ button.button-whatsapp:hover:not(:disabled) {
 .metric-card strong {
   font-size: 2rem;
 }
+
+
+/* =====================================================
+   BUILD-117D — IDENTIDAD VISUAL WHATSAPP
+   ===================================================== */
+
+button.button-whatsapp,
+a.whatsapp-link,
+a.structure-whatsapp-link,
+a[href^="https://wa.me/"] {
+  background: #25D366 !important;
+  color: #073b21 !important;
+  border: 2px solid #08783d !important;
+  font-weight: 600;
+}
+
+button.button-whatsapp:hover:not(:disabled),
+a.whatsapp-link:hover,
+a.structure-whatsapp-link:hover,
+a[href^="https://wa.me/"]:hover {
+  background: #20bd5a !important;
+  color: #052d19 !important;
+}
+
+button.button-whatsapp:focus-visible,
+a.whatsapp-link:focus-visible,
+a.structure-whatsapp-link:focus-visible,
+a[href^="https://wa.me/"]:focus-visible {
+  outline: 3px solid #075e54;
+  outline-offset: 3px;
+}
+
+button.button-whatsapp:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+}

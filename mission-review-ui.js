@@ -153,7 +153,7 @@ function addDecisionCommunication(d,evidenceId,token,uid){
         direct.href='https://wa.me/'+whatsappNumber+'?text='+encodeURIComponent(text);
         direct.target='_blank';
         direct.rel='noopener noreferrer';
-        direct.style.cssText='display:inline-block;background:#25D366;color:#073b21;padding:12px 16px;border-radius:8px;font-weight:600;text-decoration:none;margin:10px 10px 10px 0';
+        direct.className='whatsapp-link';
         actions.append(direct);
       }
 
@@ -161,7 +161,7 @@ function addDecisionCommunication(d,evidenceId,token,uid){
       choose.href='https://wa.me/?text='+encodeURIComponent(text);
       choose.target='_blank';
       choose.rel='noopener noreferrer';
-      choose.style.cssText='display:inline-block;background:#25D366;color:#073b21;padding:12px 16px;border-radius:8px;font-weight:600;text-decoration:none;margin:10px 0';
+      choose.className='whatsapp-link';
       actions.append(choose);
 
       content.append(
