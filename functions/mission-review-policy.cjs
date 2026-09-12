@@ -15,4 +15,23 @@ function actions(review, direct, superior, now) {
     canRequest:!!(direct && review && now >= review.reconsiderUntil && !review.pendingAppeal),
     canResolve:!!(superior && review?.pendingAppeal)};
 }
-module.exports = {WINDOW_MS,parentOf,actions};
+
+function canSuperiorAccessReview(superior, review, uid) {
+  return !!(
+    superior &&
+    (
+      review?.pendingAppeal === true ||
+      (
+        review?.escalated === true &&
+        review?.lastActor === uid
+      )
+    )
+  );
+}
+
+module.exports = {
+  WINDOW_MS,
+  parentOf,
+  actions,
+  canSuperiorAccessReview
+};

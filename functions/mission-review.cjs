@@ -1,7 +1,12 @@
 'use strict';
 const {onCall,HttpsError} = require('firebase-functions/v2/https');
 const {getFirestore} = require('firebase-admin/firestore');
-const {WINDOW_MS,parentOf,actions} = require('./mission-review-policy.cjs');
+const {
+  WINDOW_MS,
+  parentOf,
+  actions,
+  canSuperiorAccessReview
+} = require('./mission-review-policy.cjs');
 const options = {region:'us-central1',timeoutSeconds:60};
 const fail = (code,message) => {throw new HttpsError(code,message);};
 const validId = x => typeof x === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(x);
@@ -29,7 +34,30 @@ async function context(tx,db,uid,evidenceId) {
   const hierarchy = leaderDirect || parentOf(reviewer,subject);
   const direct = hierarchy && reviewer.uid === uid && uid !== e.uploadedBy;
   const superior = !leaderDirect && hierarchy && parentOf(p,reviewer) && uid !== e.uploadedBy;
-  if (!(direct || (p.uid === e.uploadedBy) || (superior && r?.pendingAppeal))) fail('permission-denied','No tienes permiso para revisar este reporte.');
+
+  // El superior puede consultar:
+  // 1. una apelación actualmente pendiente, o
+  // 2. una apelación que él mismo ya resolvió.
+  //
+  // Esto permite consultar y comunicar la decisión
+  // final sin ampliar el acceso a otros superiores.
+  const superiorReviewAccess =
+    canSuperiorAccessReview(
+      superior,
+      r,
+      uid
+    );
+
+  if (!(
+    direct ||
+    p.uid === e.uploadedBy ||
+    superiorReviewAccess
+  )) {
+    fail(
+      'permission-denied',
+      'No tienes permiso para revisar este reporte.'
+    );
+  }
   return {p,e,m,l,r,ref,reviewer,subject,direct,superior,leaderDirect};
 }
 function reviewActions(c, now) {

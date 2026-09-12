@@ -22,7 +22,7 @@ async function reload(){
  if(!coordinators.length)$('people').append(node('p','No hay coordinadores municipales activos.'));
  allMissions=data.missions;populateFilters();renderMissions();
  $('status').textContent='Misiones actualizadas.';
- await import('./mission-review-ui.js?v=build-117c-003');
+ await import('./mission-review-ui.js?v=build-117d-003');
  }catch(e){if(g===generation)$('status').textContent=e.message;}finally{if(g===generation)$('refresh').disabled=false;}
 }
 

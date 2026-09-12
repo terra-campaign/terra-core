@@ -119,18 +119,54 @@ async function reload(){
   finally{refresh.disabled=false;}
 }
 
+function effectiveDecision(d){
+  const currentStatus=d.review?.status;
+
+  if(!['validated','rejected','correction_requested'].includes(currentStatus)){
+    return null;
+  }
+
+  // history llega ordenado por revision descendente.
+  // La primera decide/resolve que coincida con el estado
+  // actual es la decisión efectiva más reciente.
+  return (d.history || []).find(event =>
+    ['decide','resolve'].includes(event.action) &&
+    event.status===currentStatus
+  ) || null;
+}
+
 function addDecisionCommunication(d,evidenceId,token,uid){
-  if(!d.imageViaCallable || !['validated','rejected','correction_requested'].includes(d.review?.status))return;
-  const box=el('div'),prepare=el('button','Comunicar decisión por WhatsApp'),status=el('p'),content=el('div');
+  const decision=effectiveDecision(d);
+
+  // Solo quien registró la decisión efectiva puede
+  // comunicar oficialmente ese resultado.
+  if(!decision || decision.actorId!==uid)return;
+
+  const decisionStatus=d.review?.status;
+
+  const whatsappLabels={
+    validated:'Avisar validación por WhatsApp',
+    rejected:'Avisar rechazo por WhatsApp',
+    correction_requested:'Avisar corrección por WhatsApp'
+  };
+
+  const box=el('div');
+  const prepare=el('button',whatsappLabels[decisionStatus]);
+  const status=el('p');
+  const content=el('div');
   prepare.type='button';prepare.className='button-whatsapp';status.setAttribute('role','status');box.append(prepare,status,content);detail.append(box);
   prepare.onclick=async()=>{
     prepare.disabled=true;content.replaceChildren();status.textContent='Consultando la decisión guardada…';
     try{
       const {data:fresh}=await get({evidenceId});
       if(token!==generation||auth.currentUser?.uid!==uid)return;
-      if(!fresh.imageViaCallable)throw new Error('Actualiza el reporte para consultar las acciones disponibles.');
-      const decision=(fresh.history||[]).find(h=>['decide','resolve'].includes(h.action));
-      if(!decision || decision.status!==fresh.review?.status)throw new Error('No hay una decisión con motivo disponible para comunicar.');
+      const decision=effectiveDecision(fresh);
+
+      if(!decision || decision.actorId!==uid){
+        throw new Error(
+          'La comunicación corresponde al usuario que registró la decisión actual.'
+        );
+      }
       const link=new URL('./login.html',location.href);link.searchParams.set('mission',fresh.missionId);
       const text=['TERRA CAMPAIGN · Revisión de reporte',`Misión: ${fresh.title}`,`Reportó: ${fresh.reportedByName||fresh.uploadedByName||'Sin nombre'}`,`Resultado: ${labels[decision.status]}`,`Motivo: ${decision.reason}`,`Decisión registrada: ${date(decision.at)}`,fresh.review.pendingAppeal?'Hay una solicitud de revisión superior pendiente.':'', 'Consulta el estado actual en TERRA:',link.href].filter(Boolean).join('\n');
       const label=el('label','Mensaje preparado'),preview=el('textarea');preview.readOnly=true;preview.rows=9;preview.value=text;preview.style.cssText='display:block;width:100%;box-sizing:border-box';label.append(preview);
@@ -248,6 +284,15 @@ async function open(evidenceId){
       }
     }
 
+    // Comunicación de la decisión YA GUARDADA.
+    // Se muestra antes del formulario de reconsideración.
+    addDecisionCommunication(
+      d,
+      evidenceId,
+      token,
+      uid
+    );
+
     const form=el('form');
 
     const formTitle=el(
@@ -327,7 +372,14 @@ async function open(evidenceId){
         if(busy||!form.reportValidity())return;
         busy=true;buttons.forEach(x=>x.disabled=true);feedback.textContent='Guardando...';
         try{await decide({evidenceId,action,status:select.value,reason:reason.value.trim(),expectedRevision:d.review?.revision || 0,requestId:crypto.randomUUID()});
-          if(token===generation&&auth.currentUser?.uid===uid){await reload();if(action!=='resolve')await open(evidenceId);else message.textContent='Revisión superior guardada.';}
+          if(token===generation&&auth.currentUser?.uid===uid){
+            await reload();
+            await open(evidenceId);
+
+            if(action==='resolve'){
+              message.textContent='Revisión superior guardada.';
+            }
+          }
         }catch(error){if(token===generation)feedback.textContent=error.message || 'No se pudo guardar. Actualiza para comprobar el estado.';}
         finally{busy=false;buttons.forEach(x=>x.disabled=false);}
       };
@@ -343,7 +395,7 @@ async function open(evidenceId){
     }
     const history=el('details');history.append(el('summary','Historial de decisiones (últimas 30)'));
     for(const h of d.history)history.append(el('p',`${date(h.at)} · ${h.actorName} · ${h.action==='request'?'Solicitó revisión superior':`${labels[h.previousStatus]} → ${labels[h.status]}`} · ${h.reason}`));
-    detail.append(history);addDecisionCommunication(d,evidenceId,token,uid);
+    detail.append(history);
     for(const [index,path] of d.imagePaths.entries()){
       try{let blob;
         if(d.canResolve || d.imageViaCallable){const {data:image}=await getImage({evidenceId,index});blob=new Blob([Uint8Array.from(atob(image.base64),c=>c.charCodeAt(0))],{type:image.contentType});}
