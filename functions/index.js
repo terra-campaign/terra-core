@@ -4619,6 +4619,10 @@ exports.getStructureProgress =
   require("./structure-progress.cjs").getStructureProgress;
 
 
+exports.getPersonActivitySummary =
+  require("./person-activity.cjs").getPersonActivitySummary;
+
+
 exports.createLinkedMissions =
   require("./mission-delegation.cjs").createLinkedMissions;
 
