@@ -1143,3 +1143,49 @@ a.whatsapp-link:focus-visible {
   outline: 3px solid #075e54;
   outline-offset: 3px;
 }
+
+
+/* BUILD-116F · DELIMITACIÓN VISUAL GLOBAL */
+
+:root {
+  --terra-border-blue: #164a70;
+  --terra-whatsapp-border: #08783d;
+}
+
+/*
+ * Tarjetas y bloques operativos.
+ * Aplica a participantes, integrantes, estructuras,
+ * municipios, métricas, modales y demás pantallas
+ * que usan el componente .card.
+ */
+.card {
+  border: 1px solid var(--terra-border-blue);
+}
+
+/* Login y otras tarjetas de autenticación */
+.auth-card {
+  border: 1px solid var(--terra-border-blue);
+}
+
+/*
+ * Botones WhatsApp:
+ * borde oscuro para separar claramente cada acción.
+ */
+a.whatsapp-link,
+a.structure-whatsapp-link,
+button.button-whatsapp {
+  border: 2px solid var(--terra-whatsapp-border);
+  box-shadow: 0 1px 3px rgba(7, 94, 84, .18);
+}
+
+/* Separación visual entre botones WhatsApp */
+a.whatsapp-link,
+a.structure-whatsapp-link {
+  margin: 4px 6px 4px 0;
+}
+
+a.whatsapp-link:hover,
+a.structure-whatsapp-link:hover,
+button.button-whatsapp:hover:not(:disabled) {
+  border-color: #075e36;
+}
