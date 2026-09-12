@@ -1,6 +1,6 @@
 // ======================================================
 // TERRA CAMPAIGN
-// BUILD-117A — PERFIL OPERATIVO DE PERSONA
+// BUILD-117B-2 — PERFIL OPERATIVO DE PERSONA
 // ======================================================
 
 import {
@@ -17,6 +17,24 @@ import {
   doc,
   getDoc
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+import {
+  getFunctions,
+  httpsCallable
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
+
+
+const functions =
+  getFunctions(
+    auth.app,
+    "us-central1"
+  );
+
+const getPersonActivitySummary =
+  httpsCallable(
+    functions,
+    "getPersonActivitySummary"
+  );
 
 
 // ======================================================
@@ -107,6 +125,9 @@ const evidenceCount =
 
 const eventsCount =
   document.getElementById("eventsCount");
+
+const activityStatus =
+  document.getElementById("activityStatus");
 
 
 // ======================================================
@@ -218,6 +239,92 @@ return (
     );
 
     return "—";
+  }
+}
+
+
+// ======================================================
+// ACTIVIDAD OPERATIVA
+// BUILD-117B-2
+// ======================================================
+
+async function loadPersonActivity(uid) {
+
+  missionsAssigned.textContent =
+    "—";
+
+  missionsCompleted.textContent =
+    "—";
+
+  evidenceCount.textContent =
+    "—";
+
+  eventsCount.textContent =
+    "—";
+
+  activityStatus.textContent =
+    "Consultando actividad operativa…";
+
+
+  try {
+
+    const response =
+      await getPersonActivitySummary({
+        uid
+      });
+
+    const data =
+      response?.data || {};
+
+
+    missionsAssigned.textContent =
+      Number.isInteger(data.assigned)
+        ? String(data.assigned)
+        : "—";
+
+    missionsCompleted.textContent =
+      Number.isInteger(data.completed)
+        ? String(data.completed)
+        : "—";
+
+    evidenceCount.textContent =
+      Number.isInteger(data.evidence)
+        ? String(data.evidence)
+        : "—";
+
+
+    // Eventos todavía no tiene una fuente
+    // operativa validada en esta versión.
+    eventsCount.textContent =
+      "—";
+
+
+    activityStatus.textContent =
+      "Misiones y evidencias calculadas con datos operativos reales. Eventos aún no está conectado.";
+
+  } catch (error) {
+
+    console.error(
+      "Error al consultar actividad operativa:",
+      error
+    );
+
+
+    missionsAssigned.textContent =
+      "—";
+
+    missionsCompleted.textContent =
+      "—";
+
+    evidenceCount.textContent =
+      "—";
+
+    eventsCount.textContent =
+      "—";
+
+
+    activityStatus.textContent =
+      "No fue posible consultar la actividad operativa en este momento.";
   }
 }
 
@@ -378,33 +485,26 @@ async function loadPersonProfile(uid) {
 
 
     // ==================================================
-    // ACTIVIDAD
-    // BUILD-115 BASE
-    //
-    // Por ahora estos contadores se mantienen en cero.
-    // Se conectarán con Misiones V2 y Eventos.
-    // ==================================================
-
-    missionsAssigned.textContent =
-      "—";
-
-    missionsCompleted.textContent =
-      "—";
-
-    evidenceCount.textContent =
-      "—";
-
-    eventsCount.textContent =
-      "—";
-
-
-    // ==================================================
     // MOSTRAR PERFIL
     // ==================================================
 
     loadingSection.hidden = true;
     errorSection.hidden = true;
     profileSection.hidden = false;
+
+
+    // ==================================================
+    // ACTIVIDAD
+    // BUILD-117B-2
+    //
+    // Se consulta después de mostrar el perfil.
+    // Una demora o falla de métricas no bloquea
+    // los datos generales de la persona.
+    // ==================================================
+
+    void loadPersonActivity(
+      uid
+    );
 
   } catch (error) {
 
