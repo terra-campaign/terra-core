@@ -43,6 +43,81 @@ const EVENT_RESPONSE_STATUSES =
   ]);
 
 
+
+const EVENT_CONFIRMATION_LEAD_MINUTES =
+  new Set([
+    60,
+    120,
+    360,
+    720,
+    1440
+  ]);
+
+
+function confirmationLeadMinutes(value) {
+
+  const number =
+    Number(value);
+
+  if (
+    !Number.isInteger(number) ||
+    !EVENT_CONFIRMATION_LEAD_MINUTES.has(
+      number
+    )
+  ) {
+    fail(
+      'invalid-argument',
+      'Selecciona un cierre de confirmaciones válido.'
+    );
+  }
+
+  return number;
+}
+
+
+function eventConfirmationClosesAtMillis(
+  event
+) {
+
+  if (
+    Number.isFinite(
+      event?.confirmationClosesAtMillis
+    )
+  ) {
+    return event.confirmationClosesAtMillis;
+  }
+
+
+  const startsAtMillis =
+    eventStartsAtMillis(
+      event
+    );
+
+
+  if (
+    !Number.isFinite(
+      startsAtMillis
+    )
+  ) {
+    return NaN;
+  }
+
+
+  const leadMinutes =
+    Number.isFinite(
+      event?.confirmationLeadMinutes
+    )
+      ? event.confirmationLeadMinutes
+      : 60;
+
+
+  return (
+    startsAtMillis -
+    leadMinutes * 60 * 1000
+  );
+}
+
+
 function eventResponseStatus(value) {
 
   if (
@@ -126,14 +201,16 @@ function canRespondToEventInvitation(
     return false;
   }
 
-  const startsAtMillis =
-    eventStartsAtMillis(event);
+  const confirmationClosesAtMillis =
+    eventConfirmationClosesAtMillis(
+      event
+    );
 
   return (
     Number.isFinite(
-      startsAtMillis
+      confirmationClosesAtMillis
     ) &&
-    startsAtMillis >
+    confirmationClosesAtMillis >
       nowMillis
   );
 }
@@ -466,6 +543,12 @@ exports.createEventInvitations =
               startsAt:
                 eventDate(
                   data.startsAt
+                ),
+
+              confirmationLeadMinutes:
+                confirmationLeadMinutes(
+                  data.confirmationLeadMinutes ??
+                  60
                 )
             };
 
@@ -568,6 +651,30 @@ exports.createEventInvitations =
             }
 
 
+            const startsAtMillis =
+              Date.parse(
+                newEvent.startsAt
+              );
+
+
+            const confirmationClosesAtMillis =
+              startsAtMillis -
+              newEvent.confirmationLeadMinutes *
+              60 *
+              1000;
+
+
+            if (
+              confirmationClosesAtMillis <=
+              Date.now()
+            ) {
+              fail(
+                'invalid-argument',
+                'La hora límite de confirmaciones ya pasó. Programa el evento con mayor anticipación o selecciona otro cierre.'
+              );
+            }
+
+
             eventId =
               hash(
                 parent.uid,
@@ -585,10 +692,17 @@ exports.createEventInvitations =
 
               ...newEvent,
 
-              startsAtMillis:
-                Date.parse(
-                  newEvent.startsAt
-                ),
+              startsAtMillis,
+
+              confirmationLeadMinutes:
+                newEvent.confirmationLeadMinutes,
+
+              confirmationClosesAtMillis,
+
+              confirmationClosesAt:
+                new Date(
+                  confirmationClosesAtMillis
+                ).toISOString(),
 
               active:
                 true,
@@ -680,16 +794,22 @@ exports.createEventInvitations =
             }
 
 
+            const delegationClosesAtMillis =
+              eventConfirmationClosesAtMillis(
+                eventRecord
+              );
+
+
             if (
-              Number.isFinite(
-                eventRecord.startsAtMillis
-              ) &&
-              eventRecord.startsAtMillis <=
+              !Number.isFinite(
+                delegationClosesAtMillis
+              ) ||
+              delegationClosesAtMillis <=
                 Date.now()
             ) {
               fail(
                 'failed-precondition',
-                'El evento ya comenzó; no se pueden crear nuevas invitaciones.'
+                'El cierre de confirmaciones ya ocurrió; no se pueden crear nuevas invitaciones.'
               );
             }
 
@@ -1049,6 +1169,33 @@ function eventView(snapshot) {
       )
         ? d.startsAtMillis
         : null,
+
+    confirmationLeadMinutes:
+      Number.isFinite(
+        d.confirmationLeadMinutes
+      )
+        ? d.confirmationLeadMinutes
+        : 60,
+
+    confirmationClosesAt:
+      typeof d.confirmationClosesAt ===
+        'string'
+        ? d.confirmationClosesAt
+        : '',
+
+    confirmationClosesAtMillis:
+      Number.isFinite(
+        d.confirmationClosesAtMillis
+      )
+        ? d.confirmationClosesAtMillis
+        : (
+            Number.isFinite(
+              d.startsAtMillis
+            )
+              ? d.startsAtMillis -
+                60 * 60 * 1000
+              : null
+          ),
 
     active:
       d.active === true,
@@ -1726,7 +1873,9 @@ exports._test = {
   EVENT_RESPONSE_STATUSES,
   eventStartsAtMillis,
   canRespondToEventInvitation,
-  eventResponseView
+  eventResponseView,
+  EVENT_CONFIRMATION_LEAD_MINUTES,
+  eventConfirmationClosesAtMillis
 };
 
 

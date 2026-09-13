@@ -9,7 +9,9 @@ const {
   eventContactView,
   EVENT_RESPONSE_STATUSES,
   eventStartsAtMillis,
-  canRespondToEventInvitation
+  canRespondToEventInvitation,
+  EVENT_CONFIRMATION_LEAD_MINUTES,
+  eventConfirmationClosesAtMillis
 } =
   require('./event-delegation.cjs')._test;
 
@@ -272,6 +274,11 @@ const responseEvent = {
   startsAtMillis:
     Date.parse(
       '2099-01-01T18:00:00.000Z'
+    ),
+  confirmationLeadMinutes: 60,
+  confirmationClosesAtMillis:
+    Date.parse(
+      '2099-01-01T17:00:00.000Z'
     )
 };
 
@@ -301,7 +308,7 @@ assert.equal(
     responseInvitation,
     responseEvent,
     Date.parse(
-      '2099-01-01T17:00:00.000Z'
+      '2099-01-01T16:59:00.000Z'
     )
   ),
   true
@@ -371,4 +378,50 @@ assert.equal(
 
 console.log(
   'OK: BUILD-118B-1 event response tests passed.'
+);
+
+assert.equal(
+  EVENT_CONFIRMATION_LEAD_MINUTES.has(
+    60
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_CONFIRMATION_LEAD_MINUTES.has(
+    1440
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_CONFIRMATION_LEAD_MINUTES.has(
+    30
+  ),
+  false
+);
+
+assert.equal(
+  eventConfirmationClosesAtMillis(
+    responseEvent
+  ),
+  Date.parse(
+    '2099-01-01T17:00:00.000Z'
+  )
+);
+
+assert.equal(
+  canRespondToEventInvitation(
+    participant,
+    responseInvitation,
+    responseEvent,
+    Date.parse(
+      '2099-01-01T17:00:00.000Z'
+    )
+  ),
+  false
+);
+
+console.log(
+  'OK: BUILD-118B-3A confirmation deadline tests passed.'
 );

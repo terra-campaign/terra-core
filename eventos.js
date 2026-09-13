@@ -165,17 +165,24 @@ function canChangeEventResponse(
   }
 
 
-  const startsAt =
-    Date.parse(
-      event.startsAt || ""
-    );
+  const closesAt =
+    Number.isFinite(
+      event.confirmationClosesAtMillis
+    )
+      ? event.confirmationClosesAtMillis
+      : (
+          Date.parse(
+            event.startsAt || ""
+          ) -
+          60 * 60 * 1000
+        );
 
 
   return (
     Number.isFinite(
-      startsAt
+      closesAt
     ) &&
-    startsAt >
+    closesAt >
       Date.now()
   );
 }
@@ -296,12 +303,29 @@ function createEventResponsePanel(
     );
 
 
+  const confirmationClosesAt =
+    event.confirmationClosesAt ||
+    (
+      Number.isFinite(
+        event.confirmationClosesAtMillis
+      )
+        ? new Date(
+            event.confirmationClosesAtMillis
+          ).toISOString()
+        : ""
+    );
+
+
   const message =
     node(
       "p",
       canChange
-        ? "Puedes cambiar tu respuesta hasta antes de que comience el evento."
-        : "La respuesta ya no puede modificarse porque el evento inici\u00f3 o ya no est\u00e1 activo."
+        ? `Puedes cambiar tu respuesta hasta ${formatDate(
+            confirmationClosesAt
+          )}. Después de esa hora, tu confirmación quedará cerrada.`
+        : `El cierre de confirmaciones fue ${formatDate(
+            confirmationClosesAt
+          )}. La respuesta normal ya no puede modificarse.`
     );
 
 
@@ -919,6 +943,30 @@ function createEventCard(
     "event-meta";
 
 
+  const confirmationDeadline =
+    node(
+      "p",
+      `Cierre de confirmaciones: ${
+        formatDate(
+          event.confirmationClosesAt ||
+          (
+            Number.isFinite(
+              event.confirmationClosesAtMillis
+            )
+              ? new Date(
+                  event.confirmationClosesAtMillis
+                ).toISOString()
+              : ""
+          )
+        )
+      }`
+    );
+
+
+  confirmationDeadline.className =
+    "event-meta";
+
+
   const status =
     node(
       "p",
@@ -936,6 +984,7 @@ function createEventCard(
     venue,
     locality,
     date,
+    confirmationDeadline,
     status
   );
 
@@ -1554,7 +1603,13 @@ $("newEventForm")
             .trim(),
 
         startsAt:
-          starts.toISOString()
+          starts.toISOString(),
+
+        confirmationLeadMinutes:
+          Number(
+            $("eventConfirmationLeadMinutes")
+              .value
+          )
       };
 
 
