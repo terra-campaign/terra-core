@@ -41,9 +41,49 @@ const createEventInvitations =
   );
 
 
+
+
+const respondToEventInvitation =
+  httpsCallable(
+    functions,
+    "respondToEventInvitation"
+  );
+
+
 const $ =
   id =>
     document.getElementById(id);
+
+
+const EVENT_RESPONSE_LABELS = {
+  pending:
+    "Pendiente",
+
+  attending:
+    "Asistir\u00e9",
+
+  not_attending:
+    "No puedo asistir",
+
+  needs_information:
+    "Necesito informaci\u00f3n"
+};
+
+
+const EVENT_RESPONSE_OPTIONS = [
+  {
+    status: "attending",
+    label: "Asistir\u00e9"
+  },
+  {
+    status: "not_attending",
+    label: "No puedo asistir"
+  },
+  {
+    status: "needs_information",
+    label: "Necesito informaci\u00f3n"
+  }
+];
 
 
 const ROLE_LABELS = {
@@ -108,6 +148,296 @@ function node(
     text;
 
   return element;
+}
+
+
+function eventResponseLabel(
+  status
+) {
+
+  return EVENT_RESPONSE_LABELS[
+    status
+  ] ||
+    EVENT_RESPONSE_LABELS.pending;
+}
+
+
+function canChangeEventResponse(
+  event
+) {
+
+  if (
+    !event ||
+    event.active !== true
+  ) {
+    return false;
+  }
+
+
+  const startsAt =
+    Date.parse(
+      event.startsAt || ""
+    );
+
+
+  return (
+    Number.isFinite(
+      startsAt
+    ) &&
+    startsAt >
+      Date.now()
+  );
+}
+
+
+async function saveEventResponse(
+  invitation,
+  status,
+  message,
+  buttons
+) {
+
+  if (
+    !invitation?.id ||
+    !EVENT_RESPONSE_LABELS[
+      status
+    ] ||
+    status === "pending"
+  ) {
+    return;
+  }
+
+
+  buttons.forEach(
+    button => {
+      button.disabled = true;
+    }
+  );
+
+
+  message.textContent =
+    "Guardando respuesta...";
+
+
+  try {
+
+    await respondToEventInvitation({
+      invitationId:
+        invitation.id,
+
+      status
+    });
+
+
+    message.textContent =
+      "Respuesta guardada.";
+
+
+    await reload();
+
+  } catch (error) {
+
+    message.textContent =
+      error.message ||
+      "No fue posible guardar la respuesta.";
+
+
+    buttons.forEach(
+      button => {
+        button.disabled = false;
+      }
+    );
+  }
+}
+
+
+function createEventResponsePanel(
+  invitation,
+  event
+) {
+
+  const panel =
+    node("div");
+
+
+  panel.className =
+    "event-response-panel";
+
+
+  panel.style.cssText =
+    [
+      "margin-top:14px",
+      "padding:14px",
+      "border:1px solid #d7dee8",
+      "border-radius:12px",
+      "background:#f8fafc"
+    ].join(";");
+
+
+  const currentStatus =
+    invitation.response?.status ||
+    "pending";
+
+
+  const heading =
+    node(
+      "p",
+      `Tu respuesta: ${
+        eventResponseLabel(
+          currentStatus
+        )
+      }`
+    );
+
+
+  heading.style.cssText =
+    "font-weight:700;margin:0 0 10px";
+
+
+  panel.append(
+    heading
+  );
+
+
+  const canChange =
+    canChangeEventResponse(
+      event
+    );
+
+
+  const message =
+    node(
+      "p",
+      canChange
+        ? "Puedes cambiar tu respuesta hasta antes de que comience el evento."
+        : "La respuesta ya no puede modificarse porque el evento inici\u00f3 o ya no est\u00e1 activo."
+    );
+
+
+  message.className =
+    "event-meta";
+
+
+  message.style.margin =
+    "0 0 10px";
+
+
+  panel.append(
+    message
+  );
+
+
+  if (!canChange) {
+    return panel;
+  }
+
+
+  const actions =
+    node("div");
+
+
+  actions.style.cssText =
+    "display:flex;flex-wrap:wrap;gap:8px";
+
+
+  const buttons = [];
+
+
+  for (
+    const option of
+    EVENT_RESPONSE_OPTIONS
+  ) {
+
+    const selected =
+      option.status ===
+      currentStatus;
+
+
+    const button =
+      node(
+        "button",
+        selected
+          ? `\u2713 ${option.label}`
+          : option.label
+      );
+
+
+    button.type =
+      "button";
+
+
+    button.className =
+      selected
+        ? "button"
+        : "button button--secondary";
+
+
+    button.disabled =
+      selected;
+
+
+    button.onclick =
+      () =>
+        saveEventResponse(
+          invitation,
+          option.status,
+          message,
+          buttons
+        );
+
+
+    buttons.push(
+      button
+    );
+
+
+    actions.append(
+      button
+    );
+  }
+
+
+  panel.append(
+    actions
+  );
+
+
+  return panel;
+}
+
+
+function createdInvitationResponseView(
+  invitation
+) {
+
+  const status =
+    invitation.response?.status ||
+    "pending";
+
+
+  const paragraph =
+    node(
+      "p",
+      `Respuesta de ${
+        invitation.assignedToName ||
+        "destinatario"
+      }: ${
+        eventResponseLabel(
+          status
+        )
+      }`
+    );
+
+
+  paragraph.className =
+    "event-meta";
+
+
+  paragraph.style.fontWeight =
+    "700";
+
+
+  return paragraph;
 }
 
 
@@ -633,6 +963,15 @@ function createEventCard(
       )
     );
 
+    card.append(
+      createEventResponsePanel(
+        invitation,
+        event
+      )
+    );
+
+
+
 
     if (
       canDelegateInvitation(
@@ -691,6 +1030,14 @@ function createEventCard(
         }`
       )
     );
+
+    card.append(
+      createdInvitationResponseView(
+        invitation
+      )
+    );
+
+
 
 
     card.append(
