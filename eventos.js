@@ -4,6 +4,11 @@ import {
 
 
 import {
+  createTerraWhatsAppCommunication
+} from "./terra-whatsapp.js?v=build-118a-3b-002";
+
+
+import {
   onAuthStateChanged,
   signOut
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
@@ -68,6 +73,23 @@ let createAttempt = null;
 let delegateAttempt = null;
 let selectedInvitationId = null;
 let busy = false;
+
+
+const requestedInvitationId =
+  new URLSearchParams(
+    window.location.search
+  ).get("invitation");
+
+
+const validRequestedInvitationId =
+  typeof requestedInvitationId === "string" &&
+  /^[A-Za-z0-9_-]{1,128}$/.test(
+    requestedInvitationId
+  );
+
+
+let requestedInvitationFocused =
+  false;
 
 
 // ======================================================
@@ -374,6 +396,71 @@ function renderDelegateAssignees() {
 
 
 // ======================================================
+// COMUNICACIÓN DE EVENTO
+// ======================================================
+
+function eventInvitationLoginUrl(
+  invitation
+) {
+
+  const url =
+    new URL(
+      "./login.html",
+      window.location.href
+    );
+
+
+  url.searchParams.set(
+    "eventInvitation",
+    invitation.id
+  );
+
+
+  return url.toString();
+}
+
+
+function eventWhatsAppMessage(
+  invitation,
+  event
+) {
+
+  return [
+    "TERRA CAMPAIGN · Nuevo evento",
+    "",
+    `Hola, ${
+      invitation.assignedToName ||
+      "participante"
+    }.`,
+    "",
+    "Tienes un nuevo evento asignado:",
+    "",
+    event.title ||
+      "Evento sin título",
+    "",
+    `Fecha y hora: ${
+      formatDate(event.startsAt)
+    }`,
+    `Lugar: ${
+      event.venue ||
+      "Sin especificar"
+    }`,
+    `Localidad: ${
+      event.locality ||
+      "Sin especificar"
+    }`,
+    "",
+    "Consulta los detalles del evento en TERRA:",
+    eventInvitationLoginUrl(
+      invitation
+    ),
+    "",
+    "Este aviso fue preparado por TERRA Campaign."
+  ].join("\n");
+}
+
+
+// ======================================================
 // TARJETAS
 // ======================================================
 
@@ -396,6 +483,41 @@ function createEventCard(
 
   card.className =
     "event-card";
+
+
+  if (invitation.id) {
+    card.dataset.invitationId =
+      invitation.id;
+  }
+
+
+  if (
+    mode === "received" &&
+    validRequestedInvitationId &&
+    invitation.id ===
+      requestedInvitationId &&
+    !requestedInvitationFocused
+  ) {
+
+    requestedInvitationFocused =
+      true;
+
+    card.style.outline =
+      "3px solid #2563eb";
+
+    card.style.outlineOffset =
+      "3px";
+
+
+    setTimeout(
+      () =>
+        card.scrollIntoView({
+          behavior: "smooth",
+          block: "center"
+        }),
+      120
+    );
+  }
 
 
   if (!event) {
@@ -568,6 +690,35 @@ function createEventCard(
           "Sin nivel"
         }`
       )
+    );
+
+
+    card.append(
+      createTerraWhatsAppCommunication({
+        recipientName:
+          invitation.assignedToName ||
+          "destinatario",
+
+        phone:
+          invitation.assignedToPhone ||
+          "",
+
+        hasWhatsApp:
+          invitation.assignedToHasWhatsApp ===
+          true,
+
+        message:
+          eventWhatsAppMessage(
+            invitation,
+            event
+          ),
+
+        buttonLabel:
+          "Comunicar evento por WhatsApp",
+
+        panelTitle:
+          "Comunicar evento por WhatsApp"
+      })
     );
   }
 

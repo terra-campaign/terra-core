@@ -1,4 +1,4 @@
-// TERRA Campaign — acceso con destino de misión validado.
+// TERRA Campaign — acceso con destino interno validado.
 import { auth } from "./firebase-config.js";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 const form = document.querySelector("#loginForm");
@@ -31,10 +31,40 @@ passwordEye.addEventListener("click", () => setPasswordVisible(passwordInput.typ
 window.addEventListener("pagehide", () => setPasswordVisible(false));
 form.addEventListener("reset", () => setPasswordVisible(false));
 
-const missionId = new URLSearchParams(window.location.search).get("mission");
-// Solo IDs; nunca aceptamos una URL de redirección enviada desde fuera.
-const validMission = typeof missionId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(missionId);
-const destination = validMission ? `./mision.html?id=${encodeURIComponent(missionId)}` : "./admin.html";
+const params =
+  new URLSearchParams(
+    window.location.search
+  );
+
+const missionId =
+  params.get("mission");
+
+const eventInvitationId =
+  params.get("eventInvitation");
+
+// Solo IDs internos validados.
+// Nunca aceptamos una URL de redirección enviada desde fuera.
+const validInternalId =
+  value =>
+    typeof value === "string" &&
+    /^[A-Za-z0-9_-]{1,128}$/.test(value);
+
+const validMission =
+  validInternalId(
+    missionId
+  );
+
+const validEventInvitation =
+  validInternalId(
+    eventInvitationId
+  );
+
+const destination =
+  validMission
+    ? `./mision.html?id=${encodeURIComponent(missionId)}`
+    : validEventInvitation
+      ? `./eventos.html?invitation=${encodeURIComponent(eventInvitationId)}`
+      : "./admin.html";
 let redirecting = false;
 function enter() {
   if (redirecting) return;

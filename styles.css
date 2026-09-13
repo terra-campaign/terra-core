@@ -1242,3 +1242,53 @@ button.button-whatsapp:disabled {
   opacity: .58;
   cursor: not-allowed;
 }
+
+
+/* TERRA-WHATSAPP-COMPONENT */
+
+.terra-whatsapp {
+  margin-top: 12px;
+}
+
+.terra-whatsapp__panel {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #d7dee5;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.terra-whatsapp__panel[hidden] {
+  display: none !important;
+}
+
+.terra-whatsapp__recipient {
+  font-weight: 600;
+}
+
+.terra-whatsapp__country,
+.terra-whatsapp__phone,
+.terra-whatsapp__message {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+
+.terra-whatsapp__message {
+  min-height: 180px;
+  resize: vertical;
+}
+
+.terra-whatsapp__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.terra-whatsapp__help,
+.terra-whatsapp__preview,
+.terra-whatsapp__status {
+  margin-top: 6px;
+}
