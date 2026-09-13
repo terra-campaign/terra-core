@@ -5,7 +5,8 @@ const assert =
 
 const {
   NEXT,
-  targetAllowed
+  targetAllowed,
+  eventContactView
 } =
   require('./event-delegation.cjs')._test;
 
@@ -195,6 +196,45 @@ assert.equal(
 assert.equal(
   NEXT.participante,
   undefined
+);
+
+
+const allowedContact =
+  eventContactView(
+    member,
+    {
+      ...participant,
+      phone: '3271042361',
+      hasWhatsApp: true
+    }
+  );
+
+assert.deepEqual(
+  allowedContact,
+  {
+    assignedToPhone: '3271042361',
+    assignedToHasWhatsApp: true
+  }
+);
+
+
+const forbiddenContact =
+  eventContactView(
+    member,
+    {
+      ...participant,
+      parentUserId: 'OTHER',
+      phone: '3279999999',
+      hasWhatsApp: true
+    }
+  );
+
+assert.deepEqual(
+  forbiddenContact,
+  {
+    assignedToPhone: '',
+    assignedToHasWhatsApp: false
+  }
 );
 
 

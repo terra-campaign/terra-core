@@ -971,6 +971,32 @@ function invitationView(snapshot) {
 }
 
 
+function eventContactView(parent, person) {
+
+  if (
+    !targetAllowed(
+      parent,
+      person
+    )
+  ) {
+    return {
+      assignedToPhone: '',
+      assignedToHasWhatsApp: false
+    };
+  }
+
+  return {
+    assignedToPhone:
+      typeof person.phone === 'string'
+        ? person.phone
+        : '',
+
+    assignedToHasWhatsApp:
+      person.hasWhatsApp === true
+  };
+}
+
+
 function assigneeView(person) {
 
   return {
@@ -1171,6 +1197,104 @@ exports.getEventWorkspace =
           )
           .map(invitationView);
 
+
+      // ==================================================
+      // CONTACTO ACTUAL DEL DESTINATARIO
+      // Solo para invitaciones creadas por este usuario.
+      // Se vuelve a validar la relación jerárquica actual.
+      // ==================================================
+
+      const contactIds =
+        [
+          ...new Set(
+            createdInvitations
+              .map(
+                invitation =>
+                  invitation.assignedTo
+              )
+              .filter(Boolean)
+          )
+        ];
+
+
+      const contacts =
+        new Map();
+
+
+      for (
+        let offset = 0;
+        offset < contactIds.length;
+        offset += 100
+      ) {
+
+        const part =
+          contactIds.slice(
+            offset,
+            offset + 100
+          );
+
+
+        const snapshots =
+          await db.getAll(
+            ...part.map(
+              uid =>
+                db.collection(
+                  'usuarios'
+                ).doc(uid)
+            )
+          );
+
+
+        for (
+          const snapshot of snapshots
+        ) {
+
+          if (!snapshot.exists) {
+            continue;
+          }
+
+
+          const person = {
+            ...snapshot.data(),
+            uid:
+              snapshot.id
+          };
+
+
+          contacts.set(
+            snapshot.id,
+            eventContactView(
+              profile,
+              person
+            )
+          );
+        }
+      }
+
+
+      for (
+        const invitation of
+        createdInvitations
+      ) {
+
+        const contact =
+          contacts.get(
+            invitation.assignedTo
+          ) || {
+            assignedToPhone: '',
+            assignedToHasWhatsApp: false
+          };
+
+
+        invitation.assignedToPhone =
+          contact.assignedToPhone;
+
+
+        invitation.assignedToHasWhatsApp =
+          contact.assignedToHasWhatsApp;
+      }
+
+
       // ==================================================
       // EVENTOS MAESTROS RELACIONADOS
       // ==================================================
@@ -1325,5 +1449,6 @@ exports.getEventWorkspace =
 
 exports._test = {
   NEXT,
-  targetAllowed
+  targetAllowed,
+  eventContactView
 };
