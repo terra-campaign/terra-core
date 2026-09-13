@@ -92,6 +92,9 @@ function showCoordinatorWelcome(user){
  const whatsappNumber=
    normalizeWelcomePhone(user?.phone);
 
+ const hasWhatsApp=
+   user?.hasWhatsApp === true;
+
  const text=[
    'TERRA CAMPAIGN · Bienvenida',
    '',
@@ -130,7 +133,7 @@ function showCoordinatorWelcome(user){
      'https://wa.me/?text='+
      encodeURIComponent(message);
 
-   if(whatsappNumber){
+   if(hasWhatsApp && whatsappNumber){
      $('welcomeDirect').hidden=false;
      $('welcomeDirect').textContent=
        'Abrir WhatsApp con '+name;
@@ -201,7 +204,27 @@ $('coordinatorForm').onsubmit=async event=>{
  const name=$('coordinatorName').value.trim().replace(/\s+/g,' ');
  const email=$('coordinatorEmail').value.trim().toLowerCase();
  const phone=$('coordinatorPhone').value.trim();
+
+ const hasWhatsApp=
+   $('coordinatorWhatsAppYes').checked
+     ? true
+     : $('coordinatorWhatsAppNo').checked
+       ? false
+       : null;
+
  const password=$('coordinatorPassword').value;
+
+ if(hasWhatsApp===null){
+   $('coordinatorStatus').textContent=
+     'Indica si este número tiene WhatsApp.';
+   return;
+ }
+
+ if(hasWhatsApp===true && !phone){
+   $('coordinatorStatus').textContent=
+     'Si seleccionas WhatsApp: Sí, debes registrar un teléfono.';
+   return;
+ }
 
  $('saveCoordinator').disabled=true;
  $('coordinatorStatus').textContent=
@@ -212,6 +235,7 @@ $('coordinatorForm').onsubmit=async event=>{
      name,
      email,
      phone,
+     hasWhatsApp,
      password,
      municipalityId:selectedMunicipalityId
    });
@@ -220,6 +244,7 @@ $('coordinatorForm').onsubmit=async event=>{
      name,
      email,
      phone,
+     hasWhatsApp,
      municipalityName:selectedMunicipalityName,
      mustChangePassword:true
    };

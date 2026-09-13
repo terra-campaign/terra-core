@@ -990,6 +990,10 @@ function showStructureChiefWelcome(
     );
 
 
+  const hasWhatsApp =
+    user?.hasWhatsApp === true;
+
+
   const message = [
     "TERRA CAMPAIGN · Bienvenida",
     "",
@@ -1062,7 +1066,10 @@ function showStructureChiefWelcome(
       structureChiefWelcomeDirect
     ) {
 
-      if (whatsappNumber) {
+      if (
+        hasWhatsApp &&
+        whatsappNumber
+      ) {
 
         structureChiefWelcomeDirect.hidden =
           false;
@@ -1208,6 +1215,18 @@ async function handleCreateStructureChief(
     )
       .trim();
 
+  const hasWhatsApp =
+    document.querySelector(
+      "#structureChiefWhatsAppYes"
+    )?.checked
+      ? true
+      : document.querySelector(
+          "#structureChiefWhatsAppNo"
+        )?.checked
+        ? false
+        : null;
+
+
   const password =
     String(
       structureChiefPasswordInput?.value ||
@@ -1243,6 +1262,37 @@ async function handleCreateStructureChief(
   }
 
   if (
+    hasWhatsApp === null
+  ) {
+
+    showStatus(
+      structureChiefFormStatus,
+      "Indica si este número tiene WhatsApp.",
+      "error"
+    );
+
+    return;
+  }
+
+
+  if (
+    hasWhatsApp === true &&
+    !phone
+  ) {
+
+    showStatus(
+      structureChiefFormStatus,
+      "Si seleccionas WhatsApp: Sí, debes registrar un teléfono.",
+      "error"
+    );
+
+    structureChiefPhoneInput?.focus();
+
+    return;
+  }
+
+
+  if (
     password.length < 6
   ) {
 
@@ -1275,6 +1325,7 @@ async function handleCreateStructureChief(
         name,
         email,
         phone,
+        hasWhatsApp,
         password,
         structureDocumentId
       });
@@ -1295,6 +1346,7 @@ async function handleCreateStructureChief(
         name,
         email,
         phone,
+        hasWhatsApp,
         structureName:
           currentStructure?.name || "",
         municipalityName:

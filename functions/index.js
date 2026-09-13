@@ -1714,6 +1714,12 @@ exports.createMunicipalCoordinator = onCall(
       );
 
 
+    const hasWhatsApp =
+      typeof data.hasWhatsApp === "boolean"
+        ? data.hasWhatsApp
+        : null;
+
+
     const password =
       String(
         data.password || ""
@@ -1745,6 +1751,27 @@ exports.createMunicipalCoordinator = onCall(
       throw new HttpsError(
         "invalid-argument",
         "Ingrese un correo electrónico válido."
+      );
+    }
+
+
+    if (
+      hasWhatsApp === null
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Debe indicar si el teléfono tiene WhatsApp."
+      );
+    }
+
+
+    if (
+      hasWhatsApp === true &&
+      !phone
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Si el teléfono tiene WhatsApp, debe registrar un número."
       );
     }
 
@@ -1889,6 +1916,8 @@ exports.createMunicipalCoordinator = onCall(
 
         phone,
 
+        hasWhatsApp,
+
         role:
           "coordinador_municipal",
 
@@ -1985,6 +2014,8 @@ exports.createMunicipalCoordinator = onCall(
           email,
 
           phone,
+
+          hasWhatsApp,
 
           role:
             "coordinador_municipal",
@@ -2725,6 +2756,11 @@ exports.createStructureChief = onCall(
     data.phone || ""
   );
 
+const hasWhatsApp =
+  typeof data.hasWhatsApp === "boolean"
+    ? data.hasWhatsApp
+    : null;
+
 const password =
   String(
     data.password || ""
@@ -2757,6 +2793,29 @@ const structureDocumentId =
       throw new HttpsError(
         "invalid-argument",
         "Ingrese un correo electrónico válido."
+      );
+    }
+
+
+    if (
+      hasWhatsApp === null
+    ) {
+
+      throw new HttpsError(
+        "invalid-argument",
+        "Debe indicar si el teléfono tiene WhatsApp."
+      );
+    }
+
+
+    if (
+      hasWhatsApp === true &&
+      !phone
+    ) {
+
+      throw new HttpsError(
+        "invalid-argument",
+        "Si el teléfono tiene WhatsApp, debe registrar un número."
       );
     }
 
@@ -3016,6 +3075,8 @@ const structureDocumentId =
 
         phone,
 
+        hasWhatsApp,
+
         role:
           "jefe_estructura",
 
@@ -3177,6 +3238,8 @@ createdBy:
           email,
 
           phone,
+
+          hasWhatsApp,
 
           role:
             "jefe_estructura",
