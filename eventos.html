@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  >
+  <title>Eventos · TERRA Campaign</title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css?v=build-118a-2b-001"
+  >
+
+  <style>
+    .events-shell {
+      width: min(1100px, calc(100% - 24px));
+      margin: 24px auto 48px;
+    }
+
+    .events-heading {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .events-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .events-metrics {
+      grid-template-columns:
+        repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    .events-metrics article,
+    .event-card,
+    .event-form-card {
+      border: 1px solid #164a70;
+    }
+
+    .event-card {
+      padding: 16px;
+      border-radius: 12px;
+      margin: 12px 0;
+    }
+
+    .event-card h3 {
+      margin-top: 0;
+    }
+
+    .event-meta {
+      margin: 6px 0;
+    }
+
+    .event-assignee-list {
+      display: grid;
+      gap: 8px;
+      max-height: 320px;
+      overflow: auto;
+      margin: 12px 0;
+      padding: 4px;
+    }
+
+    .event-assignee-option {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .event-assignee-option input {
+      margin-top: 4px;
+    }
+
+    .event-form-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .event-form-grid label {
+      display: grid;
+      gap: 6px;
+    }
+
+    .event-form-grid input,
+    .event-form-grid textarea {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .event-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .event-status {
+      font-weight: 600;
+    }
+
+    .event-status--future {
+      color: #166534;
+    }
+
+    .event-status--past {
+      color: #92400e;
+    }
+
+    .event-status--inactive {
+      color: #991b1b;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="topbar">
+    <div class="topbar-title">
+      <p class="eyebrow">TERRA CAMPAIGN</p>
+      <h1>Eventos operativos</h1>
+      <p id="sessionLabel"></p>
+    </div>
+
+    <div class="event-actions">
+      <button
+        id="backButton"
+        class="button button--secondary"
+        type="button"
+      >
+        Volver
+      </button>
+
+      <button
+        id="logoutButton"
+        class="button button--small button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+    </div>
+  </header>
+
+
+  <main class="events-shell">
+
+    <section class="card">
+
+      <div class="events-heading">
+
+        <div>
+          <p class="eyebrow">
+            MOVILIZACIÓN
+          </p>
+
+          <h2>
+            Eventos
+          </h2>
+        </div>
+
+        <button
+          id="refreshButton"
+          class="button button--secondary"
+          type="button"
+        >
+          Actualizar
+        </button>
+
+      </div>
+
+      <p
+        id="workspaceStatus"
+        class="message"
+        role="status"
+      >
+        Validando acceso…
+      </p>
+
+      <p class="message">
+        Invitación, confirmación y asistencia real
+        serán registros independientes.
+      </p>
+
+    </section>
+
+
+    <section
+      id="metricsSection"
+      class="events-grid events-metrics"
+      hidden
+    >
+
+      <article class="card">
+        <span>Eventos relacionados</span>
+        <strong id="totalEvents">0</strong>
+      </article>
+
+      <article class="card">
+        <span>Invitaciones recibidas</span>
+        <strong id="receivedCount">0</strong>
+      </article>
+
+      <article class="card">
+        <span>Invitaciones creadas</span>
+        <strong id="createdCount">0</strong>
+      </article>
+
+      <article class="card">
+        <span>Personas disponibles</span>
+        <strong id="assigneeCount">0</strong>
+      </article>
+
+    </section>
+
+
+    <section
+      id="newEventSection"
+      class="card event-form-card"
+      hidden
+    >
+
+      <div class="events-heading">
+        <div>
+          <p class="eyebrow">
+            NUEVO EVENTO
+          </p>
+
+          <h2>
+            Crear e invitar
+          </h2>
+        </div>
+      </div>
+
+      <form
+        id="newEventForm"
+        class="event-form-grid"
+      >
+
+        <label>
+          Nombre del evento *
+          <input
+            id="eventTitle"
+            type="text"
+            maxlength="150"
+            required
+          >
+        </label>
+
+        <label>
+          Descripción / objetivo
+          <textarea
+            id="eventDescription"
+            rows="5"
+            maxlength="1500"
+          ></textarea>
+        </label>
+
+        <label>
+          Lugar *
+          <input
+            id="eventVenue"
+            type="text"
+            maxlength="200"
+            required
+            placeholder="Ejemplo: Comisariado Ejidal"
+          >
+        </label>
+
+        <label>
+          Localidad
+          <input
+            id="eventLocality"
+            type="text"
+            maxlength="120"
+            placeholder="Ejemplo: Compostela"
+          >
+        </label>
+
+        <label>
+          Fecha y hora *
+          <input
+            id="eventStartsAt"
+            type="datetime-local"
+            required
+          >
+        </label>
+
+        <fieldset>
+          <legend>
+            Destinatarios del nivel inmediato
+            (máximo 50)
+          </legend>
+
+          <label class="event-assignee-option">
+            <input
+              id="selectAllAssignees"
+              type="checkbox"
+            >
+
+            <span>
+              <strong>Seleccionar todos</strong><br>
+              <small>
+                Incluye únicamente personas autorizadas
+                de tu nivel inmediato.
+              </small>
+            </span>
+          </label>
+
+          <div
+            id="assigneeList"
+            class="event-assignee-list"
+          ></div>
+
+        </fieldset>
+
+        <div class="event-actions">
+
+          <button
+            id="saveEventButton"
+            class="button"
+            type="submit"
+          >
+            Guardar evento
+          </button>
+
+        </div>
+
+        <p
+          id="newEventStatus"
+          class="message"
+          role="status"
+        ></p>
+
+      </form>
+
+    </section>
+
+
+    <section
+      class="card"
+      id="receivedSection"
+      hidden
+    >
+
+      <div class="events-heading">
+        <div>
+          <p class="eyebrow">
+            RECIBIDOS
+          </p>
+
+          <h2>
+            Eventos que me asignaron
+          </h2>
+        </div>
+      </div>
+
+      <div id="receivedEvents"></div>
+
+    </section>
+
+
+    <section
+      class="card"
+      id="createdSection"
+      hidden
+    >
+
+      <div class="events-heading">
+        <div>
+          <p class="eyebrow">
+            DELEGACIÓN
+          </p>
+
+          <h2>
+            Invitaciones que he creado
+          </h2>
+        </div>
+      </div>
+
+      <div id="createdEvents"></div>
+
+    </section>
+
+
+    <section
+      id="delegateSection"
+      class="card event-form-card"
+      hidden
+    >
+
+      <p class="eyebrow">
+        DELEGAR EVENTO
+      </p>
+
+      <h2 id="delegateTitle">
+        Delegar
+      </h2>
+
+      <p id="delegateDescription"></p>
+
+      <form id="delegateForm">
+
+        <fieldset>
+          <legend>
+            Destinatarios del siguiente nivel
+            (máximo 50)
+          </legend>
+
+          <div
+            id="delegateAssigneeList"
+            class="event-assignee-list"
+          ></div>
+
+        </fieldset>
+
+        <div class="event-actions">
+
+          <button
+            id="delegateSaveButton"
+            class="button"
+            type="submit"
+          >
+            Delegar evento
+          </button>
+
+          <button
+            id="delegateCancelButton"
+            class="button button--secondary"
+            type="button"
+          >
+            Cancelar
+          </button>
+
+        </div>
+
+        <p
+          id="delegateStatus"
+          class="message"
+          role="status"
+        ></p>
+
+      </form>
+
+    </section>
+
+  </main>
+
+
+  <script
+    type="module"
+    src="./eventos.js?v=build-118a-2b-001"
+  ></script>
+
+</body>
+</html>

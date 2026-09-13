@@ -68,6 +68,9 @@ const municipalitiesButton =
 const missionsButton =
   document.querySelector("#missionsButton");
 
+const eventsButton =
+  document.querySelector("#eventsButton");
+
 const organizationButton =
   document.querySelector("#organizationButton");
 
@@ -355,6 +358,14 @@ function applyRoleInterface() {
     "participante"
   ].includes(role);
 
+  const canAccessEvents = [
+    "admin",
+    "coordinador_municipal",
+    "jefe_estructura",
+    "integrante",
+    "participante"
+  ].includes(role);
+
   if (brigadistasAdminButton) {
     brigadistasAdminButton.hidden = !canManageBrigadistas;
   }
@@ -395,6 +406,10 @@ function applyRoleInterface() {
 
   if (missionsButton) {
     missionsButton.hidden = !canAccessMissions;
+  }
+
+  if (eventsButton) {
+    eventsButton.hidden = !canAccessEvents;
   }
 
   if (visitForm) {
