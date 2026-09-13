@@ -728,6 +728,122 @@ function createEventCard(
 
 
 // ======================================================
+// ATAJOS SUPERIORES DE EVENTOS
+// ======================================================
+
+function eventScrollTarget(
+  id
+) {
+
+  const base =
+    $(id);
+
+  return (
+    base?.closest(".card") ||
+    base ||
+    null
+  );
+}
+
+
+function scrollToEventSection(
+  id
+) {
+
+  const target =
+    eventScrollTarget(id);
+
+  if (!target) {
+    return;
+  }
+
+  target.style.scrollMarginTop =
+    "18px";
+
+  target.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+
+function mountEventShortcuts() {
+
+  const formCard =
+    $("newEventForm")
+      ?.closest(".card");
+
+  if (!formCard) {
+    return;
+  }
+
+  let bar =
+    $("eventShortcuts");
+
+  if (!bar) {
+    bar =
+      node("div");
+
+    bar.id =
+      "eventShortcuts";
+
+    bar.className =
+      "event-shortcuts";
+
+    bar.style.cssText =
+      "display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:0 0 12px";
+
+    formCard.insertAdjacentElement(
+      "beforebegin",
+      bar
+    );
+  }
+
+  bar.replaceChildren();
+
+  const items = [
+    {
+      label:
+        "↓ Eventos que me asignaron",
+      id:
+        "receivedEvents"
+    },
+    {
+      label:
+        "↓ Invitaciones que he creado",
+      id:
+        "createdEvents"
+    }
+  ];
+
+  for (const item of items) {
+
+    const button =
+      node(
+        "button",
+        item.label
+      );
+
+    button.type =
+      "button";
+
+    button.className =
+      "button button--secondary";
+
+    button.onclick =
+      () =>
+        scrollToEventSection(
+          item.id
+        );
+
+    bar.append(
+      button
+    );
+  }
+}
+
+
+// ======================================================
 // RENDER GENERAL
 // ======================================================
 
@@ -736,6 +852,8 @@ function renderWorkspace() {
   if (!workspace) {
     return;
   }
+
+  mountEventShortcuts();
 
 
   $("sessionLabel").textContent =
