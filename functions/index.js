@@ -4623,6 +4623,10 @@ exports.getPersonActivitySummary =
   require("./person-activity.cjs").getPersonActivitySummary;
 
 
+
+exports.createEventInvitations =
+  require("./event-delegation.cjs").createEventInvitations;
+
 exports.createLinkedMissions =
   require("./mission-delegation.cjs").createLinkedMissions;
 
