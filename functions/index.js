@@ -4627,6 +4627,9 @@ exports.getPersonActivitySummary =
 exports.createEventInvitations =
   require("./event-delegation.cjs").createEventInvitations;
 
+exports.getEventWorkspace =
+  require("./event-delegation.cjs").getEventWorkspace;
+
 exports.createLinkedMissions =
   require("./mission-delegation.cjs").createLinkedMissions;
 

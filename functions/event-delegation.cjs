@@ -782,6 +782,543 @@ exports.createEventInvitations =
   );
 
 
+
+// ======================================================
+// BUILD-118A-2A
+// ESPACIO DE TRABAJO SEGURO DE EVENTOS
+// ======================================================
+
+async function readCaller(db, request) {
+
+  if (!request.auth) {
+    fail(
+      'unauthenticated',
+      'Inicia sesión.'
+    );
+  }
+
+  const snapshot =
+    await db.collection('usuarios')
+      .doc(request.auth.uid)
+      .get();
+
+  const profile =
+    snapshot.data();
+
+  if (
+    !profile ||
+    profile.active !== true ||
+    !profile.campaignId ||
+    ![
+      ...Object.keys(NEXT),
+      'participante'
+    ].includes(profile.role)
+  ) {
+    fail(
+      'permission-denied',
+      'Perfil no autorizado.'
+    );
+  }
+
+  if (
+    profile.role ===
+    'lider_principal'
+  ) {
+
+    const lock =
+      await db.collection(
+        'principalLeaders'
+      )
+        .doc(profile.campaignId)
+        .get();
+
+    if (
+      lock.data()?.uid !==
+      snapshot.id
+    ) {
+      fail(
+        'permission-denied',
+        'Líder no registrado para esta campaña.'
+      );
+    }
+  }
+
+  return {
+    ...profile,
+    uid: snapshot.id
+  };
+}
+
+
+function eventView(snapshot) {
+
+  if (!snapshot?.exists) {
+    return null;
+  }
+
+  const d =
+    snapshot.data();
+
+  return {
+    id:
+      snapshot.id,
+
+    campaignId:
+      d.campaignId || '',
+
+    title:
+      d.title || '',
+
+    description:
+      d.description || '',
+
+    venue:
+      d.venue || '',
+
+    locality:
+      d.locality || '',
+
+    startsAt:
+      d.startsAt || '',
+
+    startsAtMillis:
+      Number.isFinite(
+        d.startsAtMillis
+      )
+        ? d.startsAtMillis
+        : null,
+
+    active:
+      d.active === true,
+
+    createdBy:
+      d.createdBy || '',
+
+    createdByName:
+      d.createdByName || '',
+
+    createdByRole:
+      d.createdByRole || '',
+
+    version:
+      d.version || 1
+  };
+}
+
+
+function invitationView(snapshot) {
+
+  const d =
+    snapshot.data();
+
+  return {
+    id:
+      snapshot.id,
+
+    eventId:
+      d.eventId || '',
+
+    active:
+      d.active === true,
+
+    createdBy:
+      d.createdBy || '',
+
+    createdByName:
+      d.createdByName || '',
+
+    createdByRole:
+      d.createdByRole || '',
+
+    assignedTo:
+      d.assignedTo || '',
+
+    assignedToName:
+      d.assignedToName || '',
+
+    assignedToRole:
+      d.assignedToRole || '',
+
+    parentInvitationId:
+      d.parentInvitationId || null,
+
+    ancestorInvitationIds:
+      Array.isArray(
+        d.ancestorInvitationIds
+      )
+        ? d.ancestorInvitationIds.filter(
+            value =>
+              typeof value ===
+              'string'
+          )
+        : [],
+
+    municipalityId:
+      d.municipalityId || '',
+
+    municipalityName:
+      d.municipalityName || '',
+
+    structureId:
+      d.structureId || '',
+
+    structureName:
+      d.structureName || '',
+
+    version:
+      d.version || 1
+  };
+}
+
+
+function assigneeView(person) {
+
+  return {
+    uid:
+      person.uid,
+
+    name:
+      person.name ||
+      person.email ||
+      'Sin nombre',
+
+    role:
+      person.role || '',
+
+    municipalityId:
+      person.municipalityId || '',
+
+    municipalityName:
+      person.municipalityName || '',
+
+    structureId:
+      person.structureId || '',
+
+    structureName:
+      person.structureName || '',
+
+    phone:
+      person.phone || '',
+
+    hasWhatsApp:
+      person.hasWhatsApp === true
+  };
+}
+
+
+exports.getEventWorkspace =
+  onCall(
+    OPTIONS,
+
+    async (request) => {
+
+      const db =
+        getFirestore();
+
+      const profile =
+        await readCaller(
+          db,
+          request
+        );
+
+      const assignableRole =
+        NEXT[profile.role] ||
+        null;
+
+      // ==================================================
+      // NIVEL INMEDIATO DISPONIBLE
+      // ==================================================
+
+      let assignees = [];
+      let assigneesTruncated =
+        false;
+
+      if (assignableRole) {
+
+        let snapshot;
+
+        if (
+          profile.role === 'admin' ||
+          profile.role ===
+            'lider_principal'
+        ) {
+
+          snapshot =
+            await db.collection(
+              'usuarios'
+            )
+              .where(
+                'campaignId',
+                '==',
+                profile.campaignId
+              )
+              .where(
+                'role',
+                '==',
+                assignableRole
+              )
+              .limit(500)
+              .get();
+
+          assigneesTruncated =
+            snapshot.size >= 500;
+
+        } else {
+
+          snapshot =
+            await db.collection(
+              'usuarios'
+            )
+              .where(
+                'parentUserId',
+                '==',
+                profile.uid
+              )
+              .limit(500)
+              .get();
+
+          assigneesTruncated =
+            snapshot.size >= 500;
+        }
+
+        snapshot.forEach(
+          documentSnapshot => {
+
+            const person = {
+              ...documentSnapshot.data(),
+              uid:
+                documentSnapshot.id
+            };
+
+            if (
+              targetAllowed(
+                profile,
+                person
+              )
+            ) {
+              assignees.push(
+                assigneeView(
+                  person
+                )
+              );
+            }
+          }
+        );
+
+        assignees.sort(
+          (a, b) =>
+            a.name.localeCompare(
+              b.name,
+              'es',
+              {
+                sensitivity:
+                  'base'
+              }
+            )
+        );
+      }
+
+      // ==================================================
+      // INVITACIONES RECIBIDAS Y CREADAS
+      // ==================================================
+
+      const [
+        receivedSnapshot,
+        createdSnapshot
+      ] =
+        await Promise.all([
+
+          db.collection(
+            'eventInvitations'
+          )
+            .where(
+              'assignedTo',
+              '==',
+              profile.uid
+            )
+            .limit(200)
+            .get(),
+
+          db.collection(
+            'eventInvitations'
+          )
+            .where(
+              'createdBy',
+              '==',
+              profile.uid
+            )
+            .limit(200)
+            .get()
+        ]);
+
+      const receivedInvitations =
+        receivedSnapshot.docs
+          .filter(
+            snapshot =>
+              snapshot.data()
+                .campaignId ===
+              profile.campaignId
+          )
+          .map(invitationView);
+
+      const createdInvitations =
+        createdSnapshot.docs
+          .filter(
+            snapshot =>
+              snapshot.data()
+                .campaignId ===
+              profile.campaignId
+          )
+          .map(invitationView);
+
+      // ==================================================
+      // EVENTOS MAESTROS RELACIONADOS
+      // ==================================================
+
+      const eventIds =
+        [
+          ...new Set(
+            [
+              ...receivedInvitations,
+              ...createdInvitations
+            ]
+              .map(
+                invitation =>
+                  invitation.eventId
+              )
+              .filter(Boolean)
+          )
+        ];
+
+      const events = [];
+
+      for (
+        let offset = 0;
+        offset < eventIds.length;
+        offset += 100
+      ) {
+
+        const part =
+          eventIds.slice(
+            offset,
+            offset + 100
+          );
+
+        const snapshots =
+          await db.getAll(
+            ...part.map(
+              id =>
+                db.collection(
+                  'events'
+                ).doc(id)
+            )
+          );
+
+        for (
+          const snapshot of
+          snapshots
+        ) {
+
+          const event =
+            eventView(
+              snapshot
+            );
+
+          if (
+            event &&
+            event.campaignId ===
+              profile.campaignId
+          ) {
+            events.push(event);
+          }
+        }
+      }
+
+      events.sort(
+        (a, b) => {
+
+          const av =
+            Number.isFinite(
+              a.startsAtMillis
+            )
+              ? a.startsAtMillis
+              : Number.MAX_SAFE_INTEGER;
+
+          const bv =
+            Number.isFinite(
+              b.startsAtMillis
+            )
+              ? b.startsAtMillis
+              : Number.MAX_SAFE_INTEGER;
+
+          return av - bv;
+        }
+      );
+
+      return {
+        viewer: {
+          uid:
+            profile.uid,
+
+          name:
+            profile.name ||
+            request.auth.token?.email ||
+            'Sin nombre',
+
+          role:
+            profile.role,
+
+          campaignId:
+            profile.campaignId,
+
+          municipalityId:
+            profile.municipalityId ||
+            '',
+
+          municipalityName:
+            profile.municipalityName ||
+            '',
+
+          structureId:
+            profile.structureId ||
+            '',
+
+          structureName:
+            profile.structureName ||
+            ''
+        },
+
+        assignableRole,
+
+        canCreateEvent:
+          Boolean(
+            assignableRole
+          ),
+
+        assignees,
+
+        events,
+
+        receivedInvitations,
+
+        createdInvitations,
+
+        limits: {
+          assigneesTruncated,
+
+          receivedTruncated:
+            receivedSnapshot.size >=
+            200,
+
+          createdTruncated:
+            createdSnapshot.size >=
+            200
+        }
+      };
+    }
+  );
+
+
 // ======================================================
 // HELPERS PARA PRUEBAS
 // ======================================================
