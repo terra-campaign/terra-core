@@ -6,7 +6,10 @@ const assert =
 const {
   NEXT,
   targetAllowed,
-  eventContactView
+  eventContactView,
+  EVENT_RESPONSE_STATUSES,
+  eventStartsAtMillis,
+  canRespondToEventInvitation
 } =
   require('./event-delegation.cjs')._test;
 
@@ -238,6 +241,141 @@ assert.deepEqual(
 );
 
 
+assert.equal(
+  EVENT_RESPONSE_STATUSES.has(
+    'attending'
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_RESPONSE_STATUSES.has(
+    'not_attending'
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_RESPONSE_STATUSES.has(
+    'needs_information'
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_RESPONSE_STATUSES.has(
+    'pending'
+  ),
+  false
+);
+
+
+const responseEvent = {
+  id: 'EVENT-001',
+  campaignId: 'CAM-001',
+  active: true,
+  startsAt:
+    '2099-01-01T18:00:00.000Z',
+  startsAtMillis:
+    Date.parse(
+      '2099-01-01T18:00:00.000Z'
+    )
+};
+
+
+const responseInvitation = {
+  id: 'INV-001',
+  eventId: 'EVENT-001',
+  campaignId: 'CAM-001',
+  active: true,
+  assignedTo: 'PARTICIPANT'
+};
+
+
+assert.equal(
+  eventStartsAtMillis(
+    responseEvent
+  ),
+  Date.parse(
+    '2099-01-01T18:00:00.000Z'
+  )
+);
+
+
+assert.equal(
+  canRespondToEventInvitation(
+    participant,
+    responseInvitation,
+    responseEvent,
+    Date.parse(
+      '2099-01-01T17:00:00.000Z'
+    )
+  ),
+  true
+);
+
+
+assert.equal(
+  canRespondToEventInvitation(
+    participant,
+    {
+      ...responseInvitation,
+      assignedTo: 'OTHER'
+    },
+    responseEvent,
+    Date.parse(
+      '2099-01-01T17:00:00.000Z'
+    )
+  ),
+  false
+);
+
+
+assert.equal(
+  canRespondToEventInvitation(
+    participant,
+    responseInvitation,
+    responseEvent,
+    Date.parse(
+      '2099-01-01T19:00:00.000Z'
+    )
+  ),
+  false
+);
+
+
+assert.equal(
+  canRespondToEventInvitation(
+    participant,
+    responseInvitation,
+    {
+      ...responseEvent,
+      active: false
+    },
+    Date.parse(
+      '2099-01-01T17:00:00.000Z'
+    )
+  ),
+  false
+);
+
+
+assert.equal(
+  canRespondToEventInvitation(
+    participant,
+    {
+      ...responseInvitation,
+      campaignId: 'CAM-999'
+    },
+    responseEvent,
+    Date.parse(
+      '2099-01-01T17:00:00.000Z'
+    )
+  ),
+  false
+);
+
+
 console.log(
-  'OK: BUILD-118A-1 event delegation tests passed.'
+  'OK: BUILD-118B-1 event response tests passed.'
 );

@@ -36,6 +36,169 @@ const NEXT = {
 };
 
 
+const EVENT_RESPONSE_STATUSES =
+  new Set([
+    'attending',
+    'not_attending',
+    'needs_information'
+  ]);
+
+
+function eventResponseStatus(value) {
+
+  if (
+    typeof value !== 'string' ||
+    !EVENT_RESPONSE_STATUSES.has(value)
+  ) {
+    fail(
+      'invalid-argument',
+      'Respuesta de evento inválida.'
+    );
+  }
+
+  return value;
+}
+
+
+function eventStartsAtMillis(event) {
+
+  if (
+    Number.isFinite(
+      event?.startsAtMillis
+    )
+  ) {
+    return event.startsAtMillis;
+  }
+
+  const parsed =
+    Date.parse(
+      event?.startsAt || ''
+    );
+
+  return Number.isFinite(parsed)
+    ? parsed
+    : NaN;
+}
+
+
+function canRespondToEventInvitation(
+  profile,
+  invitation,
+  event,
+  nowMillis = Date.now()
+) {
+
+  if (
+    !profile ||
+    !invitation ||
+    !event
+  ) {
+    return false;
+  }
+
+  if (
+    profile.active !== true ||
+    invitation.active !== true ||
+    event.active !== true
+  ) {
+    return false;
+  }
+
+  if (
+    invitation.assignedTo !==
+      profile.uid
+  ) {
+    return false;
+  }
+
+  if (
+    invitation.campaignId !==
+      profile.campaignId ||
+    event.campaignId !==
+      profile.campaignId
+  ) {
+    return false;
+  }
+
+  if (
+    invitation.eventId !==
+      event.id
+  ) {
+    return false;
+  }
+
+  const startsAtMillis =
+    eventStartsAtMillis(event);
+
+  return (
+    Number.isFinite(
+      startsAtMillis
+    ) &&
+    startsAtMillis >
+      nowMillis
+  );
+}
+
+
+function timestampIso(value) {
+
+  if (
+    value &&
+    typeof value.toDate ===
+      'function'
+  ) {
+    return value
+      .toDate()
+      .toISOString();
+  }
+
+  return null;
+}
+
+
+function eventResponseView(snapshot) {
+
+  if (
+    !snapshot ||
+    !snapshot.exists
+  ) {
+    return {
+      status: 'pending',
+      commitment: false,
+      respondedAt: null,
+      updatedAt: null
+    };
+  }
+
+  const d =
+    snapshot.data();
+
+  const status =
+    EVENT_RESPONSE_STATUSES.has(
+      d.status
+    )
+      ? d.status
+      : 'pending';
+
+  return {
+    status,
+
+    commitment:
+      status === 'attending',
+
+    respondedAt:
+      timestampIso(
+        d.respondedAt
+      ),
+
+    updatedAt:
+      timestampIso(
+        d.updatedAt
+      )
+  };
+}
+
+
 function fail(code, message) {
   throw new HttpsError(code, message);
 }
@@ -1296,6 +1459,116 @@ exports.getEventWorkspace =
 
 
       // ==================================================
+      // RESPUESTAS DE EVENTO
+      // Una respuesta por invitación.
+      // Ausencia de documento = pending.
+      // ==================================================
+
+      const responseInvitationIds =
+        [
+          ...new Set(
+            [
+              ...receivedInvitations,
+              ...createdInvitations
+            ]
+              .map(
+                invitation =>
+                  invitation.id
+              )
+              .filter(Boolean)
+          )
+        ];
+
+
+      const responses =
+        new Map();
+
+
+      for (
+        let offset = 0;
+        offset <
+          responseInvitationIds.length;
+        offset += 100
+      ) {
+
+        const part =
+          responseInvitationIds.slice(
+            offset,
+            offset + 100
+          );
+
+
+        const snapshots =
+          await db.getAll(
+            ...part.map(
+              invitationId =>
+                db.collection(
+                  'eventResponses'
+                ).doc(
+                  invitationId
+                )
+            )
+          );
+
+
+        for (
+          const snapshot of
+          snapshots
+        ) {
+
+          if (!snapshot.exists) {
+            continue;
+          }
+
+
+          const data =
+            snapshot.data();
+
+
+          if (
+            data.campaignId !==
+              profile.campaignId
+          ) {
+            continue;
+          }
+
+
+          responses.set(
+            snapshot.id,
+            eventResponseView(
+              snapshot
+            )
+          );
+        }
+      }
+
+
+      const attachResponse =
+        invitation => {
+
+          invitation.response =
+            responses.get(
+              invitation.id
+            ) || {
+              status: 'pending',
+              commitment: false,
+              respondedAt: null,
+              updatedAt: null
+            };
+        };
+
+
+      receivedInvitations.forEach(
+        attachResponse
+      );
+
+
+      createdInvitations.forEach(
+        attachResponse
+      );
+
+
+      // ==================================================
       // EVENTOS MAESTROS RELACIONADOS
       // ==================================================
 
@@ -1450,5 +1723,397 @@ exports.getEventWorkspace =
 exports._test = {
   NEXT,
   targetAllowed,
-  eventContactView
+  eventContactView,
+  EVENT_RESPONSE_STATUSES,
+  eventStartsAtMillis,
+  canRespondToEventInvitation,
+  eventResponseView
 };
+
+
+// ======================================================
+// BUILD-118B-1
+// RESPONDER INVITACIÓN DE EVENTO
+// ======================================================
+
+exports.respondToEventInvitation =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const db =
+        getFirestore();
+
+
+      const data =
+        request.data || {};
+
+
+      const invitationId =
+        validId(
+          data.invitationId
+        );
+
+
+      const status =
+        eventResponseStatus(
+          data.status
+        );
+
+
+      return db.runTransaction(
+        async tx => {
+
+          // ==============================================
+          // PERFIL DEL USUARIO
+          // ==============================================
+
+          const profile =
+            await caller(
+              tx,
+              db,
+              request
+            );
+
+
+          // ==============================================
+          // INVITACIÓN
+          // ==============================================
+
+          const invitationRef =
+            db.collection(
+              'eventInvitations'
+            ).doc(
+              invitationId
+            );
+
+
+          const invitationSnapshot =
+            await tx.get(
+              invitationRef
+            );
+
+
+          if (
+            !invitationSnapshot.exists
+          ) {
+            fail(
+              'not-found',
+              'La invitación no existe.'
+            );
+          }
+
+
+          const invitation = {
+            ...invitationSnapshot.data(),
+            id:
+              invitationSnapshot.id
+          };
+
+
+          if (
+            invitation.assignedTo !==
+              profile.uid
+          ) {
+            fail(
+              'permission-denied',
+              'Solo puedes responder tu propia invitación.'
+            );
+          }
+
+
+          if (
+            invitation.campaignId !==
+              profile.campaignId
+          ) {
+            fail(
+              'permission-denied',
+              'La invitación pertenece a otra campaña.'
+            );
+          }
+
+
+          if (
+            invitation.active !== true
+          ) {
+            fail(
+              'failed-precondition',
+              'La invitación ya no está activa.'
+            );
+          }
+
+
+          // ==============================================
+          // EVENTO
+          // ==============================================
+
+          const eventRef =
+            db.collection(
+              'events'
+            ).doc(
+              validId(
+                invitation.eventId
+              )
+            );
+
+
+          const eventSnapshot =
+            await tx.get(
+              eventRef
+            );
+
+
+          if (
+            !eventSnapshot.exists
+          ) {
+            fail(
+              'not-found',
+              'El evento no existe.'
+            );
+          }
+
+
+          const event = {
+            ...eventSnapshot.data(),
+            id:
+              eventSnapshot.id
+          };
+
+
+          if (
+            !canRespondToEventInvitation(
+              profile,
+              invitation,
+              event,
+              Date.now()
+            )
+          ) {
+            fail(
+              'failed-precondition',
+              'Este evento ya inició, está inactivo o no puede ser respondido.'
+            );
+          }
+
+
+          // ==============================================
+          // RESPUESTA EXISTENTE
+          // Un documento por invitación.
+          // ==============================================
+
+          const responseRef =
+            db.collection(
+              'eventResponses'
+            ).doc(
+              invitationId
+            );
+
+
+          const responseSnapshot =
+            await tx.get(
+              responseRef
+            );
+
+
+          const previous =
+            responseSnapshot.exists
+              ? responseSnapshot.data()
+              : null;
+
+
+          const previousStatus =
+            EVENT_RESPONSE_STATUSES.has(
+              previous?.status
+            )
+              ? previous.status
+              : 'pending';
+
+
+          // ==============================================
+          // MISMA RESPUESTA
+          // Evita escrituras e historial duplicados.
+          // ==============================================
+
+          if (
+            previousStatus ===
+              status
+          ) {
+
+            return {
+
+              success:
+                true,
+
+              unchanged:
+                true,
+
+              response: {
+
+                invitationId,
+
+                eventId:
+                  event.id,
+
+                status,
+
+                commitment:
+                  status ===
+                    'attending',
+
+                version:
+                  Number(
+                    previous?.version
+                  ) || 1
+              }
+            };
+          }
+
+
+          // ==============================================
+          // GUARDAR ESTADO ACTUAL
+          // ==============================================
+
+          const serverNow =
+            FieldValue.serverTimestamp();
+
+
+          const nextVersion =
+            (
+              Number(
+                previous?.version
+              ) || 0
+            ) + 1;
+
+
+          const response = {
+
+            invitationId,
+
+            eventId:
+              event.id,
+
+            campaignId:
+              profile.campaignId,
+
+            personId:
+              profile.uid,
+
+            personName:
+              profile.name || '',
+
+            status,
+
+            commitment:
+              status ===
+                'attending',
+
+            // Primera respuesta real.
+            // No cambia en modificaciones posteriores.
+            respondedAt:
+              previous?.respondedAt ||
+              serverNow,
+
+            createdAt:
+              previous?.createdAt ||
+              serverNow,
+
+            updatedAt:
+              serverNow,
+
+            version:
+              nextVersion
+          };
+
+
+          // ==============================================
+          // HISTORIAL INMUTABLE DEL CAMBIO
+          // ==============================================
+
+          const historyRef =
+            db.collection(
+              'eventResponseHistory'
+            ).doc();
+
+
+          tx.set(
+            responseRef,
+            response
+          );
+
+
+          tx.create(
+            historyRef,
+            {
+
+              responseId:
+                invitationId,
+
+              invitationId,
+
+              eventId:
+                event.id,
+
+              campaignId:
+                profile.campaignId,
+
+              personId:
+                profile.uid,
+
+              personName:
+                profile.name || '',
+
+              previousStatus,
+
+              status,
+
+              commitment:
+                status ===
+                  'attending',
+
+              version:
+                nextVersion,
+
+              changedBy:
+                profile.uid,
+
+              changedByName:
+                profile.name || '',
+
+              channel:
+                'terra_web',
+
+              changedAt:
+                serverNow
+            }
+          );
+
+
+          return {
+
+            success:
+              true,
+
+            unchanged:
+              false,
+
+            response: {
+
+              invitationId,
+
+              eventId:
+                event.id,
+
+              status,
+
+              commitment:
+                status ===
+                  'attending',
+
+              version:
+                nextVersion
+            }
+          };
+        }
+      );
+    }
+  );

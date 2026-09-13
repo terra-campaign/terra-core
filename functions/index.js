@@ -4693,6 +4693,10 @@ exports.createEventInvitations =
 exports.getEventWorkspace =
   require("./event-delegation.cjs").getEventWorkspace;
 
+
+exports.respondToEventInvitation =
+  require("./event-delegation.cjs").respondToEventInvitation;
+
 exports.createLinkedMissions =
   require("./mission-delegation.cjs").createLinkedMissions;
 
