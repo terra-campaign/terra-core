@@ -828,7 +828,7 @@ function mountEventShortcuts() {
       "button";
 
     button.className =
-      "button button--secondary";
+      "button";
 
     button.onclick =
       () =>
