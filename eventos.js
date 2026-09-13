@@ -63,11 +63,7 @@ const EVENT_RESPONSE_LABELS = {
     "Asistir\u00e9",
 
   not_attending:
-    "No puedo asistir",
-
-  needs_information:
-    "Necesito informaci\u00f3n"
-};
+    "No puedo asistir"};
 
 
 const EVENT_RESPONSE_OPTIONS = [
@@ -78,12 +74,7 @@ const EVENT_RESPONSE_OPTIONS = [
   {
     status: "not_attending",
     label: "No puedo asistir"
-  },
-  {
-    status: "needs_information",
-    label: "Necesito informaci\u00f3n"
-  }
-];
+  }];
 
 
 const ROLE_LABELS = {

@@ -39,8 +39,7 @@ const NEXT = {
 const EVENT_RESPONSE_STATUSES =
   new Set([
     'attending',
-    'not_attending',
-    'needs_information'
+    'not_attending'
   ]);
 
 

@@ -257,13 +257,6 @@ assert.equal(
 
 assert.equal(
   EVENT_RESPONSE_STATUSES.has(
-    'needs_information'
-  ),
-  true
-);
-
-assert.equal(
-  EVENT_RESPONSE_STATUSES.has(
     'pending'
   ),
   false
