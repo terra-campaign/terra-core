@@ -50,6 +50,14 @@ const respondToEventInvitation =
   );
 
 
+
+const reportEventIncident =
+  httpsCallable(
+    functions,
+    "reportEventIncident"
+  );
+
+
 const $ =
   id =>
     document.getElementById(id);
@@ -75,6 +83,45 @@ const EVENT_RESPONSE_OPTIONS = [
     status: "not_attending",
     label: "No puedo asistir"
   }];
+
+
+
+const EVENT_INCIDENT_REASONS = [
+  {
+    value: "transport",
+    label: "Transporte"
+  },
+  {
+    value: "health",
+    label: "Salud"
+  },
+  {
+    value: "family",
+    label: "Familia"
+  },
+  {
+    value: "work",
+    label: "Trabajo"
+  },
+  {
+    value: "other",
+    label: "Otro"
+  }
+];
+
+
+function eventIncidentReasonLabel(
+  value
+) {
+
+  return (
+    EVENT_INCIDENT_REASONS.find(
+      option =>
+        option.value === value
+    )?.label ||
+    "Otro"
+  );
+}
 
 
 const ROLE_LABELS = {
@@ -266,6 +313,471 @@ async function saveEventResponse(
 }
 
 
+function canReportEventIncidentUi(
+  invitation,
+  event
+) {
+
+  if (
+    invitation?.incident ||
+    invitation?.response?.status !==
+      "attending"
+  ) {
+    return false;
+  }
+
+
+  const closesAtMillis =
+    Number.isFinite(
+      event?.confirmationClosesAtMillis
+    )
+      ? event.confirmationClosesAtMillis
+      : (
+          Date.parse(
+            event?.startsAt || ""
+          ) -
+          60 * 60 * 1000
+        );
+
+
+  const startsAtMillis =
+    Date.parse(
+      event?.startsAt || ""
+    );
+
+
+  const now =
+    Date.now();
+
+
+  return (
+    Number.isFinite(
+      closesAtMillis
+    ) &&
+    Number.isFinite(
+      startsAtMillis
+    ) &&
+    now >= closesAtMillis &&
+    now < startsAtMillis
+  );
+}
+
+
+function createIncidentSummary(
+  incident,
+  title = "IMPREVISTO REPORTADO"
+) {
+
+  const box =
+    node("div");
+
+
+  box.style.cssText =
+    [
+      "margin-top:12px",
+      "padding:12px",
+      "border:1px solid #d7a94a",
+      "border-radius:10px",
+      "background:#fffaf0"
+    ].join(";");
+
+
+  const heading =
+    node(
+      "p",
+      title
+    );
+
+
+  heading.style.cssText =
+    "font-weight:800;margin:0 0 8px";
+
+
+  box.append(
+    heading
+  );
+
+
+  box.append(
+    node(
+      "p",
+      `Motivo: ${
+        eventIncidentReasonLabel(
+          incident?.reason
+        )
+      }`
+    )
+  );
+
+
+  if (
+    incident?.note
+  ) {
+
+    box.append(
+      node(
+        "p",
+        `Nota: ${incident.note}`
+      )
+    );
+  }
+
+
+  if (
+    incident?.reportedAt
+  ) {
+
+    box.append(
+      node(
+        "p",
+        `Reportado: ${
+          formatDate(
+            incident.reportedAt
+          )
+        }`
+      )
+    );
+  }
+
+
+  box
+    .querySelectorAll("p")
+    .forEach(
+      paragraph => {
+
+        if (
+          paragraph !== heading
+        ) {
+          paragraph.className =
+            "event-meta";
+
+          paragraph.style.margin =
+            "4px 0";
+        }
+      }
+    );
+
+
+  return box;
+}
+
+
+async function saveEventIncident(
+  invitation,
+  reason,
+  note,
+  message,
+  controls
+) {
+
+  controls.forEach(
+    control => {
+      control.disabled = true;
+    }
+  );
+
+
+  message.textContent =
+    "Registrando imprevisto...";
+
+
+  try {
+
+    await reportEventIncident({
+      invitationId:
+        invitation.id,
+
+      reason,
+
+      note
+    });
+
+
+    message.textContent =
+      "Imprevisto registrado correctamente.";
+
+
+    await reload();
+
+  } catch (error) {
+
+    message.textContent =
+      error.message ||
+      "No fue posible registrar el imprevisto.";
+
+
+    controls.forEach(
+      control => {
+        control.disabled = false;
+      }
+    );
+  }
+}
+
+
+function createIncidentReportForm(
+  invitation
+) {
+
+  const wrapper =
+    node("div");
+
+
+  wrapper.style.cssText =
+    [
+      "margin-top:12px",
+      "padding:12px",
+      "border:1px solid #d7dee8",
+      "border-radius:10px",
+      "background:#ffffff"
+    ].join(";");
+
+
+  const intro =
+    node(
+      "p",
+      "Reporta únicamente un imprevisto ocurrido después del cierre de confirmaciones."
+    );
+
+
+  intro.className =
+    "event-meta";
+
+
+  intro.style.margin =
+    "0 0 10px";
+
+
+  wrapper.append(
+    intro
+  );
+
+
+  const reasonLabel =
+    node(
+      "label"
+    );
+
+
+  reasonLabel.style.cssText =
+    "display:block;font-weight:700;margin-bottom:10px";
+
+
+  const reasonText =
+    node(
+      "span",
+      "Motivo del imprevisto"
+    );
+
+
+  const select =
+    document.createElement(
+      "select"
+    );
+
+
+  select.style.cssText =
+    [
+      "display:block",
+      "width:100%",
+      "margin-top:6px",
+      "padding:9px 10px",
+      "border:1px solid #8fa8bf",
+      "border-radius:7px",
+      "background:#fff"
+    ].join(";");
+
+
+  for (
+    const optionData of
+    EVENT_INCIDENT_REASONS
+  ) {
+
+    const option =
+      document.createElement(
+        "option"
+      );
+
+
+    option.value =
+      optionData.value;
+
+
+    option.textContent =
+      optionData.label;
+
+
+    select.append(
+      option
+    );
+  }
+
+
+  reasonLabel.append(
+    reasonText,
+    select
+  );
+
+
+  wrapper.append(
+    reasonLabel
+  );
+
+
+  const noteLabel =
+    node(
+      "label"
+    );
+
+
+  noteLabel.style.cssText =
+    "display:block;font-weight:700;margin-bottom:10px";
+
+
+  noteLabel.append(
+    node(
+      "span",
+      "Nota opcional"
+    )
+  );
+
+
+  const textarea =
+    document.createElement(
+      "textarea"
+    );
+
+
+  textarea.maxLength =
+    300;
+
+
+  textarea.rows =
+    3;
+
+
+  textarea.placeholder =
+    "Describe brevemente el imprevisto";
+
+
+  textarea.style.cssText =
+    [
+      "display:block",
+      "width:100%",
+      "box-sizing:border-box",
+      "margin-top:6px",
+      "padding:9px 10px",
+      "border:1px solid #8fa8bf",
+      "border-radius:7px",
+      "background:#fff",
+      "resize:vertical"
+    ].join(";");
+
+
+  noteLabel.append(
+    textarea
+  );
+
+
+  wrapper.append(
+    noteLabel
+  );
+
+
+  const message =
+    node("p");
+
+
+  message.className =
+    "event-meta";
+
+
+  message.style.margin =
+    "8px 0";
+
+
+  wrapper.append(
+    message
+  );
+
+
+  const actions =
+    node("div");
+
+
+  actions.style.cssText =
+    "display:flex;flex-wrap:wrap;gap:8px";
+
+
+  const confirmButton =
+    node(
+      "button",
+      "Confirmar imprevisto"
+    );
+
+
+  confirmButton.type =
+    "button";
+
+
+  confirmButton.className =
+    "button";
+
+
+  const cancelButton =
+    node(
+      "button",
+      "Cancelar"
+    );
+
+
+  cancelButton.type =
+    "button";
+
+
+  cancelButton.className =
+    "button button--secondary";
+
+
+  confirmButton.onclick =
+    () => {
+
+      saveEventIncident(
+        invitation,
+        select.value,
+        textarea.value.trim(),
+        message,
+        [
+          confirmButton,
+          cancelButton,
+          select,
+          textarea
+        ]
+      );
+    };
+
+
+  cancelButton.onclick =
+    () => {
+      wrapper.remove();
+    };
+
+
+  actions.append(
+    confirmButton,
+    cancelButton
+  );
+
+
+  wrapper.append(
+    actions
+  );
+
+
+  return wrapper;
+}
+
+
 function createEventResponsePanel(
   invitation,
   event
@@ -360,6 +872,99 @@ function createEventResponsePanel(
 
 
   if (!canChange) {
+
+    if (
+      invitation.incident
+    ) {
+
+      panel.append(
+        createIncidentSummary(
+          invitation.incident
+        )
+      );
+
+
+      return panel;
+    }
+
+
+    if (
+      canReportEventIncidentUi(
+        invitation,
+        event
+      )
+    ) {
+
+      const commitment =
+        node(
+          "p",
+          "Tu compromiso quedó confirmado. Si ocurrió un imprevisto posterior al cierre, puedes registrarlo aquí."
+        );
+
+
+      commitment.className =
+        "event-meta";
+
+
+      commitment.style.margin =
+        "0 0 10px";
+
+
+      panel.append(
+        commitment
+      );
+
+
+      const button =
+        node(
+          "button",
+          "Reportar imprevisto"
+        );
+
+
+      button.type =
+        "button";
+
+
+      button.className =
+        "button button--secondary";
+
+
+      button.onclick =
+        () => {
+
+          if (
+            panel.querySelector(
+              ".event-incident-form"
+            )
+          ) {
+            return;
+          }
+
+
+          const form =
+            createIncidentReportForm(
+              invitation
+            );
+
+
+          form.classList.add(
+            "event-incident-form"
+          );
+
+
+          panel.append(
+            form
+          );
+        };
+
+
+      panel.append(
+        button
+      );
+    }
+
+
     return panel;
   }
 
@@ -490,6 +1095,10 @@ function createdInvitationResponseView(
     "pending";
 
 
+  const wrapper =
+    node("div");
+
+
   const paragraph =
     node(
       "p",
@@ -512,7 +1121,28 @@ function createdInvitationResponseView(
     "700";
 
 
-  return paragraph;
+  wrapper.append(
+    paragraph
+  );
+
+
+  if (
+    invitation.incident
+  ) {
+
+    wrapper.append(
+      createIncidentSummary(
+        invitation.incident,
+        `Imprevisto reportado por ${
+          invitation.assignedToName ||
+          "destinatario"
+        }`
+      )
+    );
+  }
+
+
+  return wrapper;
 }
 
 
