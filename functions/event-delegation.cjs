@@ -1603,6 +1603,14 @@ function invitationView(snapshot) {
     assignedTo:
       d.assignedTo || '',
 
+    // Identidad operativa independiente de la cuenta.
+    // En registros actuales cae en assignedTo.
+    // BUILD-119 podrá persistir personId sin Firebase Auth.
+    personId:
+      d.personId ||
+      d.assignedTo ||
+      '',
+
     assignedToName:
       d.assignedToName || '',
 
@@ -2162,6 +2170,157 @@ exports.getEventWorkspace =
 
       createdInvitations.forEach(
         attachIncident
+      );
+
+
+      // ==================================================
+      // ASISTENCIA REAL
+      // Un solo registro por evento + persona.
+      //
+      // Por ahora personId coincide con assignedTo.
+      // BUILD-119 podrá usar una persona operacional
+      // aunque no tenga cuenta digital.
+      // ==================================================
+
+      const attendanceLookupIds =
+        [
+          ...new Set(
+            [
+              ...receivedInvitations,
+              ...createdInvitations
+            ]
+              .map(
+                invitation => {
+
+                  const personId =
+                    invitation.personId ||
+                    invitation.assignedTo ||
+                    '';
+
+
+                  if (
+                    !invitation.eventId ||
+                    !personId
+                  ) {
+                    return null;
+                  }
+
+
+                  return eventAttendanceDocumentId(
+                    invitation.eventId,
+                    personId
+                  );
+                }
+              )
+              .filter(Boolean)
+          )
+        ];
+
+
+      const attendanceRecords =
+        new Map();
+
+
+      for (
+        let offset = 0;
+        offset <
+          attendanceLookupIds.length;
+        offset += 100
+      ) {
+
+        const part =
+          attendanceLookupIds.slice(
+            offset,
+            offset + 100
+          );
+
+
+        const snapshots =
+          await db.getAll(
+            ...part.map(
+              attendanceId =>
+                db.collection(
+                  'eventAttendance'
+                ).doc(
+                  attendanceId
+                )
+            )
+          );
+
+
+        for (
+          const snapshot of
+          snapshots
+        ) {
+
+          if (!snapshot.exists) {
+            continue;
+          }
+
+
+          const data =
+            snapshot.data();
+
+
+          if (
+            data.campaignId !==
+              profile.campaignId
+          ) {
+            continue;
+          }
+
+
+          attendanceRecords.set(
+            snapshot.id,
+            eventAttendanceView(
+              snapshot
+            )
+          );
+        }
+      }
+
+
+      const attachAttendance =
+        invitation => {
+
+          const personId =
+            invitation.personId ||
+            invitation.assignedTo ||
+            '';
+
+
+          if (
+            !invitation.eventId ||
+            !personId
+          ) {
+            invitation.attendance =
+              null;
+
+            return;
+          }
+
+
+          const attendanceId =
+            eventAttendanceDocumentId(
+              invitation.eventId,
+              personId
+            );
+
+
+          invitation.attendance =
+            attendanceRecords.get(
+              attendanceId
+            ) || null;
+        };
+
+
+      receivedInvitations.forEach(
+        attachAttendance
+      );
+
+
+      createdInvitations.forEach(
+        attachAttendance
       );
 
 

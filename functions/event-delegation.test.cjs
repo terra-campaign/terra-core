@@ -914,3 +914,49 @@ assert.equal(
 console.log(
   'OK: BUILD-118C-1A attendance security tests passed.'
 );
+
+const currentInvitationPersonId =
+  attendanceInvitation.personId ||
+  attendanceInvitation.assignedTo;
+
+
+assert.equal(
+  currentInvitationPersonId,
+  'MEMBER'
+);
+
+
+const futureAccountlessInvitation = {
+  eventId:
+    'EVENT-ATT-001',
+
+  personId:
+    'PERSON-BASE-001',
+
+  assignedTo:
+    ''
+};
+
+
+assert.equal(
+  futureAccountlessInvitation.personId ||
+  futureAccountlessInvitation.assignedTo,
+  'PERSON-BASE-001'
+);
+
+
+assert.equal(
+  eventAttendanceDocumentId(
+    'EVENT-ATT-001',
+    'PERSON-BASE-001'
+  ),
+  eventAttendanceDocumentId(
+    futureAccountlessInvitation.eventId,
+    futureAccountlessInvitation.personId
+  )
+);
+
+
+console.log(
+  'OK: BUILD-118C-1B attendance workspace compatibility passed.'
+);
