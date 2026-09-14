@@ -552,6 +552,10 @@ function eventAttendanceView(snapshot) {
 }
 
 
+const EVENT_ATTENDANCE_EARLY_MINUTES =
+  30;
+
+
 function canRecordEventAttendanceAt(
   event,
   nowMillis = Date.now()
@@ -571,12 +575,27 @@ function canRecordEventAttendanceAt(
     );
 
 
+  if (
+    !Number.isFinite(
+      startsAtMillis
+    )
+  ) {
+    return false;
+  }
+
+
+  const checkInOpensAtMillis =
+    startsAtMillis -
+    (
+      EVENT_ATTENDANCE_EARLY_MINUTES *
+      60 *
+      1000
+    );
+
+
   return (
-    Number.isFinite(
-      startsAtMillis
-    ) &&
     nowMillis >=
-      startsAtMillis
+      checkInOpensAtMillis
   );
 }
 
@@ -2587,6 +2606,7 @@ exports._test = {
   eventAttendanceView,
   canValidateEventAttendance,
   EVENT_ENABLED_CHECKIN_METHODS,
+  EVENT_ATTENDANCE_EARLY_MINUTES,
   canRecordEventAttendanceAt,
   eventAttendanceWorkspaceScope,
   eventAttendanceInvitationAllowed
@@ -3576,7 +3596,7 @@ exports.recordEventAttendance =
 
           // ==============================================
           // ASISTENCIA REAL
-          // No puede registrarse antes del inicio.
+          // Puede registrarse desde 30 minutos antes de la hora citada.
           // ==============================================
 
           if (
@@ -3587,7 +3607,7 @@ exports.recordEventAttendance =
           ) {
             fail(
               'failed-precondition',
-              'La asistencia real solo puede registrarse cuando el evento haya iniciado.'
+              'La asistencia real solo puede registrarse desde 30 minutos antes de la hora citada.'
             );
           }
 

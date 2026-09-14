@@ -2076,7 +2076,11 @@ function attendanceEventIds() {
 }
 
 
-function attendanceEventHasStarted(
+const ATTENDANCE_EARLY_MINUTES =
+  30;
+
+
+function attendanceCheckInIsOpen(
   event
 ) {
 
@@ -2095,12 +2099,27 @@ function attendanceEventHasStarted(
         );
 
 
+  if (
+    !Number.isFinite(
+      startsAtMillis
+    )
+  ) {
+    return false;
+  }
+
+
+  const checkInOpensAtMillis =
+    startsAtMillis -
+    (
+      ATTENDANCE_EARLY_MINUTES *
+      60 *
+      1000
+    );
+
+
   return (
-    Number.isFinite(
-      startsAtMillis
-    ) &&
     Date.now() >=
-      startsAtMillis
+      checkInOpensAtMillis
   );
 }
 
@@ -2267,7 +2286,7 @@ function renderAttendancePeople() {
 
 
   const started =
-    attendanceEventHasStarted(
+    attendanceCheckInIsOpen(
       event
     );
 
@@ -2504,7 +2523,7 @@ function renderAttendancePeople() {
       const waiting =
         node(
           "p",
-          "El registro de presencia se habilitará cuando inicie el evento."
+          "El registro de presencia se habilitará 30 minutos antes de la hora citada."
         );
 
 
@@ -2652,7 +2671,7 @@ function renderAttendanceControl() {
 
 
   const started =
-    attendanceEventHasStarted(
+    attendanceCheckInIsOpen(
       event
     );
 
@@ -2660,8 +2679,8 @@ function renderAttendanceControl() {
   $("attendanceTimingStatus")
     .textContent =
     started
-      ? "El evento ya inició. Puedes registrar presencia física."
-      : "Puedes consultar el padrón. El registro de presencia se habilitará al iniciar el evento.";
+      ? "La recepción de asistentes está abierta. Puedes registrar presencia física."
+      : "Puedes consultar el padrón. La recepción se habilitará 30 minutos antes de la hora citada.";
 
 
   renderAttendancePeople();

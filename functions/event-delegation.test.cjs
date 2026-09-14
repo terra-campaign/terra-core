@@ -20,6 +20,7 @@ const {
   eventAttendanceView,
   canValidateEventAttendance,
   EVENT_ENABLED_CHECKIN_METHODS,
+  EVENT_ATTENDANCE_EARLY_MINUTES,
   canRecordEventAttendanceAt,
   eventAttendanceWorkspaceScope,
   eventAttendanceInvitationAllowed
@@ -877,16 +878,51 @@ const temporalAttendanceEvent = {
 
 
 assert.equal(
+  EVENT_ATTENDANCE_EARLY_MINUTES,
+  30
+);
+
+
+// 30 minutos y 1 segundo antes:
+// todavía cerrado.
+assert.equal(
   canRecordEventAttendanceAt(
     temporalAttendanceEvent,
     Date.parse(
-      '2099-01-01T17:59:59.000Z'
+      '2099-01-01T17:29:59.000Z'
     )
   ),
   false
 );
 
 
+// Exactamente 30 minutos antes:
+// abre recepción.
+assert.equal(
+  canRecordEventAttendanceAt(
+    temporalAttendanceEvent,
+    Date.parse(
+      '2099-01-01T17:30:00.000Z'
+    )
+  ),
+  true
+);
+
+
+// Antes de la hora citada,
+// pero dentro de recepción.
+assert.equal(
+  canRecordEventAttendanceAt(
+    temporalAttendanceEvent,
+    Date.parse(
+      '2099-01-01T17:59:59.000Z'
+    )
+  ),
+  true
+);
+
+
+// A la hora citada continúa abierto.
 assert.equal(
   canRecordEventAttendanceAt(
     temporalAttendanceEvent,
@@ -898,6 +934,19 @@ assert.equal(
 );
 
 
+// Después de iniciar continúa abierto.
+assert.equal(
+  canRecordEventAttendanceAt(
+    temporalAttendanceEvent,
+    Date.parse(
+      '2099-01-01T18:30:00.000Z'
+    )
+  ),
+  true
+);
+
+
+// Evento inactivo nunca admite registro.
 assert.equal(
   canRecordEventAttendanceAt(
     {
@@ -914,7 +963,7 @@ assert.equal(
 
 
 console.log(
-  'OK: BUILD-118C-1A attendance security tests passed.'
+  'OK: BUILD-118C-3A ventana de recepcion de 30 minutos passed.'
 );
 
 const currentInvitationPersonId =
