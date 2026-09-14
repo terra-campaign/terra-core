@@ -14,7 +14,13 @@ const {
   eventConfirmationClosesAtMillis,
   EVENT_INCIDENT_REASONS,
   canReportEventIncident,
-  eventIncidentView
+  eventIncidentView,
+  EVENT_CHECKIN_METHODS,
+  eventAttendanceDocumentId,
+  eventAttendanceView,
+  canValidateEventAttendance,
+  EVENT_ENABLED_CHECKIN_METHODS,
+  canRecordEventAttendanceAt
 } =
   require('./event-delegation.cjs')._test;
 
@@ -594,4 +600,317 @@ assert.equal(
 
 console.log(
   'OK: BUILD-118B-3C-2A incident workspace tests passed.'
+);
+
+assert.equal(
+  EVENT_CHECKIN_METHODS.has(
+    'manual'
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_CHECKIN_METHODS.has(
+    'qr'
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_CHECKIN_METHODS.has(
+    'code'
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_CHECKIN_METHODS.has(
+    'gps'
+  ),
+  false
+);
+
+
+const attendanceEvent = {
+  id:
+    'EVENT-ATT-001',
+  active:
+    true,
+  campaignId:
+    'CAM-001',
+  createdBy:
+    'COORD'
+};
+
+
+const attendanceInvitation = {
+  id:
+    'INV-ATT-001',
+  eventId:
+    'EVENT-ATT-001',
+  active:
+    true,
+  campaignId:
+    'CAM-001',
+  createdBy:
+    'CHIEF',
+  assignedTo:
+    'MEMBER',
+  assignedToName:
+    'Persona de prueba'
+};
+
+
+assert.equal(
+  canValidateEventAttendance(
+    {
+      ...chief,
+      uid:
+        'CHIEF'
+    },
+    attendanceInvitation,
+    attendanceEvent
+  ),
+  true
+);
+
+
+assert.equal(
+  canValidateEventAttendance(
+    coordinator,
+    attendanceInvitation,
+    attendanceEvent
+  ),
+  true
+);
+
+
+assert.equal(
+  canValidateEventAttendance(
+    {
+      ...participant,
+      uid:
+        'OTHER'
+    },
+    attendanceInvitation,
+    attendanceEvent
+  ),
+  false
+);
+
+
+const attendanceIdA =
+  eventAttendanceDocumentId(
+    'EVENT-1',
+    'PERSON-1'
+  );
+
+
+const attendanceIdB =
+  eventAttendanceDocumentId(
+    'EVENT-1',
+    'PERSON-1'
+  );
+
+
+const attendanceIdC =
+  eventAttendanceDocumentId(
+    'EVENT-1',
+    'PERSON-2'
+  );
+
+
+assert.equal(
+  attendanceIdA,
+  attendanceIdB
+);
+
+
+assert.notEqual(
+  attendanceIdA,
+  attendanceIdC
+);
+
+
+const attendanceView =
+  eventAttendanceView({
+    exists: true,
+
+    data() {
+      return {
+        attended:
+          true,
+
+        eventId:
+          'EVENT-1',
+
+        personId:
+          'PERSON-1',
+
+        accountUid:
+          'ACCOUNT-1',
+
+        invitationId:
+          'INV-1',
+
+        personName:
+          'Persona prueba',
+
+        checkInMethod:
+          'manual',
+
+        validatedByUserId:
+          'VALIDATOR-1',
+
+        validatedByName:
+          'Validador',
+
+        validatedByRole:
+          'jefe_estructura',
+
+        version:
+          1,
+
+        checkedInAt: {
+          toDate() {
+            return new Date(
+              '2099-01-01T18:00:00.000Z'
+            );
+          }
+        }
+      };
+    }
+  });
+
+
+assert.deepEqual(
+  attendanceView,
+  {
+    attended:
+      true,
+
+    eventId:
+      'EVENT-1',
+
+    personId:
+      'PERSON-1',
+
+    accountUid:
+      'ACCOUNT-1',
+
+    invitationId:
+      'INV-1',
+
+    personName:
+      'Persona prueba',
+
+    checkInMethod:
+      'manual',
+
+    checkedInAt:
+      '2099-01-01T18:00:00.000Z',
+
+    validatedByUserId:
+      'VALIDATOR-1',
+
+    validatedByName:
+      'Validador',
+
+    validatedByRole:
+      'jefe_estructura',
+
+    version:
+      1
+  }
+);
+
+
+assert.equal(
+  eventAttendanceView(null),
+  null
+);
+
+
+console.log(
+  'OK: BUILD-118C-1A attendance tests passed.'
+);
+
+assert.equal(
+  EVENT_ENABLED_CHECKIN_METHODS.has(
+    'manual'
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_ENABLED_CHECKIN_METHODS.has(
+    'qr'
+  ),
+  false
+);
+
+assert.equal(
+  EVENT_ENABLED_CHECKIN_METHODS.has(
+    'code'
+  ),
+  false
+);
+
+
+const temporalAttendanceEvent = {
+  id:
+    'EVENT-TIME-001',
+
+  active:
+    true,
+
+  startsAt:
+    '2099-01-01T18:00:00.000Z',
+
+  startsAtMillis:
+    Date.parse(
+      '2099-01-01T18:00:00.000Z'
+    )
+};
+
+
+assert.equal(
+  canRecordEventAttendanceAt(
+    temporalAttendanceEvent,
+    Date.parse(
+      '2099-01-01T17:59:59.000Z'
+    )
+  ),
+  false
+);
+
+
+assert.equal(
+  canRecordEventAttendanceAt(
+    temporalAttendanceEvent,
+    Date.parse(
+      '2099-01-01T18:00:00.000Z'
+    )
+  ),
+  true
+);
+
+
+assert.equal(
+  canRecordEventAttendanceAt(
+    {
+      ...temporalAttendanceEvent,
+      active:
+        false
+    },
+    Date.parse(
+      '2099-01-01T18:05:00.000Z'
+    )
+  ),
+  false
+);
+
+
+console.log(
+  'OK: BUILD-118C-1A attendance security tests passed.'
 );

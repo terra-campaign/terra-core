@@ -441,6 +441,201 @@ function canReportEventIncident(
 }
 
 
+const EVENT_CHECKIN_METHODS =
+  new Set([
+    'manual',
+    'qr',
+    'code'
+  ]);
+
+
+
+// QR y código existen en el modelo,
+// pero todavía no pueden declarar asistencia
+// hasta tener validación segura propia.
+const EVENT_ENABLED_CHECKIN_METHODS =
+  new Set([
+    'manual'
+  ]);
+
+
+function eventCheckInMethod(value) {
+
+  if (
+    typeof value !== 'string' ||
+    !EVENT_CHECKIN_METHODS.has(
+      value
+    )
+  ) {
+    fail(
+      'invalid-argument',
+      'Método de registro de asistencia inválido.'
+    );
+  }
+
+  return value;
+}
+
+
+function eventAttendanceDocumentId(
+  eventId,
+  personId
+) {
+
+  return hash(
+    'event-attendance',
+    eventId,
+    personId
+  );
+}
+
+
+function eventAttendanceView(snapshot) {
+
+  if (
+    !snapshot ||
+    !snapshot.exists
+  ) {
+    return null;
+  }
+
+
+  const d =
+    snapshot.data();
+
+
+  return {
+    attended:
+      d.attended === true,
+
+    eventId:
+      d.eventId || '',
+
+    personId:
+      d.personId || '',
+
+    accountUid:
+      d.accountUid || null,
+
+    invitationId:
+      d.invitationId || null,
+
+    personName:
+      d.personName || '',
+
+    checkInMethod:
+      EVENT_CHECKIN_METHODS.has(
+        d.checkInMethod
+      )
+        ? d.checkInMethod
+        : 'manual',
+
+    checkedInAt:
+      timestampIso(
+        d.checkedInAt
+      ),
+
+    validatedByUserId:
+      d.validatedByUserId || '',
+
+    validatedByName:
+      d.validatedByName || '',
+
+    validatedByRole:
+      d.validatedByRole || '',
+
+    version:
+      Number(
+        d.version
+      ) || 1
+  };
+}
+
+
+function canRecordEventAttendanceAt(
+  event,
+  nowMillis = Date.now()
+) {
+
+  if (
+    !event ||
+    event.active !== true
+  ) {
+    return false;
+  }
+
+
+  const startsAtMillis =
+    eventStartsAtMillis(
+      event
+    );
+
+
+  return (
+    Number.isFinite(
+      startsAtMillis
+    ) &&
+    nowMillis >=
+      startsAtMillis
+  );
+}
+
+
+function canValidateEventAttendance(
+  validator,
+  invitation,
+  event
+) {
+
+  if (
+    !validator ||
+    !invitation ||
+    !event
+  ) {
+    return false;
+  }
+
+
+  if (
+    validator.active !== true ||
+    invitation.active !== true ||
+    event.active !== true
+  ) {
+    return false;
+  }
+
+
+  if (
+    invitation.campaignId !==
+      validator.campaignId ||
+    event.campaignId !==
+      validator.campaignId
+  ) {
+    return false;
+  }
+
+
+  if (
+    invitation.eventId !==
+      event.id
+  ) {
+    return false;
+  }
+
+
+  // En 118C-1 el validador puede ser:
+  // 1) quien creó directamente la invitación, o
+  // 2) quien creó el evento maestro.
+  // BUILD-118C posterior incorporará validadores designados.
+  return (
+    invitation.createdBy ===
+      validator.uid ||
+    event.createdBy ===
+      validator.uid
+  );
+}
+
+
 function fail(code, message) {
   throw new HttpsError(code, message);
 }
@@ -2134,7 +2329,14 @@ exports._test = {
   eventConfirmationClosesAtMillis,
   EVENT_INCIDENT_REASONS,
   canReportEventIncident,
-  eventIncidentView
+  eventIncidentView,
+  EVENT_CHECKIN_METHODS,
+  eventCheckInMethod,
+  eventAttendanceDocumentId,
+  eventAttendanceView,
+  canValidateEventAttendance,
+  EVENT_ENABLED_CHECKIN_METHODS,
+  canRecordEventAttendanceAt
 };
 
 
@@ -2952,6 +3154,365 @@ exports.reportEventIncident =
 
               alreadyReported:
                 false
+            }
+          };
+        }
+      );
+    }
+  );
+
+
+// ======================================================
+// BUILD-118C-1A
+// REGISTRO SEGURO DE ASISTENCIA REAL
+// ======================================================
+
+exports.recordEventAttendance =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const db =
+        getFirestore();
+
+
+      const data =
+        request.data || {};
+
+
+      const invitationId =
+        validId(
+          data.invitationId
+        );
+
+
+      const checkInMethod =
+        eventCheckInMethod(
+          data.checkInMethod
+        );
+
+
+      return db.runTransaction(
+        async tx => {
+
+          // ==============================================
+          // VALIDADOR
+          // ==============================================
+
+          const validator =
+            await caller(
+              tx,
+              db,
+              request
+            );
+
+
+          // ==============================================
+          // INVITACION
+          // ==============================================
+
+          const invitationRef =
+            db.collection(
+              'eventInvitations'
+            ).doc(
+              invitationId
+            );
+
+
+          const invitationSnapshot =
+            await tx.get(
+              invitationRef
+            );
+
+
+          if (
+            !invitationSnapshot.exists
+          ) {
+            fail(
+              'not-found',
+              'La invitación no existe.'
+            );
+          }
+
+
+          const invitation = {
+            ...invitationSnapshot.data(),
+            id:
+              invitationSnapshot.id
+          };
+
+
+          if (
+            invitation.campaignId !==
+              validator.campaignId
+          ) {
+            fail(
+              'permission-denied',
+              'La invitación pertenece a otra campaña.'
+            );
+          }
+
+
+          // ==============================================
+          // EVENTO
+          // ==============================================
+
+          const eventRef =
+            db.collection(
+              'events'
+            ).doc(
+              validId(
+                invitation.eventId
+              )
+            );
+
+
+          const eventSnapshot =
+            await tx.get(
+              eventRef
+            );
+
+
+          if (
+            !eventSnapshot.exists
+          ) {
+            fail(
+              'not-found',
+              'El evento no existe.'
+            );
+          }
+
+
+          const event = {
+            ...eventSnapshot.data(),
+            id:
+              eventSnapshot.id
+          };
+
+
+          if (
+            !canValidateEventAttendance(
+              validator,
+              invitation,
+              event
+            )
+          ) {
+            fail(
+              'permission-denied',
+              'No tienes autorización para validar esta asistencia.'
+            );
+          }
+
+
+          // ==============================================
+          // METODO HABILITADO
+          // ==============================================
+
+          if (
+            !EVENT_ENABLED_CHECKIN_METHODS.has(
+              checkInMethod
+            )
+          ) {
+            fail(
+              'failed-precondition',
+              'Este método de asistencia todavía no está habilitado. El QR y el código requerirán validación segura propia.'
+            );
+          }
+
+
+          // ==============================================
+          // ASISTENCIA REAL
+          // No puede registrarse antes del inicio.
+          // ==============================================
+
+          if (
+            !canRecordEventAttendanceAt(
+              event,
+              Date.now()
+            )
+          ) {
+            fail(
+              'failed-precondition',
+              'La asistencia real solo puede registrarse cuando el evento haya iniciado.'
+            );
+          }
+
+
+          // ==============================================
+          // IDENTIDAD OPERATIVA
+          //
+          // Hoy assignedTo es UID porque los invitados
+          // actuales tienen cuenta.
+          //
+          // El documento de asistencia usa personId para
+          // permitir que BUILD-119 incorpore posteriormente
+          // personas sin Firebase Auth.
+          // ==============================================
+
+          const personId =
+            validId(
+              invitation.assignedTo
+            );
+
+
+          const personName =
+            typeof invitation.assignedToName ===
+              'string'
+              ? invitation.assignedToName
+              : '';
+
+
+          // En la fase actual existe cuenta digital.
+          // En REQ-002 este campo será opcional.
+          const accountUid =
+            personId;
+
+
+          const attendanceId =
+            eventAttendanceDocumentId(
+              event.id,
+              personId
+            );
+
+
+          const attendanceRef =
+            db.collection(
+              'eventAttendance'
+            ).doc(
+              attendanceId
+            );
+
+
+          const attendanceSnapshot =
+            await tx.get(
+              attendanceRef
+            );
+
+
+          // ==============================================
+          // IDEMPOTENCIA
+          // Una persona solo tiene una asistencia
+          // por evento.
+          // ==============================================
+
+          if (
+            attendanceSnapshot.exists
+          ) {
+
+            return {
+
+              success:
+                true,
+
+              unchanged:
+                true,
+
+              attendance:
+                eventAttendanceView(
+                  attendanceSnapshot
+                )
+            };
+          }
+
+
+          const serverNow =
+            FieldValue.serverTimestamp();
+
+
+          const attendance = {
+
+            eventId:
+              event.id,
+
+            personId,
+
+            accountUid,
+
+            invitationId:
+              invitation.id,
+
+            personName,
+
+            campaignId:
+              validator.campaignId,
+
+            attended:
+              true,
+
+            checkInMethod,
+
+            checkedInAt:
+              serverNow,
+
+            validatedByUserId:
+              validator.uid,
+
+            validatedByName:
+              validator.name ||
+              '',
+
+            validatedByRole:
+              validator.role ||
+              '',
+
+            version:
+              1,
+
+            createdAt:
+              serverNow,
+
+            updatedAt:
+              serverNow
+          };
+
+
+          tx.create(
+            attendanceRef,
+            attendance
+          );
+
+
+          return {
+
+            success:
+              true,
+
+            unchanged:
+              false,
+
+            attendance: {
+
+              attended:
+                true,
+
+              eventId:
+                event.id,
+
+              personId,
+
+              accountUid,
+
+              invitationId:
+                invitation.id,
+
+              personName,
+
+              checkInMethod,
+
+              validatedByUserId:
+                validator.uid,
+
+              validatedByName:
+                validator.name ||
+                '',
+
+              validatedByRole:
+                validator.role ||
+                '',
+
+              version:
+                1
             }
           };
         }

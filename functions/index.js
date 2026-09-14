@@ -4701,6 +4701,10 @@ exports.respondToEventInvitation =
 exports.reportEventIncident =
   require("./event-delegation.cjs").reportEventIncident;
 
+
+exports.recordEventAttendance =
+  require("./event-delegation.cjs").recordEventAttendance;
+
 exports.createLinkedMissions =
   require("./mission-delegation.cjs").createLinkedMissions;
 
