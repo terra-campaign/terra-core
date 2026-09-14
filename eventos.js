@@ -73,6 +73,14 @@ const recordEventAttendance =
   );
 
 
+
+const searchPersonCandidates =
+  httpsCallable(
+    functions,
+    "searchPersonCandidates"
+  );
+
+
 const $ =
   id =>
     document.getElementById(id);
@@ -170,6 +178,10 @@ let busy = false;
 let attendanceWorkspace = null;
 let selectedAttendanceEventId = null;
 let attendanceBusy = false;
+
+
+let attendanceIdentitySearchBusy =
+  false;
 
 
 const requestedInvitationId =
@@ -2581,6 +2593,354 @@ function renderAttendancePeople() {
 }
 
 
+const ATTENDANCE_IDENTITY_REASON_LABELS = {
+  phone:
+    "Teléfono",
+
+  name:
+    "Nombre",
+
+  locality:
+    "Población",
+
+  street:
+    "Calle",
+
+  houseNumber:
+    "Número"
+};
+
+
+function clearAttendanceIdentitySearch(
+  clearInputs = true
+) {
+
+  if (clearInputs) {
+
+    $("attendanceIdentityPhone").value =
+      "";
+
+    $("attendanceIdentityName").value =
+      "";
+
+    $("attendanceIdentityLocality").value =
+      "";
+  }
+
+
+  $("attendanceIdentityResults")
+    .replaceChildren();
+
+
+  $("attendanceIdentityStatus")
+    .textContent =
+    "";
+}
+
+
+function renderAttendanceIdentityCandidates(
+  data
+) {
+
+  const list =
+    $("attendanceIdentityResults");
+
+
+  list.replaceChildren();
+
+
+  const candidates =
+    Array.isArray(
+      data?.candidates
+    )
+      ? data.candidates
+      : [];
+
+
+  if (!candidates.length) {
+
+    $("attendanceIdentityStatus")
+      .textContent =
+      "No encontramos coincidencias en la campaña. Todavía no se ha creado ninguna persona nueva.";
+
+    return;
+  }
+
+
+  const total =
+    Number(
+      data?.totalCandidates
+    ) ||
+    candidates.length;
+
+
+  $("attendanceIdentityStatus")
+    .textContent =
+    `${total} posible${
+      total === 1 ? "" : "s"
+    } coincidencia${
+      total === 1 ? "" : "s"
+    }. Revisa antes de continuar.`;
+
+
+  for (
+    const candidate of
+    candidates
+  ) {
+
+    const card =
+      node(
+        "article",
+        ""
+      );
+
+
+    card.className =
+      "attendance-person";
+
+
+    card.append(
+      node(
+        "strong",
+        candidate.name ||
+        "Sin nombre"
+      )
+    );
+
+
+    if (candidate.locality) {
+
+      card.append(
+        node(
+          "p",
+          `Población: ${
+            candidate.locality
+          }`
+        )
+      );
+    }
+
+
+    if (candidate.phoneHint) {
+
+      card.append(
+        node(
+          "p",
+          `Teléfono: ${
+            candidate.phoneHint
+          }`
+        )
+      );
+    }
+
+
+    const reasons =
+      (
+        candidate.matchReasons ||
+        []
+      )
+        .map(
+          reason =>
+            ATTENDANCE_IDENTITY_REASON_LABELS[
+              reason
+            ] ||
+            reason
+        )
+        .join(", ");
+
+
+    if (reasons) {
+
+      card.append(
+        node(
+          "p",
+          `Coincidencias: ${reasons}`
+        )
+      );
+    }
+
+
+    const warning =
+      node(
+        "p",
+        "Posible persona ya registrada. Requiere revisión humana antes de crear o reasignar."
+      );
+
+
+    warning.className =
+      "message";
+
+
+    card.append(
+      warning
+    );
+
+
+    list.append(
+      card
+    );
+  }
+
+
+  if (data?.limited) {
+
+    list.append(
+      node(
+        "p",
+        "Hay más coincidencias de las mostradas. Refina la búsqueda."
+      )
+    );
+  }
+}
+
+
+async function searchAttendanceIdentity() {
+
+  if (
+    attendanceIdentitySearchBusy ||
+    !auth.currentUser ||
+    !attendanceWorkspace ||
+    !selectedAttendanceEventId
+  ) {
+    return;
+  }
+
+
+  const phone =
+    $("attendanceIdentityPhone")
+      .value
+      .trim();
+
+
+  const name =
+    $("attendanceIdentityName")
+      .value
+      .trim();
+
+
+  const locality =
+    $("attendanceIdentityLocality")
+      .value
+      .trim();
+
+
+  const phoneDigits =
+    phone.replace(
+      /\D/g,
+      ""
+    );
+
+
+  if (
+    !phoneDigits &&
+    (
+      name.length < 4 ||
+      locality.length < 2
+    )
+  ) {
+
+    $("attendanceIdentityStatus")
+      .textContent =
+      "Ingresa un teléfono o escribe nombre completo y población.";
+
+    return;
+  }
+
+
+  if (
+    phoneDigits &&
+    (
+      phoneDigits.length < 10 ||
+      phoneDigits.length > 15
+    )
+  ) {
+
+    $("attendanceIdentityStatus")
+      .textContent =
+      "Revisa el teléfono. Debe contener entre 10 y 15 dígitos.";
+
+    return;
+  }
+
+
+  attendanceIdentitySearchBusy =
+    true;
+
+
+  $("attendanceIdentitySearchButton")
+    .disabled =
+    true;
+
+
+  $("attendanceIdentityStatus")
+    .textContent =
+    "Buscando posibles coincidencias…";
+
+
+  $("attendanceIdentityResults")
+    .replaceChildren();
+
+
+  const uid =
+    auth.currentUser.uid;
+
+
+  const currentGeneration =
+    generation;
+
+
+  const currentEventId =
+    selectedAttendanceEventId;
+
+
+  try {
+
+    const {
+      data
+    } =
+      await searchPersonCandidates({
+        phone,
+        name,
+        locality
+      });
+
+
+    if (
+      currentGeneration !==
+        generation ||
+      auth.currentUser?.uid !==
+        uid ||
+      selectedAttendanceEventId !==
+        currentEventId
+    ) {
+      return;
+    }
+
+
+    renderAttendanceIdentityCandidates(
+      data
+    );
+
+  } catch (error) {
+
+    $("attendanceIdentityStatus")
+      .textContent =
+      error.message ||
+      "No fue posible buscar posibles coincidencias.";
+
+  } finally {
+
+    attendanceIdentitySearchBusy =
+      false;
+
+
+    $("attendanceIdentitySearchButton")
+      .disabled =
+      false;
+  }
+}
+
+
 function renderAttendanceControl() {
 
   const panel =
@@ -2699,8 +3059,21 @@ async function openAttendanceControl(
   }
 
 
+  const attendanceEventChanged =
+    selectedAttendanceEventId !==
+    eventId;
+
+
   selectedAttendanceEventId =
     eventId;
+
+
+  if (attendanceEventChanged) {
+
+    clearAttendanceIdentitySearch(
+      true
+    );
+  }
 
 
   attendanceBusy =
@@ -2901,6 +3274,15 @@ function closeAttendanceControl() {
   $("attendanceStatus")
     .textContent =
     "";
+
+
+  attendanceIdentitySearchBusy =
+    false;
+
+
+  clearAttendanceIdentitySearch(
+    true
+  );
 
 
   renderAttendanceEventChooser();
@@ -3812,6 +4194,33 @@ $("logoutButton")
   );
 
 
+$("attendanceIdentitySearchForm")
+  .addEventListener(
+    "submit",
+
+    event => {
+
+      event.preventDefault();
+
+      searchAttendanceIdentity();
+    }
+  );
+
+
+$("attendanceIdentityClearButton")
+  .addEventListener(
+    "click",
+
+    () => {
+
+      clearAttendanceIdentitySearch(
+        true
+      );
+    }
+  );
+
+
+
 // ======================================================
 // SESIÓN
 // ======================================================
@@ -3842,6 +4251,9 @@ onAuthStateChanged(
       null;
 
     attendanceBusy =
+      false;
+
+    attendanceIdentitySearchBusy =
       false;
 
 

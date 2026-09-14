@@ -677,6 +677,104 @@
         ></p>
 
 
+        <div
+          id="attendanceIdentitySearch"
+          class="event-form-card"
+        >
+
+          <p class="eyebrow">
+            PERSONA EN PUERTA
+          </p>
+
+          <h4>
+            Buscar antes de registrar
+          </h4>
+
+          <p class="message">
+            TERRA buscará posibles coincidencias en toda
+            la campaña para evitar registrar dos veces
+            a la misma persona.
+          </p>
+
+          <form id="attendanceIdentitySearchForm">
+
+            <label for="attendanceIdentityPhone">
+              Teléfono
+            </label>
+
+            <input
+              id="attendanceIdentityPhone"
+              class="attendance-search"
+              type="tel"
+              inputmode="tel"
+              autocomplete="tel"
+              placeholder="Ej. 3221234567"
+            >
+
+            <p class="message">
+              O busca por nombre completo y población.
+            </p>
+
+            <label for="attendanceIdentityName">
+              Nombre completo
+            </label>
+
+            <input
+              id="attendanceIdentityName"
+              class="attendance-search"
+              type="text"
+              autocomplete="off"
+              placeholder="Nombre completo"
+            >
+
+            <label for="attendanceIdentityLocality">
+              Población
+            </label>
+
+            <input
+              id="attendanceIdentityLocality"
+              class="attendance-search"
+              type="text"
+              autocomplete="off"
+              placeholder="Población o localidad"
+            >
+
+            <div class="event-actions">
+
+              <button
+                id="attendanceIdentitySearchButton"
+                class="button"
+                type="submit"
+              >
+                Buscar persona
+              </button>
+
+              <button
+                id="attendanceIdentityClearButton"
+                class="button button--secondary"
+                type="button"
+              >
+                Limpiar
+              </button>
+
+            </div>
+
+          </form>
+
+          <p
+            id="attendanceIdentityStatus"
+            class="message"
+            role="status"
+          ></p>
+
+          <div
+            id="attendanceIdentityResults"
+            class="attendance-person-list"
+          ></div>
+
+        </div>
+
+
         <div class="attendance-metrics">
 
           <article class="attendance-metric">
@@ -820,7 +918,7 @@
 
   <script
     type="module"
-    src="./eventos.js?v=build-118c-3a-001"
+    src="./eventos.js?v=build-118c-3b2-001"
   ></script>
 
 </body>
