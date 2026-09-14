@@ -123,6 +123,67 @@
       display: none !important;
     }
   </style>
+
+  <style id="event-form-clarity-styles">
+    #newEventForm input[type="text"],
+    #newEventForm input[type="datetime-local"],
+    #newEventForm textarea,
+    #newEventForm select,
+    #delegateForm input[type="text"],
+    #delegateForm input[type="datetime-local"],
+    #delegateForm textarea,
+    #delegateForm select {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 42px;
+      padding: 9px 11px;
+      background: #ffffff;
+      border: 1px solid #8fa8bf;
+      border-radius: 7px;
+      color: #17324d;
+    }
+
+    #newEventForm textarea,
+    #delegateForm textarea {
+      min-height: 84px;
+      resize: vertical;
+    }
+
+    #newEventForm input::placeholder,
+    #newEventForm textarea::placeholder,
+    #delegateForm input::placeholder,
+    #delegateForm textarea::placeholder {
+      color: #748496;
+      opacity: 1;
+    }
+
+    #newEventForm input[type="text"]:focus,
+    #newEventForm input[type="datetime-local"]:focus,
+    #newEventForm textarea:focus,
+    #newEventForm select:focus,
+    #delegateForm input[type="text"]:focus,
+    #delegateForm input[type="datetime-local"]:focus,
+    #delegateForm textarea:focus,
+    #delegateForm select:focus {
+      outline: none;
+      border-color: #0d3b66;
+      box-shadow: 0 0 0 2px rgba(13, 59, 102, 0.16);
+    }
+
+    #newEventForm > label,
+    #delegateForm > label {
+      display: block;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .delegate-select-all {
+      margin-bottom: 10px;
+      background: #f7fafc;
+      border: 1px solid #b7c7d6;
+    }
+  </style>
+
 </head>
 
 <body>
@@ -447,6 +508,23 @@
             (máximo 50)
           </legend>
 
+          <label
+            class="event-assignee-option delegate-select-all"
+          >
+            <input
+              id="delegateSelectAllAssignees"
+              type="checkbox"
+            >
+
+            <span>
+              <strong>Seleccionar todos</strong><br>
+              <small>
+                Marca o desmarca todos los destinatarios
+                disponibles del siguiente nivel.
+              </small>
+            </span>
+          </label>
+
           <div
             id="delegateAssigneeList"
             class="event-assignee-list"
@@ -489,7 +567,7 @@
 
   <script
     type="module"
-    src="./eventos.js?v=build-118b-3a1-001"
+    src="./eventos.js?v=build-118b-3b-001"
   ></script>
 
 </body>

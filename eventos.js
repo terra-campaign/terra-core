@@ -797,6 +797,55 @@ function renderDelegateAssignees() {
       )
     );
   }
+
+
+  const selectAll =
+    $("delegateSelectAllAssignees");
+
+
+  if (selectAll) {
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+    selectAll.disabled =
+      !workspace.assignees.length;
+  }
+}
+
+
+function syncDelegateSelectAll() {
+
+  const master =
+    $("delegateSelectAllAssignees");
+
+
+  if (!master) {
+    return;
+  }
+
+
+  const checkboxes =
+    [
+      ...document.querySelectorAll(
+        ".delegate-assignee-checkbox"
+      )
+    ];
+
+
+  const checked =
+    checkboxes.filter(
+      checkbox =>
+        checkbox.checked
+    ).length;
+
+
+  master.checked =
+    checkboxes.length > 0 &&
+    checked === checkboxes.length;
+
+
+  master.indeterminate =
+    checked > 0 &&
+    checked < checkboxes.length;
 }
 
 
@@ -1569,6 +1618,46 @@ $("selectAllAssignees")
                 .checked;
           }
         );
+    }
+  );
+
+
+$("delegateSelectAllAssignees")
+  .addEventListener(
+    "change",
+    () => {
+
+      document
+        .querySelectorAll(
+          ".delegate-assignee-checkbox"
+        )
+        .forEach(
+          checkbox => {
+
+            checkbox.checked =
+              $("delegateSelectAllAssignees")
+                .checked;
+          }
+        );
+
+
+      syncDelegateSelectAll();
+    }
+  );
+
+
+$("delegateAssigneeList")
+  .addEventListener(
+    "change",
+    event => {
+
+      if (
+        event.target.matches(
+          ".delegate-assignee-checkbox"
+        )
+      ) {
+        syncDelegateSelectAll();
+      }
     }
   );
 
