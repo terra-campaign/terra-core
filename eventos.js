@@ -1822,33 +1822,94 @@ function createEventCard(
 
 
 
-    card.append(
-      createTerraWhatsAppCommunication({
-        recipientName:
-          invitation.assignedToName ||
-          "destinatario",
+    if (
+      eventDelegationIsOpen(
+        event
+      )
+    ) {
 
-        phone:
-          invitation.assignedToPhone ||
-          "",
+      const communicationPanel =
+        createTerraWhatsAppCommunication({
+          recipientName:
+            invitation.assignedToName ||
+            "destinatario",
 
-        hasWhatsApp:
-          invitation.assignedToHasWhatsApp ===
-          true,
+          phone:
+            invitation.assignedToPhone ||
+            "",
 
-        message:
-          eventWhatsAppMessage(
-            invitation,
-            event
-          ),
+          hasWhatsApp:
+            invitation.assignedToHasWhatsApp ===
+            true,
 
-        buttonLabel:
-          "Comunicar evento por WhatsApp",
+          message:
+            eventWhatsAppMessage(
+              invitation,
+              event
+            ),
 
-        panelTitle:
-          "Comunicar evento por WhatsApp"
-      })
-    );
+          buttonLabel:
+            "Comunicar evento por WhatsApp",
+
+          panelTitle:
+            "Comunicar evento por WhatsApp"
+        });
+
+
+      card.append(
+        communicationPanel
+      );
+
+
+      const communicationClosesAtMillis =
+        Number.isFinite(
+          event.confirmationClosesAtMillis
+        )
+          ? event.confirmationClosesAtMillis
+          : (
+              Date.parse(
+                event.startsAt || ""
+              ) -
+              (
+                Number.isFinite(
+                  event.confirmationLeadMinutes
+                )
+                  ? event.confirmationLeadMinutes
+                  : 60
+              ) *
+              60 *
+              1000
+            );
+
+
+      const communicationRemainingMillis =
+        communicationClosesAtMillis -
+        Date.now();
+
+
+      if (
+        communicationRemainingMillis > 0 &&
+        communicationRemainingMillis <=
+          2147483647
+      ) {
+
+        window.setTimeout(
+          () => {
+
+            if (
+              document.body.contains(
+                communicationPanel
+              )
+            ) {
+              communicationPanel.remove();
+            }
+          },
+
+          communicationRemainingMillis +
+          1000
+        );
+      }
+    }
   }
 
 
