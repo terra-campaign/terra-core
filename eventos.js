@@ -1755,6 +1755,9 @@ function createEventCard(
     if (
       canDelegateInvitation(
         invitation
+      ) &&
+      eventDelegationIsOpen(
+        event
       )
     ) {
 
@@ -2486,6 +2489,60 @@ $("newEventForm")
 // DELEGAR EVENTO RECIBIDO
 // ======================================================
 
+function eventDelegationIsOpen(
+  event
+) {
+
+  if (
+    !event ||
+    event.active !== true
+  ) {
+    return false;
+  }
+
+
+  const closesAtMillis =
+    Number.isFinite(
+      event.confirmationClosesAtMillis
+    )
+      ? event.confirmationClosesAtMillis
+      : (
+          Date.parse(
+            event.startsAt || ""
+          ) -
+          (
+            Number.isFinite(
+              event.confirmationLeadMinutes
+            )
+              ? event.confirmationLeadMinutes
+              : 60
+          ) *
+          60 *
+          1000
+        );
+
+
+  const startsAtMillis =
+    Date.parse(
+      event.startsAt || ""
+    );
+
+
+  return (
+    Number.isFinite(
+      closesAtMillis
+    ) &&
+    Number.isFinite(
+      startsAtMillis
+    ) &&
+    Date.now() <
+      closesAtMillis &&
+    Date.now() <
+      startsAtMillis
+  );
+}
+
+
 function openDelegate(
   invitationId
 ) {
@@ -2514,6 +2571,19 @@ function openDelegate(
     eventById(
       invitation.eventId
     );
+
+
+  if (
+    !eventDelegationIsOpen(
+      event
+    )
+  ) {
+
+    $("delegateSection").hidden =
+      true;
+
+    return;
+  }
 
 
   selectedInvitationId =
