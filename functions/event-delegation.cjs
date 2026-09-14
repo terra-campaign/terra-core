@@ -46,6 +46,7 @@ const EVENT_RESPONSE_STATUSES =
 
 const EVENT_CONFIRMATION_LEAD_MINUTES =
   new Set([
+    0,
     60,
     120,
     360,

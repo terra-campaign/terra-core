@@ -49,6 +49,42 @@ assert.equal(
 );
 
 
+
+assert.equal(
+  EVENT_CONFIRMATION_LEAD_MINUTES.has(0),
+  true
+);
+
+
+const urgentEventTime =
+  Date.parse(
+    '2099-01-01T18:00:00.000Z'
+  );
+
+
+assert.equal(
+  eventConfirmationClosesAtMillis({
+    active:
+      true,
+
+    startsAt:
+      '2099-01-01T18:00:00.000Z',
+
+    startsAtMillis:
+      urgentEventTime,
+
+    confirmationLeadMinutes:
+      0
+  }),
+  urgentEventTime
+);
+
+
+console.log(
+  'OK: BUILD-118C-3A1 urgent event confirmation tests passed.'
+);
+
+
 const coordinator = {
   uid: 'COORD',
   role: 'coordinador_municipal',
