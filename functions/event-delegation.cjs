@@ -275,6 +275,56 @@ function eventResponseView(snapshot) {
 }
 
 
+
+function eventIncidentView(snapshot) {
+
+  if (
+    !snapshot ||
+    !snapshot.exists
+  ) {
+    return null;
+  }
+
+
+  const d =
+    snapshot.data();
+
+
+  const reason =
+    EVENT_INCIDENT_REASONS.has(
+      d.reason
+    )
+      ? d.reason
+      : 'other';
+
+
+  return {
+    reported: true,
+
+    reason,
+
+    note:
+      typeof d.note === 'string'
+        ? d.note
+        : '',
+
+    reportedAt:
+      timestampIso(
+        d.reportedAt
+      ),
+
+    originalResponseStatus:
+      d.originalResponseStatus ||
+      'attending',
+
+    version:
+      Number(
+        d.version
+      ) || 1
+  };
+}
+
+
 const EVENT_INCIDENT_REASONS =
   new Set([
     'transport',
@@ -1831,6 +1881,96 @@ exports.getEventWorkspace =
 
 
       // ==================================================
+      // IMPREVISTOS DE EVENTO
+      // Un registro inmutable por invitación.
+      // Solo se consultan invitaciones ya visibles
+      // para el usuario actual.
+      // ==================================================
+
+      const incidents =
+        new Map();
+
+
+      for (
+        let offset = 0;
+        offset <
+          responseInvitationIds.length;
+        offset += 100
+      ) {
+
+        const part =
+          responseInvitationIds.slice(
+            offset,
+            offset + 100
+          );
+
+
+        const snapshots =
+          await db.getAll(
+            ...part.map(
+              invitationId =>
+                db.collection(
+                  'eventIncidents'
+                ).doc(
+                  invitationId
+                )
+            )
+          );
+
+
+        for (
+          const snapshot of
+          snapshots
+        ) {
+
+          if (!snapshot.exists) {
+            continue;
+          }
+
+
+          const data =
+            snapshot.data();
+
+
+          if (
+            data.campaignId !==
+              profile.campaignId
+          ) {
+            continue;
+          }
+
+
+          incidents.set(
+            snapshot.id,
+            eventIncidentView(
+              snapshot
+            )
+          );
+        }
+      }
+
+
+      const attachIncident =
+        invitation => {
+
+          invitation.incident =
+            incidents.get(
+              invitation.id
+            ) || null;
+        };
+
+
+      receivedInvitations.forEach(
+        attachIncident
+      );
+
+
+      createdInvitations.forEach(
+        attachIncident
+      );
+
+
+      // ==================================================
       // EVENTOS MAESTROS RELACIONADOS
       // ==================================================
 
@@ -1993,7 +2133,8 @@ exports._test = {
   EVENT_CONFIRMATION_LEAD_MINUTES,
   eventConfirmationClosesAtMillis,
   EVENT_INCIDENT_REASONS,
-  canReportEventIncident
+  canReportEventIncident,
+  eventIncidentView
 };
 
 

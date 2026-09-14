@@ -13,7 +13,8 @@ const {
   EVENT_CONFIRMATION_LEAD_MINUTES,
   eventConfirmationClosesAtMillis,
   EVENT_INCIDENT_REASONS,
-  canReportEventIncident
+  canReportEventIncident,
+  eventIncidentView
 } =
   require('./event-delegation.cjs')._test;
 
@@ -543,4 +544,54 @@ assert.equal(
 
 console.log(
   'OK: BUILD-118B-3C-1 incident tests passed.'
+);
+
+const incidentView =
+  eventIncidentView({
+    exists: true,
+    data() {
+      return {
+        reason:
+          'transport',
+        note:
+          'Falla mecanica',
+        originalResponseStatus:
+          'attending',
+        version:
+          1,
+        reportedAt: {
+          toDate() {
+            return new Date(
+              '2099-01-01T17:10:00.000Z'
+            );
+          }
+        }
+      };
+    }
+  });
+
+
+assert.deepEqual(
+  incidentView,
+  {
+    reported: true,
+    reason: 'transport',
+    note: 'Falla mecanica',
+    reportedAt:
+      '2099-01-01T17:10:00.000Z',
+    originalResponseStatus:
+      'attending',
+    version: 1
+  }
+);
+
+
+assert.equal(
+  eventIncidentView(null),
+  null
+);
+
+
+console.log(
+  'OK: BUILD-118B-3C-2A incident workspace tests passed.'
 );
