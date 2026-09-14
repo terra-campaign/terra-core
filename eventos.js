@@ -2089,7 +2089,55 @@ function attendanceEventIds() {
 
 
 const ATTENDANCE_EARLY_MINUTES =
-  30;
+  45;
+
+
+const ATTENDANCE_LATE_MINUTES =
+  90;
+
+
+function attendanceCheckInWindow(
+  event
+) {
+
+  const startsAtMillis =
+    Number.isFinite(
+      event?.startsAtMillis
+    )
+      ? event.startsAtMillis
+      : Date.parse(
+          event?.startsAt || ""
+        );
+
+
+  if (
+    !Number.isFinite(
+      startsAtMillis
+    )
+  ) {
+    return null;
+  }
+
+
+  return {
+
+    opensAtMillis:
+      startsAtMillis -
+      (
+        ATTENDANCE_EARLY_MINUTES *
+        60 *
+        1000
+      ),
+
+    closesAtMillis:
+      startsAtMillis +
+      (
+        ATTENDANCE_LATE_MINUTES *
+        60 *
+        1000
+      )
+  };
+}
 
 
 function attendanceCheckInIsOpen(
@@ -2101,37 +2149,45 @@ function attendanceCheckInIsOpen(
   }
 
 
-  const startsAtMillis =
-    Number.isFinite(
-      event.startsAtMillis
-    )
-      ? event.startsAtMillis
-      : Date.parse(
-          event.startsAt || ""
-        );
+  const window =
+    attendanceCheckInWindow(
+      event
+    );
 
 
-  if (
-    !Number.isFinite(
-      startsAtMillis
-    )
-  ) {
+  if (!window) {
     return false;
   }
 
 
-  const checkInOpensAtMillis =
-    startsAtMillis -
-    (
-      ATTENDANCE_EARLY_MINUTES *
-      60 *
-      1000
-    );
+  const now =
+    Date.now();
 
 
   return (
+    now >=
+      window.opensAtMillis &&
+    now <
+      window.closesAtMillis
+  );
+}
+
+
+function attendanceCheckInHasClosed(
+  event
+) {
+
+  const window =
+    attendanceCheckInWindow(
+      event
+    );
+
+
+  return Boolean(
+    event?.active &&
+    window &&
     Date.now() >=
-      checkInOpensAtMillis
+      window.closesAtMillis
   );
 }
 
@@ -2297,8 +2353,14 @@ function renderAttendancePeople() {
     attendanceWorkspace.event;
 
 
-  const started =
+  const checkInOpen =
     attendanceCheckInIsOpen(
+      event
+    );
+
+
+  const checkInClosed =
+    attendanceCheckInHasClosed(
       event
     );
 
@@ -2530,12 +2592,14 @@ function renderAttendancePeople() {
     }
 
 
-    if (!started) {
+    if (!checkInOpen) {
 
       const waiting =
         node(
           "p",
-          "El registro de presencia se habilitará 30 minutos antes de la hora citada."
+          checkInClosed
+            ? "ASISTENCIA CERRADA. El registro terminó 1 hora 30 minutos después de la hora citada."
+            : "El registro de presencia se habilitará 45 minutos antes de la hora citada."
         );
 
 
@@ -3030,17 +3094,27 @@ function renderAttendanceControl() {
     );
 
 
-  const started =
+  const checkInOpen =
     attendanceCheckInIsOpen(
+      event
+    );
+
+
+  const checkInClosed =
+    attendanceCheckInHasClosed(
       event
     );
 
 
   $("attendanceTimingStatus")
     .textContent =
-    started
+    checkInOpen
       ? "La recepción de asistentes está abierta. Puedes registrar presencia física."
-      : "Puedes consultar el padrón. La recepción se habilitará 30 minutos antes de la hora citada.";
+      : (
+          checkInClosed
+            ? "ASISTENCIA CERRADA. El registro terminó 1 hora 30 minutos después de la hora citada."
+            : "Puedes consultar el padrón. La recepción se habilitará 45 minutos antes de la hora citada."
+        );
 
 
   renderAttendancePeople();

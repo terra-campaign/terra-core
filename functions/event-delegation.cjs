@@ -554,7 +554,53 @@ function eventAttendanceView(snapshot) {
 
 
 const EVENT_ATTENDANCE_EARLY_MINUTES =
-  30;
+  45;
+
+
+const EVENT_ATTENDANCE_LATE_MINUTES =
+  90;
+
+
+function eventAttendanceWindow(
+  event
+) {
+
+  const startsAtMillis =
+    eventStartsAtMillis(
+      event
+    );
+
+
+  if (
+    !Number.isFinite(
+      startsAtMillis
+    )
+  ) {
+    return null;
+  }
+
+
+  return {
+
+    startsAtMillis,
+
+    opensAtMillis:
+      startsAtMillis -
+      (
+        EVENT_ATTENDANCE_EARLY_MINUTES *
+        60 *
+        1000
+      ),
+
+    closesAtMillis:
+      startsAtMillis +
+      (
+        EVENT_ATTENDANCE_LATE_MINUTES *
+        60 *
+        1000
+      )
+  };
+}
 
 
 function canRecordEventAttendanceAt(
@@ -570,33 +616,22 @@ function canRecordEventAttendanceAt(
   }
 
 
-  const startsAtMillis =
-    eventStartsAtMillis(
+  const window =
+    eventAttendanceWindow(
       event
     );
 
 
-  if (
-    !Number.isFinite(
-      startsAtMillis
-    )
-  ) {
+  if (!window) {
     return false;
   }
 
 
-  const checkInOpensAtMillis =
-    startsAtMillis -
-    (
-      EVENT_ATTENDANCE_EARLY_MINUTES *
-      60 *
-      1000
-    );
-
-
   return (
     nowMillis >=
-      checkInOpensAtMillis
+      window.opensAtMillis &&
+    nowMillis <
+      window.closesAtMillis
   );
 }
 
@@ -2608,6 +2643,8 @@ exports._test = {
   canValidateEventAttendance,
   EVENT_ENABLED_CHECKIN_METHODS,
   EVENT_ATTENDANCE_EARLY_MINUTES,
+  EVENT_ATTENDANCE_LATE_MINUTES,
+  eventAttendanceWindow,
   canRecordEventAttendanceAt,
   eventAttendanceWorkspaceScope,
   eventAttendanceInvitationAllowed
@@ -3597,7 +3634,7 @@ exports.recordEventAttendance =
 
           // ==============================================
           // ASISTENCIA REAL
-          // Puede registrarse desde 30 minutos antes de la hora citada.
+          // Puede registrarse desde 45 minutos antes y hasta 90 minutos después de la hora citada.
           // ==============================================
 
           if (
@@ -3608,7 +3645,7 @@ exports.recordEventAttendance =
           ) {
             fail(
               'failed-precondition',
-              'La asistencia real solo puede registrarse desde 30 minutos antes de la hora citada.'
+              'La asistencia real solo puede registrarse entre 45 minutos antes y 1 hora 30 minutos después de la hora citada.'
             );
           }
 
