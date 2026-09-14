@@ -4697,6 +4697,10 @@ exports.getEventWorkspace =
 exports.respondToEventInvitation =
   require("./event-delegation.cjs").respondToEventInvitation;
 
+
+exports.reportEventIncident =
+  require("./event-delegation.cjs").reportEventIncident;
+
 exports.createLinkedMissions =
   require("./mission-delegation.cjs").createLinkedMissions;
 

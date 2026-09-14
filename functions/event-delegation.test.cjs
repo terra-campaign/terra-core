@@ -11,7 +11,9 @@ const {
   eventStartsAtMillis,
   canRespondToEventInvitation,
   EVENT_CONFIRMATION_LEAD_MINUTES,
-  eventConfirmationClosesAtMillis
+  eventConfirmationClosesAtMillis,
+  EVENT_INCIDENT_REASONS,
+  canReportEventIncident
 } =
   require('./event-delegation.cjs')._test;
 
@@ -424,4 +426,121 @@ assert.equal(
 
 console.log(
   'OK: BUILD-118B-3A confirmation deadline tests passed.'
+);
+
+assert.equal(
+  EVENT_INCIDENT_REASONS.has(
+    'transport'
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_INCIDENT_REASONS.has(
+    'health'
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_INCIDENT_REASONS.has(
+    'other'
+  ),
+  true
+);
+
+assert.equal(
+  EVENT_INCIDENT_REASONS.has(
+    'unknown'
+  ),
+  false
+);
+
+
+const attendingResponse = {
+  status: 'attending',
+  commitment: true,
+  version: 1
+};
+
+
+assert.equal(
+  canReportEventIncident(
+    participant,
+    responseInvitation,
+    responseEvent,
+    attendingResponse,
+    Date.parse(
+      '2099-01-01T17:01:00.000Z'
+    )
+  ),
+  true
+);
+
+
+assert.equal(
+  canReportEventIncident(
+    participant,
+    responseInvitation,
+    responseEvent,
+    attendingResponse,
+    Date.parse(
+      '2099-01-01T16:59:00.000Z'
+    )
+  ),
+  false
+);
+
+
+assert.equal(
+  canReportEventIncident(
+    participant,
+    responseInvitation,
+    responseEvent,
+    attendingResponse,
+    Date.parse(
+      '2099-01-01T18:00:00.000Z'
+    )
+  ),
+  false
+);
+
+
+assert.equal(
+  canReportEventIncident(
+    participant,
+    responseInvitation,
+    responseEvent,
+    {
+      status:
+        'not_attending'
+    },
+    Date.parse(
+      '2099-01-01T17:01:00.000Z'
+    )
+  ),
+  false
+);
+
+
+assert.equal(
+  canReportEventIncident(
+    {
+      ...participant,
+      uid:
+        'OTHER'
+    },
+    responseInvitation,
+    responseEvent,
+    attendingResponse,
+    Date.parse(
+      '2099-01-01T17:01:00.000Z'
+    )
+  ),
+  false
+);
+
+
+console.log(
+  'OK: BUILD-118B-3C-1 incident tests passed.'
 );

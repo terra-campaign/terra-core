@@ -275,6 +275,122 @@ function eventResponseView(snapshot) {
 }
 
 
+const EVENT_INCIDENT_REASONS =
+  new Set([
+    'transport',
+    'health',
+    'family',
+    'work',
+    'other'
+  ]);
+
+
+function eventIncidentReason(value) {
+
+  if (
+    typeof value !== 'string' ||
+    !EVENT_INCIDENT_REASONS.has(
+      value
+    )
+  ) {
+    fail(
+      'invalid-argument',
+      'Selecciona el motivo del imprevisto.'
+    );
+  }
+
+  return value;
+}
+
+
+function canReportEventIncident(
+  profile,
+  invitation,
+  event,
+  response,
+  nowMillis = Date.now()
+) {
+
+  if (
+    !profile ||
+    !invitation ||
+    !event ||
+    !response
+  ) {
+    return false;
+  }
+
+
+  if (
+    profile.active !== true ||
+    invitation.active !== true ||
+    event.active !== true
+  ) {
+    return false;
+  }
+
+
+  if (
+    invitation.assignedTo !==
+      profile.uid
+  ) {
+    return false;
+  }
+
+
+  if (
+    invitation.campaignId !==
+      profile.campaignId ||
+    event.campaignId !==
+      profile.campaignId
+  ) {
+    return false;
+  }
+
+
+  if (
+    invitation.eventId !==
+      event.id
+  ) {
+    return false;
+  }
+
+
+  if (
+    response.status !==
+      'attending'
+  ) {
+    return false;
+  }
+
+
+  const closesAtMillis =
+    eventConfirmationClosesAtMillis(
+      event
+    );
+
+
+  const startsAtMillis =
+    eventStartsAtMillis(
+      event
+    );
+
+
+  return (
+    Number.isFinite(
+      closesAtMillis
+    ) &&
+    Number.isFinite(
+      startsAtMillis
+    ) &&
+    nowMillis >=
+      closesAtMillis &&
+    nowMillis <
+      startsAtMillis
+  );
+}
+
+
 function fail(code, message) {
   throw new HttpsError(code, message);
 }
@@ -1875,7 +1991,9 @@ exports._test = {
   canRespondToEventInvitation,
   eventResponseView,
   EVENT_CONFIRMATION_LEAD_MINUTES,
-  eventConfirmationClosesAtMillis
+  eventConfirmationClosesAtMillis,
+  EVENT_INCIDENT_REASONS,
+  canReportEventIncident
 };
 
 
@@ -2294,6 +2412,405 @@ exports.respondToEventInvitation =
 
               version:
                 nextVersion
+            }
+          };
+        }
+      );
+    }
+  );
+
+
+// ======================================================
+// BUILD-118B-3C-1
+// REPORTAR IMPREVISTO POSTERIOR AL CIERRE
+// ======================================================
+
+exports.reportEventIncident =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const db =
+        getFirestore();
+
+
+      const data =
+        request.data || {};
+
+
+      const invitationId =
+        validId(
+          data.invitationId
+        );
+
+
+      const reason =
+        eventIncidentReason(
+          data.reason
+        );
+
+
+      const note =
+        text(
+          data.note,
+          300
+        );
+
+
+      return db.runTransaction(
+        async tx => {
+
+          // ==============================================
+          // PERSONA QUE REPORTA
+          // ==============================================
+
+          const profile =
+            await caller(
+              tx,
+              db,
+              request
+            );
+
+
+          // ==============================================
+          // INVITACION
+          // ==============================================
+
+          const invitationRef =
+            db.collection(
+              'eventInvitations'
+            ).doc(
+              invitationId
+            );
+
+
+          const invitationSnapshot =
+            await tx.get(
+              invitationRef
+            );
+
+
+          if (
+            !invitationSnapshot.exists
+          ) {
+            fail(
+              'not-found',
+              'La invitación no existe.'
+            );
+          }
+
+
+          const invitation = {
+            ...invitationSnapshot.data(),
+            id:
+              invitationSnapshot.id
+          };
+
+
+          if (
+            invitation.assignedTo !==
+              profile.uid
+          ) {
+            fail(
+              'permission-denied',
+              'Solo puedes reportar un imprevisto sobre tu propia invitación.'
+            );
+          }
+
+
+          if (
+            invitation.campaignId !==
+              profile.campaignId
+          ) {
+            fail(
+              'permission-denied',
+              'La invitación pertenece a otra campaña.'
+            );
+          }
+
+
+          if (
+            invitation.active !== true
+          ) {
+            fail(
+              'failed-precondition',
+              'La invitación ya no está activa.'
+            );
+          }
+
+
+          // ==============================================
+          // EVENTO
+          // ==============================================
+
+          const eventRef =
+            db.collection(
+              'events'
+            ).doc(
+              validId(
+                invitation.eventId
+              )
+            );
+
+
+          const eventSnapshot =
+            await tx.get(
+              eventRef
+            );
+
+
+          if (
+            !eventSnapshot.exists
+          ) {
+            fail(
+              'not-found',
+              'El evento no existe.'
+            );
+          }
+
+
+          const event = {
+            ...eventSnapshot.data(),
+            id:
+              eventSnapshot.id
+          };
+
+
+          // ==============================================
+          // RESPUESTA / COMPROMISO ORIGINAL
+          // ==============================================
+
+          const responseRef =
+            db.collection(
+              'eventResponses'
+            ).doc(
+              invitationId
+            );
+
+
+          const responseSnapshot =
+            await tx.get(
+              responseRef
+            );
+
+
+          if (
+            !responseSnapshot.exists
+          ) {
+            fail(
+              'failed-precondition',
+              'No existe una confirmación de asistencia.'
+            );
+          }
+
+
+          const response =
+            responseSnapshot.data();
+
+
+          const nowMillis =
+            Date.now();
+
+
+          const closesAtMillis =
+            eventConfirmationClosesAtMillis(
+              event
+            );
+
+
+          const startsAtMillis =
+            eventStartsAtMillis(
+              event
+            );
+
+
+          if (
+            response.status !==
+              'attending'
+          ) {
+            fail(
+              'failed-precondition',
+              'Solo quien confirmó Asistiré puede reportar un imprevisto posterior.'
+            );
+          }
+
+
+          if (
+            Number.isFinite(
+              closesAtMillis
+            ) &&
+            nowMillis <
+              closesAtMillis
+          ) {
+            fail(
+              'failed-precondition',
+              'La confirmación todavía está abierta. Puedes cambiar tu respuesta normalmente.'
+            );
+          }
+
+
+          if (
+            Number.isFinite(
+              startsAtMillis
+            ) &&
+            nowMillis >=
+              startsAtMillis
+          ) {
+            fail(
+              'failed-precondition',
+              'El evento ya comenzó. El periodo para reportar un imprevisto previo terminó.'
+            );
+          }
+
+
+          if (
+            !canReportEventIncident(
+              profile,
+              invitation,
+              event,
+              response,
+              nowMillis
+            )
+          ) {
+            fail(
+              'failed-precondition',
+              'No es posible reportar este imprevisto.'
+            );
+          }
+
+
+          // ==============================================
+          // UN IMPREVISTO INMUTABLE POR INVITACION
+          // ==============================================
+
+          const incidentRef =
+            db.collection(
+              'eventIncidents'
+            ).doc(
+              invitationId
+            );
+
+
+          const incidentSnapshot =
+            await tx.get(
+              incidentRef
+            );
+
+
+          if (
+            incidentSnapshot.exists
+          ) {
+
+            const existing =
+              incidentSnapshot.data();
+
+
+            return {
+
+              success:
+                true,
+
+              unchanged:
+                true,
+
+              incident: {
+
+                invitationId,
+
+                eventId:
+                  event.id,
+
+                reason:
+                  existing.reason ||
+                  'other',
+
+                alreadyReported:
+                  true
+              }
+            };
+          }
+
+
+          const serverNow =
+            FieldValue.serverTimestamp();
+
+
+          const incident = {
+
+            invitationId,
+
+            eventId:
+              event.id,
+
+            campaignId:
+              profile.campaignId,
+
+            personId:
+              profile.uid,
+
+            personName:
+              profile.name || '',
+
+            originalResponseStatus:
+              'attending',
+
+            responseVersion:
+              Number(
+                response.version
+              ) || 1,
+
+            reason,
+
+            note,
+
+            confirmationClosesAtMillis:
+              closesAtMillis,
+
+            startsAtMillis,
+
+            reportedBy:
+              profile.uid,
+
+            reportedByName:
+              profile.name || '',
+
+            channel:
+              'terra_web',
+
+            reportedAt:
+              serverNow,
+
+            version:
+              1
+          };
+
+
+          tx.create(
+            incidentRef,
+            incident
+          );
+
+
+          return {
+
+            success:
+              true,
+
+            unchanged:
+              false,
+
+            incident: {
+
+              invitationId,
+
+              eventId:
+                event.id,
+
+              reason,
+
+              alreadyReported:
+                false
             }
           };
         }
