@@ -2490,6 +2490,11 @@ function renderAttendancePeople() {
       );
 
 
+      list.append(
+        card
+      );
+
+
       continue;
     }
 
@@ -2510,6 +2515,12 @@ function renderAttendancePeople() {
       card.append(
         waiting
       );
+
+
+      list.append(
+        card
+      );
+
 
       continue;
     }
@@ -2541,6 +2552,11 @@ function renderAttendancePeople() {
 
     card.append(
       button
+    );
+
+
+    list.append(
+      card
     );
   }
 }
