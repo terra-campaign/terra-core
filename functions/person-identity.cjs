@@ -616,13 +616,9 @@ exports.searchPersonCandidates =
 
         candidates.push({
 
-          // Identificador operativo interno.
-          // No exponemos el UID de Authentication
-          // como dato independiente.
-          personId:
-            profile.personId ||
-            document.id,
-
+          // BUILD-118C-3B1 solo detecta coincidencias.
+          // No devuelve UID ni personId hasta contar
+          // con una referencia opaca segura.
           name:
             typeof profile.name ===
               'string'
