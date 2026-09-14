@@ -4705,6 +4705,10 @@ exports.reportEventIncident =
 exports.recordEventAttendance =
   require("./event-delegation.cjs").recordEventAttendance;
 
+
+exports.getEventAttendanceWorkspace =
+  require("./event-delegation.cjs").getEventAttendanceWorkspace;
+
 exports.createLinkedMissions =
   require("./mission-delegation.cjs").createLinkedMissions;
 

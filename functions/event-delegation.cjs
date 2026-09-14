@@ -2473,6 +2473,98 @@ exports.getEventWorkspace =
 
 
 // ======================================================
+// BUILD-118C-2A
+// AUTORIZACION DEL WORKSPACE DE ASISTENCIA
+// ======================================================
+
+function eventAttendanceWorkspaceScope(
+  profile,
+  event
+) {
+
+  if (
+    !profile ||
+    !event ||
+    profile.active !== true ||
+    !profile.uid ||
+    !profile.campaignId ||
+    event.campaignId !==
+      profile.campaignId
+  ) {
+    return 'none';
+  }
+
+
+  // Quien creó el evento maestro puede
+  // controlar la asistencia completa.
+  if (
+    event.createdBy ===
+      profile.uid
+  ) {
+    return 'event';
+  }
+
+
+  // Preparado para validadores designados.
+  // Todavía no existe UI para asignarlos.
+  if (
+    Array.isArray(
+      event.attendanceValidatorIds
+    ) &&
+    event.attendanceValidatorIds
+      .includes(
+        profile.uid
+      )
+  ) {
+    return 'event';
+  }
+
+
+  // Un responsable que delegó personas
+  // puede controlar únicamente sus
+  // invitaciones directas.
+  return 'direct';
+}
+
+
+function eventAttendanceInvitationAllowed(
+  scope,
+  profile,
+  invitation,
+  eventId
+) {
+
+  if (
+    !profile ||
+    !invitation ||
+    invitation.active !== true ||
+    invitation.campaignId !==
+      profile.campaignId ||
+    invitation.eventId !==
+      eventId
+  ) {
+    return false;
+  }
+
+
+  if (scope === 'event') {
+    return true;
+  }
+
+
+  if (scope === 'direct') {
+    return (
+      invitation.createdBy ===
+      profile.uid
+    );
+  }
+
+
+  return false;
+}
+
+
+// ======================================================
 // HELPERS PARA PRUEBAS
 // ======================================================
 
@@ -2495,7 +2587,9 @@ exports._test = {
   eventAttendanceView,
   canValidateEventAttendance,
   EVENT_ENABLED_CHECKIN_METHODS,
-  canRecordEventAttendanceAt
+  canRecordEventAttendanceAt,
+  eventAttendanceWorkspaceScope,
+  eventAttendanceInvitationAllowed
 };
 
 
@@ -3511,6 +3605,7 @@ exports.recordEventAttendance =
 
           const personId =
             validId(
+              invitation.personId ||
               invitation.assignedTo
             );
 
@@ -3522,10 +3617,17 @@ exports.recordEventAttendance =
               : '';
 
 
-          // En la fase actual existe cuenta digital.
-          // En REQ-002 este campo será opcional.
+          // REQ-002:
+          // la identidad operativa puede existir
+          // sin cuenta digital.
           const accountUid =
-            personId;
+            typeof invitation.assignedTo ===
+              'string' &&
+            invitation.assignedTo.trim()
+              ? validId(
+                  invitation.assignedTo
+                )
+              : null;
 
 
           const attendanceId =
@@ -3676,5 +3778,490 @@ exports.recordEventAttendance =
           };
         }
       );
+    }
+  );
+
+
+// ======================================================
+// BUILD-118C-2A
+// WORKSPACE SEGURO DE CONTROL DE ASISTENCIA
+// ======================================================
+
+exports.getEventAttendanceWorkspace =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const db =
+        getFirestore();
+
+
+      const eventId =
+        validId(
+          request.data?.eventId
+        );
+
+
+      const profile =
+        await readCaller(
+          db,
+          request
+        );
+
+
+      // ==============================================
+      // EVENTO MAESTRO
+      // ==============================================
+
+      const eventSnapshot =
+        await db.collection(
+          'events'
+        ).doc(
+          eventId
+        ).get();
+
+
+      if (!eventSnapshot.exists) {
+        fail(
+          'not-found',
+          'El evento no existe.'
+        );
+      }
+
+
+      const rawEvent = {
+        ...eventSnapshot.data(),
+        id:
+          eventSnapshot.id
+      };
+
+
+      if (
+        rawEvent.campaignId !==
+          profile.campaignId
+      ) {
+        fail(
+          'permission-denied',
+          'El evento pertenece a otra campaña.'
+        );
+      }
+
+
+      const event =
+        eventView(
+          eventSnapshot
+        );
+
+
+      const scope =
+        eventAttendanceWorkspaceScope(
+          profile,
+          rawEvent
+        );
+
+
+      if (scope === 'none') {
+        fail(
+          'permission-denied',
+          'No tienes autorización para consultar la asistencia de este evento.'
+        );
+      }
+
+
+      // ==============================================
+      // INVITACIONES DEL EVENTO
+      //
+      // Consulta por eventId.
+      // La privacidad se aplica en backend antes
+      // de devolver cualquier persona.
+      // ==============================================
+
+      const invitationSnapshot =
+        await db.collection(
+          'eventInvitations'
+        )
+          .where(
+            'eventId',
+            '==',
+            eventId
+          )
+          .limit(500)
+          .get();
+
+
+      const allowedSnapshots =
+        invitationSnapshot.docs
+          .filter(
+            snapshot =>
+              eventAttendanceInvitationAllowed(
+                scope,
+                profile,
+                snapshot.data(),
+                eventId
+              )
+          );
+
+
+      if (
+        scope === 'direct' &&
+        !allowedSnapshots.length
+      ) {
+        fail(
+          'permission-denied',
+          'No tienes personas a tu cargo para validar en este evento.'
+        );
+      }
+
+
+      const invitations =
+        allowedSnapshots.map(
+          invitationView
+        );
+
+
+      // ==============================================
+      // RESPUESTAS
+      // ==============================================
+
+      const responses =
+        new Map();
+
+
+      for (
+        let offset = 0;
+        offset < invitations.length;
+        offset += 100
+      ) {
+
+        const part =
+          invitations.slice(
+            offset,
+            offset + 100
+          );
+
+
+        const snapshots =
+          await db.getAll(
+            ...part.map(
+              invitation =>
+                db.collection(
+                  'eventResponses'
+                ).doc(
+                  invitation.id
+                )
+            )
+          );
+
+
+        for (const snapshot of snapshots) {
+
+          if (!snapshot.exists) {
+            continue;
+          }
+
+
+          const data =
+            snapshot.data();
+
+
+          if (
+            data.campaignId !==
+              profile.campaignId
+          ) {
+            continue;
+          }
+
+
+          responses.set(
+            snapshot.id,
+            eventResponseView(
+              snapshot
+            )
+          );
+        }
+      }
+
+
+      // ==============================================
+      // IMPREVISTOS
+      // ==============================================
+
+      const incidents =
+        new Map();
+
+
+      for (
+        let offset = 0;
+        offset < invitations.length;
+        offset += 100
+      ) {
+
+        const part =
+          invitations.slice(
+            offset,
+            offset + 100
+          );
+
+
+        const snapshots =
+          await db.getAll(
+            ...part.map(
+              invitation =>
+                db.collection(
+                  'eventIncidents'
+                ).doc(
+                  invitation.id
+                )
+            )
+          );
+
+
+        for (const snapshot of snapshots) {
+
+          if (!snapshot.exists) {
+            continue;
+          }
+
+
+          const data =
+            snapshot.data();
+
+
+          if (
+            data.campaignId !==
+              profile.campaignId
+          ) {
+            continue;
+          }
+
+
+          incidents.set(
+            snapshot.id,
+            eventIncidentView(
+              snapshot
+            )
+          );
+        }
+      }
+
+
+      // ==============================================
+      // ASISTENCIA REAL
+      // ==============================================
+
+      const attendanceIds =
+        invitations
+          .map(
+            invitation => {
+
+              const personId =
+                invitation.personId ||
+                invitation.assignedTo ||
+                '';
+
+
+              if (!personId) {
+                return null;
+              }
+
+
+              return {
+                invitationId:
+                  invitation.id,
+
+                attendanceId:
+                  eventAttendanceDocumentId(
+                    eventId,
+                    personId
+                  )
+              };
+            }
+          )
+          .filter(Boolean);
+
+
+      const attendance =
+        new Map();
+
+
+      for (
+        let offset = 0;
+        offset < attendanceIds.length;
+        offset += 100
+      ) {
+
+        const part =
+          attendanceIds.slice(
+            offset,
+            offset + 100
+          );
+
+
+        const snapshots =
+          await db.getAll(
+            ...part.map(
+              item =>
+                db.collection(
+                  'eventAttendance'
+                ).doc(
+                  item.attendanceId
+                )
+            )
+          );
+
+
+        snapshots.forEach(
+          (snapshot, index) => {
+
+            if (!snapshot.exists) {
+              return;
+            }
+
+
+            const data =
+              snapshot.data();
+
+
+            if (
+              data.campaignId !==
+                profile.campaignId
+            ) {
+              return;
+            }
+
+
+            attendance.set(
+              part[index].invitationId,
+              eventAttendanceView(
+                snapshot
+              )
+            );
+          }
+        );
+      }
+
+
+      // ==============================================
+      // ENSAMBLAR PADRON OPERATIVO
+      // ==============================================
+
+      for (const invitation of invitations) {
+
+        invitation.response =
+          responses.get(
+            invitation.id
+          ) || {
+            status:
+              'pending',
+
+            commitment:
+              false,
+
+            respondedAt:
+              null,
+
+            updatedAt:
+              null
+          };
+
+
+        invitation.incident =
+          incidents.get(
+            invitation.id
+          ) || null;
+
+
+        invitation.attendance =
+          attendance.get(
+            invitation.id
+          ) || null;
+      }
+
+
+      invitations.sort(
+        (a, b) =>
+          String(
+            a.assignedToName ||
+            ''
+          ).localeCompare(
+            String(
+              b.assignedToName ||
+              ''
+            ),
+            'es'
+          )
+      );
+
+
+      // ==============================================
+      // RESUMEN
+      // ==============================================
+
+      const summary = {
+        total:
+          invitations.length,
+
+        pending:
+          0,
+
+        attending:
+          0,
+
+        notAttending:
+          0,
+
+        checkedIn:
+          0
+      };
+
+
+      for (const invitation of invitations) {
+
+        const status =
+          invitation.response?.status ||
+          'pending';
+
+
+        if (status === 'attending') {
+          summary.attending += 1;
+
+        } else if (
+          status === 'not_attending'
+        ) {
+          summary.notAttending += 1;
+
+        } else {
+          summary.pending += 1;
+        }
+
+
+        if (
+          invitation.attendance?.attended ===
+            true
+        ) {
+          summary.checkedIn += 1;
+        }
+      }
+
+
+      return {
+        event,
+
+        scope,
+
+        canValidateWholeEvent:
+          scope === 'event',
+
+        invitations,
+
+        summary,
+
+        limits: {
+          invitationsTruncated:
+            invitationSnapshot.size >=
+            500
+        }
+      };
     }
   );

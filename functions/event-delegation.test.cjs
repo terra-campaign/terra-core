@@ -20,7 +20,9 @@ const {
   eventAttendanceView,
   canValidateEventAttendance,
   EVENT_ENABLED_CHECKIN_METHODS,
-  canRecordEventAttendanceAt
+  canRecordEventAttendanceAt,
+  eventAttendanceWorkspaceScope,
+  eventAttendanceInvitationAllowed
 } =
   require('./event-delegation.cjs')._test;
 
@@ -959,4 +961,143 @@ assert.equal(
 
 console.log(
   'OK: BUILD-118C-1B attendance workspace compatibility passed.'
+);
+
+const attendanceMasterEvent = {
+  id:
+    'EVENT-ATT-WORKSPACE',
+
+  active:
+    true,
+
+  campaignId:
+    'CAM-001',
+
+  createdBy:
+    'COORD'
+};
+
+
+assert.equal(
+  eventAttendanceWorkspaceScope(
+    coordinator,
+    attendanceMasterEvent
+  ),
+  'event'
+);
+
+
+assert.equal(
+  eventAttendanceWorkspaceScope(
+    chief,
+    attendanceMasterEvent
+  ),
+  'direct'
+);
+
+
+assert.equal(
+  eventAttendanceWorkspaceScope(
+    {
+      ...chief,
+      uid:
+        'VALIDATOR'
+    },
+    {
+      ...attendanceMasterEvent,
+      attendanceValidatorIds: [
+        'VALIDATOR'
+      ]
+    }
+  ),
+  'event'
+);
+
+
+assert.equal(
+  eventAttendanceWorkspaceScope(
+    {
+      ...chief,
+      campaignId:
+        'CAM-999'
+    },
+    attendanceMasterEvent
+  ),
+  'none'
+);
+
+
+const attendanceDirectInvitation = {
+  active:
+    true,
+
+  campaignId:
+    'CAM-001',
+
+  eventId:
+    'EVENT-ATT-WORKSPACE',
+
+  createdBy:
+    'CHIEF'
+};
+
+
+assert.equal(
+  eventAttendanceInvitationAllowed(
+    'direct',
+    chief,
+    attendanceDirectInvitation,
+    'EVENT-ATT-WORKSPACE'
+  ),
+  true
+);
+
+
+assert.equal(
+  eventAttendanceInvitationAllowed(
+    'direct',
+    chief,
+    {
+      ...attendanceDirectInvitation,
+      createdBy:
+        'OTHER'
+    },
+    'EVENT-ATT-WORKSPACE'
+  ),
+  false
+);
+
+
+assert.equal(
+  eventAttendanceInvitationAllowed(
+    'event',
+    coordinator,
+    {
+      ...attendanceDirectInvitation,
+      createdBy:
+        'OTHER'
+    },
+    'EVENT-ATT-WORKSPACE'
+  ),
+  true
+);
+
+
+assert.equal(
+  eventAttendanceInvitationAllowed(
+    'event',
+    coordinator,
+    {
+      ...attendanceDirectInvitation,
+      campaignId:
+        'CAM-999'
+    },
+    'EVENT-ATT-WORKSPACE'
+  ),
+  false
+);
+
+
+console.log(
+  'OK: BUILD-118C-2A attendance workspace security passed.'
 );
