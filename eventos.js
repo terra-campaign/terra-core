@@ -3800,6 +3800,15 @@ onAuthStateChanged(
     selectedInvitationId =
       null;
 
+    attendanceWorkspace =
+      null;
+
+    selectedAttendanceEventId =
+      null;
+
+    attendanceBusy =
+      false;
+
 
     $("metricsSection").hidden =
       true;
