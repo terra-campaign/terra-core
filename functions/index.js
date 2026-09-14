@@ -4735,3 +4735,6 @@ exports.getPrincipalLeaderPanel = require('./leader-panel.cjs').getPrincipalLead
 exports.getPrincipalLeaderMissions = require('./leader-missions.cjs').getPrincipalLeaderMissions;
 
 exports.getPrincipalLeaderTerritory = require('./leader-territory.cjs').getPrincipalLeaderTerritory;
+
+exports.searchPersonCandidates =
+  require("./person-identity.cjs").searchPersonCandidates;
