@@ -190,6 +190,7 @@ function canChangeEventResponse(
 
 async function saveEventResponse(
   invitation,
+  event,
   status,
   message,
   buttons
@@ -202,6 +203,22 @@ async function saveEventResponse(
     ] ||
     status === "pending"
   ) {
+    return;
+  }
+
+
+  if (
+    !canChangeEventResponse(
+      event
+    )
+  ) {
+
+    message.textContent =
+      "El cierre de confirmaciones ya ocurrió. La respuesta normal ya no puede modificarse.";
+
+
+    await reload();
+
     return;
   }
 
@@ -395,6 +412,7 @@ function createEventResponsePanel(
       () =>
         saveEventResponse(
           invitation,
+          event,
           option.status,
           message,
           buttons
@@ -415,6 +433,48 @@ function createEventResponsePanel(
   panel.append(
     actions
   );
+
+
+  const closesAtMillis =
+    Number.isFinite(
+      event.confirmationClosesAtMillis
+    )
+      ? event.confirmationClosesAtMillis
+      : (
+          Date.parse(
+            event.startsAt || ""
+          ) -
+          60 * 60 * 1000
+        );
+
+
+  const remainingMillis =
+    closesAtMillis -
+    Date.now();
+
+
+  if (
+    remainingMillis > 0 &&
+    remainingMillis <=
+      2147483647
+  ) {
+
+    window.setTimeout(
+      () => {
+
+        if (
+          auth.currentUser &&
+          document.body.contains(
+            panel
+          )
+        ) {
+          reload();
+        }
+      },
+
+      remainingMillis + 1000
+    );
+  }
 
 
   return panel;

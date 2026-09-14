@@ -2029,17 +2029,52 @@ exports.respondToEventInvitation =
           };
 
 
+          const nowMillis =
+            Date.now();
+
+
           if (
             !canRespondToEventInvitation(
               profile,
               invitation,
               event,
-              Date.now()
+              nowMillis
             )
           ) {
+
+            if (
+              event.active !== true
+            ) {
+              fail(
+                'failed-precondition',
+                'El evento ya no está activo.'
+              );
+            }
+
+
+            const confirmationClosesAtMillis =
+              eventConfirmationClosesAtMillis(
+                event
+              );
+
+
+            if (
+              Number.isFinite(
+                confirmationClosesAtMillis
+              ) &&
+              confirmationClosesAtMillis <=
+                nowMillis
+            ) {
+              fail(
+                'failed-precondition',
+                'El cierre de confirmaciones ya ocurrió. La respuesta normal ya no puede modificarse.'
+              );
+            }
+
+
             fail(
               'failed-precondition',
-              'Este evento ya inició, está inactivo o no puede ser respondido.'
+              'Esta invitación ya no puede ser respondida.'
             );
           }
 
