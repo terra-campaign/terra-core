@@ -58,6 +58,21 @@ const reportEventIncident =
   );
 
 
+
+const getEventAttendanceWorkspace =
+  httpsCallable(
+    functions,
+    "getEventAttendanceWorkspace"
+  );
+
+
+const recordEventAttendance =
+  httpsCallable(
+    functions,
+    "recordEventAttendance"
+  );
+
+
 const $ =
   id =>
     document.getElementById(id);
@@ -151,6 +166,10 @@ let createAttempt = null;
 let delegateAttempt = null;
 let selectedInvitationId = null;
 let busy = false;
+
+let attendanceWorkspace = null;
+let selectedAttendanceEventId = null;
+let attendanceBusy = false;
 
 
 const requestedInvitationId =
@@ -2034,6 +2053,826 @@ function mountEventShortcuts() {
 
 
 // ======================================================
+// BUILD-118C-2B
+// CONTROL MANUAL DE ASISTENCIA
+// ======================================================
+
+function attendanceEventIds() {
+
+  return [
+    ...new Set(
+      (
+        workspace
+          ?.createdInvitations ||
+        []
+      )
+        .map(
+          invitation =>
+            invitation.eventId
+        )
+        .filter(Boolean)
+    )
+  ];
+}
+
+
+function attendanceEventHasStarted(
+  event
+) {
+
+  if (!event?.active) {
+    return false;
+  }
+
+
+  const startsAtMillis =
+    Number.isFinite(
+      event.startsAtMillis
+    )
+      ? event.startsAtMillis
+      : Date.parse(
+          event.startsAt || ""
+        );
+
+
+  return (
+    Number.isFinite(
+      startsAtMillis
+    ) &&
+    Date.now() >=
+      startsAtMillis
+  );
+}
+
+
+function attendanceResponseLabel(
+  invitation
+) {
+
+  const status =
+    invitation
+      ?.response
+      ?.status ||
+    "pending";
+
+
+  return (
+    EVENT_RESPONSE_LABELS[
+      status
+    ] ||
+    "Pendiente"
+  );
+}
+
+
+function renderAttendanceEventChooser() {
+
+  const section =
+    $("attendanceSection");
+
+  const list =
+    $("attendanceEventChooser");
+
+
+  if (
+    !section ||
+    !list
+  ) {
+    return;
+  }
+
+
+  const ids =
+    attendanceEventIds();
+
+
+  section.hidden =
+    !ids.length;
+
+
+  list.replaceChildren();
+
+
+  if (!ids.length) {
+    return;
+  }
+
+
+  for (const eventId of ids) {
+
+    const event =
+      eventById(
+        eventId
+      );
+
+
+    if (!event) {
+      continue;
+    }
+
+
+    const card =
+      node(
+        "article",
+        ""
+      );
+
+
+    card.className =
+      "attendance-event-option";
+
+
+    const title =
+      node(
+        "strong",
+        event.title ||
+        "Evento"
+      );
+
+
+    const meta =
+      node(
+        "p",
+        `${
+          formatDate(
+            event.startsAt
+          )
+        } · ${
+          event.venue ||
+          "Lugar sin especificar"
+        }`
+      );
+
+
+    meta.className =
+      "event-meta";
+
+
+    const button =
+      node(
+        "button",
+        selectedAttendanceEventId ===
+          eventId
+          ? "Actualizar control"
+          : "Abrir control de asistencia"
+      );
+
+
+    button.type =
+      "button";
+
+    button.className =
+      "button";
+
+    button.onclick =
+      () =>
+        openAttendanceControl(
+          eventId
+        );
+
+
+    card.append(
+      title,
+      meta,
+      button
+    );
+
+
+    list.append(
+      card
+    );
+  }
+}
+
+
+function renderAttendancePeople() {
+
+  const list =
+    $("attendancePeople");
+
+  const search =
+    $("attendanceSearch");
+
+
+  if (
+    !list ||
+    !attendanceWorkspace
+  ) {
+    return;
+  }
+
+
+  const event =
+    attendanceWorkspace.event;
+
+
+  const started =
+    attendanceEventHasStarted(
+      event
+    );
+
+
+  const query =
+    String(
+      search?.value ||
+      ""
+    )
+      .trim()
+      .toLocaleLowerCase(
+        "es-MX"
+      );
+
+
+  const invitations =
+    (
+      attendanceWorkspace
+        .invitations ||
+      []
+    )
+      .filter(
+        invitation => {
+
+          if (!query) {
+            return true;
+          }
+
+
+          return String(
+            invitation
+              .assignedToName ||
+            ""
+          )
+            .toLocaleLowerCase(
+              "es-MX"
+            )
+            .includes(
+              query
+            );
+        }
+      );
+
+
+  list.replaceChildren();
+
+
+  if (!invitations.length) {
+
+    list.append(
+      node(
+        "p",
+        query
+          ? "No hay personas que coincidan con la búsqueda."
+          : "No hay personas disponibles en este padrón."
+      )
+    );
+
+    return;
+  }
+
+
+  for (
+    const invitation of
+    invitations
+  ) {
+
+    const card =
+      node(
+        "article",
+        ""
+      );
+
+
+    card.className =
+      "attendance-person";
+
+
+    const header =
+      document.createElement(
+        "div"
+      );
+
+
+    header.className =
+      "attendance-person-header";
+
+
+    const name =
+      node(
+        "strong",
+        invitation
+          .assignedToName ||
+        "Sin nombre"
+      );
+
+
+    header.append(
+      name
+    );
+
+
+    if (
+      invitation
+        .attendance
+        ?.attended ===
+      true
+    ) {
+
+      const badge =
+        node(
+          "span",
+          "PRESENTE"
+        );
+
+
+      badge.className =
+        "attendance-badge attendance-badge--present";
+
+
+      header.append(
+        badge
+      );
+    }
+
+
+    card.append(
+      header
+    );
+
+
+    card.append(
+      node(
+        "p",
+        `Nivel: ${
+          ROLE_LABELS[
+            invitation.assignedToRole
+          ] ||
+          invitation.assignedToRole ||
+          "Sin nivel"
+        }`
+      )
+    );
+
+
+    card.append(
+      node(
+        "p",
+        `Respuesta: ${
+          attendanceResponseLabel(
+            invitation
+          )
+        }`
+      )
+    );
+
+
+    if (
+      invitation.incident
+    ) {
+
+      card.append(
+        node(
+          "p",
+          `Imprevisto: ${
+            eventIncidentReasonLabel(
+              invitation
+                .incident
+                .reason
+            )
+          }${
+            invitation
+              .incident
+              .note
+              ? " · " +
+                invitation
+                  .incident
+                  .note
+              : ""
+          }`
+        )
+      );
+    }
+
+
+    if (
+      invitation
+        .attendance
+        ?.attended ===
+      true
+    ) {
+
+      const attendance =
+        invitation.attendance;
+
+
+      card.append(
+        node(
+          "p",
+          `Registrado: ${
+            attendance.checkedInAt
+              ? formatDate(
+                  attendance.checkedInAt
+                )
+              : "Sin hora disponible"
+          }`
+        )
+      );
+
+
+      card.append(
+        node(
+          "p",
+          `Validado por: ${
+            attendance
+              .validatedByName ||
+            "Sin nombre"
+          }`
+        )
+      );
+
+
+      continue;
+    }
+
+
+    if (!started) {
+
+      const waiting =
+        node(
+          "p",
+          "El registro de presencia se habilitará cuando inicie el evento."
+        );
+
+
+      waiting.className =
+        "attendance-waiting";
+
+
+      card.append(
+        waiting
+      );
+
+      continue;
+    }
+
+
+    const button =
+      node(
+        "button",
+        "Marcar presente"
+      );
+
+
+    button.type =
+      "button";
+
+    button.className =
+      "button";
+
+    button.disabled =
+      attendanceBusy;
+
+
+    button.onclick =
+      () =>
+        markAttendancePresent(
+          invitation
+        );
+
+
+    card.append(
+      button
+    );
+  }
+}
+
+
+function renderAttendanceControl() {
+
+  const panel =
+    $("attendanceControlPanel");
+
+
+  if (
+    !panel ||
+    !attendanceWorkspace
+  ) {
+    return;
+  }
+
+
+  const event =
+    attendanceWorkspace.event ||
+    {};
+
+
+  const summary =
+    attendanceWorkspace.summary ||
+    {};
+
+
+  panel.hidden =
+    false;
+
+
+  $("attendanceTitle")
+    .textContent =
+    event.title ||
+    "Control de asistencia";
+
+
+  $("attendanceEventMeta")
+    .textContent =
+    `${
+      formatDate(
+        event.startsAt
+      )
+    } · ${
+      event.venue ||
+      "Lugar sin especificar"
+    }`;
+
+
+  $("attendanceScope")
+    .textContent =
+    attendanceWorkspace
+      .canValidateWholeEvent
+      ? "Control completo del evento."
+      : "Control de tus invitaciones directas.";
+
+
+  $("attendanceTotal")
+    .textContent =
+    String(
+      summary.total || 0
+    );
+
+
+  $("attendanceConfirmed")
+    .textContent =
+    String(
+      summary.attending || 0
+    );
+
+
+  $("attendancePresent")
+    .textContent =
+    String(
+      summary.checkedIn || 0
+    );
+
+
+  $("attendancePending")
+    .textContent =
+    String(
+      summary.pending || 0
+    );
+
+
+  $("attendanceNotAttending")
+    .textContent =
+    String(
+      summary.notAttending || 0
+    );
+
+
+  const started =
+    attendanceEventHasStarted(
+      event
+    );
+
+
+  $("attendanceTimingStatus")
+    .textContent =
+    started
+      ? "El evento ya inició. Puedes registrar presencia física."
+      : "Puedes consultar el padrón. El registro de presencia se habilitará al iniciar el evento.";
+
+
+  renderAttendancePeople();
+}
+
+
+async function openAttendanceControl(
+  eventId
+) {
+
+  if (
+    attendanceBusy ||
+    !auth.currentUser
+  ) {
+    return;
+  }
+
+
+  selectedAttendanceEventId =
+    eventId;
+
+
+  attendanceBusy =
+    true;
+
+
+  $("attendanceStatus")
+    .textContent =
+    "Consultando padrón de asistencia…";
+
+
+  $("attendanceControlPanel")
+    .hidden =
+    false;
+
+
+  const uid =
+    auth.currentUser.uid;
+
+
+  const currentGeneration =
+    generation;
+
+
+  try {
+
+    const {
+      data
+    } =
+      await getEventAttendanceWorkspace({
+        eventId
+      });
+
+
+    if (
+      currentGeneration !==
+        generation ||
+      auth.currentUser?.uid !==
+        uid
+    ) {
+      return;
+    }
+
+
+    attendanceWorkspace =
+      data;
+
+
+    renderAttendanceEventChooser();
+
+    renderAttendanceControl();
+
+
+    $("attendanceStatus")
+      .textContent =
+      data?.limits
+        ?.invitationsTruncated
+        ? "El padrón alcanzó el límite de consulta."
+        : "Padrón actualizado.";
+
+
+    $("attendanceControlPanel")
+      .scrollIntoView({
+        behavior:
+          "smooth",
+
+        block:
+          "start"
+      });
+
+  } catch (error) {
+
+    attendanceWorkspace =
+      null;
+
+
+    $("attendanceStatus")
+      .textContent =
+      error.message ||
+      "No fue posible consultar la asistencia.";
+
+  } finally {
+
+    attendanceBusy =
+      false;
+
+
+    renderAttendancePeople();
+  }
+}
+
+
+async function markAttendancePresent(
+  invitation
+) {
+
+  if (
+    attendanceBusy ||
+    !attendanceWorkspace ||
+    !selectedAttendanceEventId
+  ) {
+    return;
+  }
+
+
+  const name =
+    invitation
+      .assignedToName ||
+    "esta persona";
+
+
+  const confirmed =
+    window.confirm(
+      `¿Confirmas que ${name} está físicamente presente en el evento?`
+    );
+
+
+  if (!confirmed) {
+    return;
+  }
+
+
+  attendanceBusy =
+    true;
+
+
+  $("attendanceStatus")
+    .textContent =
+    `Registrando asistencia de ${name}…`;
+
+
+  renderAttendancePeople();
+
+
+  try {
+
+    await recordEventAttendance({
+      invitationId:
+        invitation.id,
+
+      checkInMethod:
+        "manual"
+    });
+
+
+    $("attendanceStatus")
+      .textContent =
+      `Asistencia registrada para ${name}.`;
+
+
+    attendanceBusy =
+      false;
+
+
+    await openAttendanceControl(
+      selectedAttendanceEventId
+    );
+
+  } catch (error) {
+
+    $("attendanceStatus")
+      .textContent =
+      error.message ||
+      "No fue posible registrar la asistencia.";
+
+
+    attendanceBusy =
+      false;
+
+
+    renderAttendancePeople();
+  }
+}
+
+
+function closeAttendanceControl() {
+
+  attendanceWorkspace =
+    null;
+
+  selectedAttendanceEventId =
+    null;
+
+  attendanceBusy =
+    false;
+
+
+  $("attendanceControlPanel")
+    .hidden =
+    true;
+
+
+  $("attendanceSearch")
+    .value =
+    "";
+
+
+  $("attendanceStatus")
+    .textContent =
+    "";
+
+
+  renderAttendanceEventChooser();
+}
+
+
+// ======================================================
 // RENDER GENERAL
 // ======================================================
 
@@ -2100,6 +2939,9 @@ function renderWorkspace() {
 
 
   renderAssignees();
+
+
+  renderAttendanceEventChooser();
 
 
   const received =
@@ -2872,6 +3714,24 @@ $("delegateForm")
 
 
 // ======================================================
+// ASISTENCIA · EVENTOS DE INTERFAZ
+// ======================================================
+
+$("attendanceSearch")
+  .addEventListener(
+    "input",
+    renderAttendancePeople
+  );
+
+
+$("attendanceCloseButton")
+  .addEventListener(
+    "click",
+    closeAttendanceControl
+  );
+
+
+// ======================================================
 // BOTONES GENERALES
 // ======================================================
 
@@ -2951,6 +3811,12 @@ onAuthStateChanged(
       true;
 
     $("createdSection").hidden =
+      true;
+
+    $("attendanceSection").hidden =
+      true;
+
+    $("attendanceControlPanel").hidden =
       true;
 
     $("delegateSection").hidden =

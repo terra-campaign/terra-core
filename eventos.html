@@ -184,6 +184,120 @@
     }
   </style>
 
+
+  <style id="attendance-control-styles">
+
+    .attendance-event-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .attendance-event-option {
+      border: 1px solid #c8d5e1;
+      border-radius: 10px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+
+    .attendance-event-option strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .attendance-control-panel {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 2px solid #d7e1ea;
+    }
+
+    .attendance-metrics {
+      display: grid;
+      grid-template-columns:
+        repeat(
+          auto-fit,
+          minmax(140px, 1fr)
+        );
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .attendance-metric {
+      padding: 12px;
+      border: 1px solid #d5e0e9;
+      border-radius: 9px;
+      background: #f8fafc;
+    }
+
+    .attendance-metric span {
+      display: block;
+      font-size: 0.86rem;
+    }
+
+    .attendance-metric strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 1.35rem;
+    }
+
+    .attendance-search {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 42px;
+      padding: 9px 11px;
+      margin: 12px 0;
+      border: 1px solid #8fa8bf;
+      border-radius: 7px;
+      background: #ffffff;
+      color: #17324d;
+    }
+
+    .attendance-person-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .attendance-person {
+      border: 1px solid #cbd8e3;
+      border-radius: 10px;
+      padding: 14px;
+      background: #ffffff;
+    }
+
+    .attendance-person p {
+      margin: 6px 0;
+    }
+
+    .attendance-person-header {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .attendance-badge {
+      display: inline-block;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .attendance-badge--present {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+
+    .attendance-waiting {
+      color: #6b7280;
+      font-size: 0.9rem;
+    }
+
+  </style>
+
 </head>
 
 <body>
@@ -485,6 +599,142 @@
 
 
     <section
+      id="attendanceSection"
+      class="card event-form-card"
+      hidden
+    >
+
+      <div class="events-heading">
+
+        <div>
+          <p class="eyebrow">
+            ASISTENCIA REAL
+          </p>
+
+          <h2>
+            Control de asistencia
+          </h2>
+        </div>
+
+      </div>
+
+      <p class="message">
+        Selecciona un evento para consultar su padrón.
+        La presencia física se registra por separado
+        de la invitación y de la confirmación.
+      </p>
+
+      <div
+        id="attendanceEventChooser"
+        class="attendance-event-list"
+      ></div>
+
+
+      <div
+        id="attendanceControlPanel"
+        class="attendance-control-panel"
+        hidden
+      >
+
+        <div class="events-heading">
+
+          <div>
+            <p class="eyebrow">
+              PADRÓN DEL EVENTO
+            </p>
+
+            <h3 id="attendanceTitle">
+              Control de asistencia
+            </h3>
+          </div>
+
+          <button
+            id="attendanceCloseButton"
+            class="button button--secondary"
+            type="button"
+          >
+            Cerrar control
+          </button>
+
+        </div>
+
+        <p
+          id="attendanceEventMeta"
+          class="event-meta"
+        ></p>
+
+        <p
+          id="attendanceScope"
+          class="message"
+        ></p>
+
+        <p
+          id="attendanceTimingStatus"
+          class="message"
+        ></p>
+
+
+        <div class="attendance-metrics">
+
+          <article class="attendance-metric">
+            <span>Registrados</span>
+            <strong id="attendanceTotal">0</strong>
+          </article>
+
+          <article class="attendance-metric">
+            <span>Confirmaron</span>
+            <strong id="attendanceConfirmed">0</strong>
+          </article>
+
+          <article class="attendance-metric">
+            <span>Presentes</span>
+            <strong id="attendancePresent">0</strong>
+          </article>
+
+          <article class="attendance-metric">
+            <span>Pendientes</span>
+            <strong id="attendancePending">0</strong>
+          </article>
+
+          <article class="attendance-metric">
+            <span>No asistirán</span>
+            <strong id="attendanceNotAttending">0</strong>
+          </article>
+
+        </div>
+
+
+        <label for="attendanceSearch">
+          Buscar persona
+        </label>
+
+        <input
+          id="attendanceSearch"
+          class="attendance-search"
+          type="search"
+          placeholder="Escribe un nombre"
+          autocomplete="off"
+        >
+
+
+        <div
+          id="attendancePeople"
+          class="attendance-person-list"
+        ></div>
+
+
+        <p
+          id="attendanceStatus"
+          class="message"
+          role="status"
+        ></p>
+
+      </div>
+
+    </section>
+
+
+    <section
       id="delegateSection"
       class="card event-form-card"
       hidden
@@ -567,7 +817,7 @@
 
   <script
     type="module"
-    src="./eventos.js?v=build-118b-3c-2b2-001"
+    src="./eventos.js?v=build-118c-2b-001"
   ></script>
 
 </body>
