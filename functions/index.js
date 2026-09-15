@@ -4738,3 +4738,12 @@ exports.getPrincipalLeaderTerritory = require('./leader-territory.cjs').getPrinc
 
 exports.searchPersonCandidates =
   require("./person-identity.cjs").searchPersonCandidates;
+
+
+
+exports.getDoorRegistrationContext =
+  require("./door-resolution.cjs").getDoorRegistrationContext;
+
+
+exports.searchDoorInviterCandidates =
+  require("./door-resolution.cjs").searchDoorInviterCandidates;
