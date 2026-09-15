@@ -4752,3 +4752,17 @@ exports.searchDoorInviterCandidates =
 
 exports.getDoorTutorCandidates =
   require("./door-tutor.cjs").getDoorTutorCandidates;
+
+
+
+exports.createDoorRegistrationHandoff =
+  require("./door-person-registration.cjs").createDoorRegistrationHandoff;
+
+exports.getMyDoorRegistrationHandoff =
+  require("./door-person-registration.cjs").getMyDoorRegistrationHandoff;
+
+exports.completeDoorRegistrationHandoff =
+  require("./door-person-registration.cjs").completeDoorRegistrationHandoff;
+
+exports.getDoorRegistrationHandoffStatus =
+  require("./door-person-registration.cjs").getDoorRegistrationHandoffStatus;

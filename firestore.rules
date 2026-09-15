@@ -211,6 +211,26 @@ match /usuarios/{userId} {
     // MODELO OPERATIVO ANTERIOR
     // =====================================================
 
+    // =====================================================
+    // IDENTIDAD OPERATIVA ACCOUNTLESS
+    // BUILD-118C-3B3E-1
+    //
+    // Acceso únicamente mediante backend confiable.
+    // =====================================================
+
+    match /persons/{personId} {
+      allow read, write: if false;
+    }
+
+    match /territorialMemberships/{membershipId} {
+      allow read, write: if false;
+    }
+
+    match /doorRegistrationHandoffs/{handoffId} {
+      allow read, write: if false;
+    }
+
+
     match /visitas/{visitaId} {
 
       // Crear visita.
