@@ -119,6 +119,19 @@
       color: #991b1b;
     }
 
+    #attendanceSection {
+      scroll-margin-top: 96px;
+    }
+
+    .attendance-door-title {
+      margin: 0 0 10px;
+      font-size: 1.25rem;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+      color: #17324d;
+    }
+
     [hidden] {
       display: none !important;
     }
@@ -310,12 +323,20 @@
     </div>
 
     <div class="event-actions">
+
+      <a
+        class="button button--secondary"
+        href="#attendanceSection"
+      >
+        Control de asistencia
+      </a>
+
       <button
         id="backButton"
         class="button button--secondary"
         type="button"
       >
-        Volver
+        Inicio
       </button>
 
       <button
@@ -682,9 +703,9 @@
           class="event-form-card"
         >
 
-          <p class="eyebrow">
+          <h3 class="attendance-door-title">
             PERSONA EN PUERTA
-          </p>
+          </h3>
 
           <h4>
             Buscar antes de registrar
