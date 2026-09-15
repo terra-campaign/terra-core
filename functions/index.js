@@ -4725,66 +4725,287 @@ createdBy:
           1
       };
 
-      await participantRef.set(
+      // ==================================================
+      // 9. IDENTIDAD CANONICA + MEMBRESIA + PERFIL
+      // BUILD-118C-3B3E-3D
+      // ==================================================
+
+      const personRef =
+        db
+          .collection("persons")
+          .doc();
+
+
+      const membershipRef =
+        db
+          .collection(
+            "territorialMemberships"
+          )
+          .doc();
+
+
+      const logRef =
+        db
+          .collection("logs")
+          .doc();
+
+
+      const personId =
+        personRef.id;
+
+
+      const membershipId =
+        membershipRef.id;
+
+
+      participantProfile.personId =
+        personId;
+
+
+      participantProfile.membershipId =
+        membershipId;
+
+
+      const canonicalPerson = {
+
+        personId,
+
+        accountUid:
+          authUser.uid,
+
+        name,
+
+        email,
+
+        phone,
+
+        hasWhatsApp,
+
+        locality,
+
+        street,
+
+        houseNumber,
+
+        active:
+          true,
+
+        campaignId,
+
+        municipalityId:
+          parentProfile.municipalityId ||
+          "",
+
+        municipalityName:
+          parentProfile.municipalityName ||
+          "",
+
+        structureId:
+          parentProfile.structureId ||
+          "",
+
+        structureDocumentId:
+          parentProfile.structureDocumentId ||
+          "",
+
+        structureName:
+          parentProfile.structureName ||
+          "",
+
+        identityStatus:
+          "digital",
+
+        source:
+          "hierarchy_registration",
+
+        introducedByUserId:
+          creatorUid,
+
+        referredByUserId:
+          creatorUid,
+
+        mentorUserId:
+          creatorUid,
+
+        createdByUserId:
+          creatorUid,
+
+        createdByRole:
+          creatorProfile.role,
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        updatedAt:
+          FieldValue.serverTimestamp(),
+
+        version:
+          1
+      };
+
+
+      const territorialMembership = {
+
+        membershipId,
+
+        personId,
+
+        accountUid:
+          authUser.uid,
+
+        campaignId,
+
+        municipalityId:
+          parentProfile.municipalityId ||
+          "",
+
+        municipalityName:
+          parentProfile.municipalityName ||
+          "",
+
+        structureId:
+          parentProfile.structureId ||
+          "",
+
+        structureDocumentId:
+          parentProfile.structureDocumentId ||
+          "",
+
+        structureName:
+          parentProfile.structureName ||
+          "",
+
+        role:
+          "participante",
+
+        active:
+          true,
+
+        parentUserId,
+
+        parentUserName:
+          parentProfile.name ||
+          "",
+
+        mentorUserId:
+          creatorUid,
+
+        introducedByUserId:
+          creatorUid,
+
+        referredByUserId:
+          creatorUid,
+
+        ancestorUserIds:
+          ancestorIds,
+
+        source:
+          "hierarchy_registration",
+
+        activityPreferences: {
+          eventos_mitines:
+            true
+        },
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        updatedAt:
+          FieldValue.serverTimestamp(),
+
+        version:
+          1
+      };
+
+
+      const auditRecord = {
+
+        action:
+          "CREATE_PARTICIPANT",
+
+        campaignId,
+
+        municipalityId:
+          parentProfile.municipalityId ||
+          "",
+
+        structureId:
+          parentProfile.structureId ||
+          "",
+
+        structureDocumentId:
+          parentProfile.structureDocumentId ||
+          "",
+
+        parentUserId,
+
+        parentUserName:
+          parentProfile.name ||
+          "",
+
+        targetUserId:
+          authUser.uid,
+
+        targetUserName:
+          name,
+
+        targetUserEmail:
+          email,
+
+        phone,
+
+        hasWhatsApp,
+
+        locality,
+
+        street,
+
+        houseNumber,
+
+        personId,
+
+        membershipId,
+
+        createdBy:
+          creatorUid,
+
+        createdByRole:
+          creatorProfile.role,
+
+        createdAt:
+          FieldValue.serverTimestamp()
+      };
+
+
+      const batch =
+        db.batch();
+
+
+      batch.set(
+        participantRef,
         participantProfile
       );
 
 
-      // ==================================================
-      // 9. AUDITORÍA
-      // ==================================================
+      batch.create(
+        personRef,
+        canonicalPerson
+      );
 
-      await db
-        .collection("logs")
-        .add({
 
-          action:
-            "CREATE_PARTICIPANT",
+      batch.create(
+        membershipRef,
+        territorialMembership
+      );
 
-          campaignId,
 
-          municipalityId:
-            parentProfile.municipalityId || "",
+      batch.create(
+        logRef,
+        auditRecord
+      );
 
-          structureId:
-            parentProfile.structureId || "",
 
-          structureDocumentId:
-            parentProfile.structureDocumentId || "",
-
-          parentUserId,
-
-          parentUserName:
-            parentProfile.name || "",
-
-          targetUserId:
-            authUser.uid,
-
-          targetUserName:
-            name,
-
-          targetUserEmail:
-            email,
-
-          phone,
-
-          hasWhatsApp,
-
-          locality,
-
-          street,
-
-          houseNumber,
-
-          createdBy:
-            creatorUid,
-
-          createdByRole:
-            creatorProfile.role,
-
-          createdAt:
-            FieldValue.serverTimestamp()
-        });
+      await batch.commit();
 
 
       // ==================================================
