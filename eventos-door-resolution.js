@@ -1179,4 +1179,4 @@ export function resetDoorResolution(
         "";
     }
   }
-}\n
+}

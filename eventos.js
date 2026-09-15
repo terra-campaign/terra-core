@@ -6,7 +6,7 @@ import {
 import {
   showDoorResolution,
   resetDoorResolution
-} from "./eventos-door-resolution.js?v=build-118c-3b3d-001";
+} from "./eventos-door-resolution.js?v=build-118c-3b3d-hotfix-001";
 
 
 import {
@@ -4384,4 +4384,4 @@ onAuthStateChanged(
 
     reload();
   }
-);\n
+);
