@@ -366,6 +366,26 @@ function applyRoleInterface() {
     "participante"
   ].includes(role);
 
+
+  // Afiliación rápida:
+  // sólo donde el siguiente nivel jerárquico
+  // y la estructura son inequívocos.
+  const canQuickAffiliate = [
+    "jefe_estructura",
+    "integrante",
+    "participante"
+  ].includes(role);
+
+  const affiliateButton =
+    document.querySelector(
+      "#affiliateButton"
+    );
+
+  if (affiliateButton) {
+    affiliateButton.hidden =
+      !canQuickAffiliate;
+  }
+
   if (brigadistasAdminButton) {
     brigadistasAdminButton.hidden = !canManageBrigadistas;
   }
@@ -2092,5 +2112,3 @@ territoryFilters.forEach((button) => {
 photoButton.addEventListener("click", () => {
   photoInput.click();
 });
-
-
