@@ -4,12 +4,6 @@ import {
 
 
 import {
-  showDoorResolution,
-  resetDoorResolution
-} from "./eventos-door-resolution.js?v=build-118c-3b3d-hotfix-001";
-
-
-import {
   createTerraWhatsAppCommunication
 } from "./terra-whatsapp.js?v=build-118a-3b-002";
 
@@ -76,6 +70,14 @@ const recordEventAttendance =
   httpsCallable(
     functions,
     "recordEventAttendance"
+  );
+
+
+
+const recordDoorEventAttendance =
+  httpsCallable(
+    functions,
+    "recordDoorEventAttendance"
   );
 
 
@@ -187,6 +189,11 @@ let attendanceBusy = false;
 
 
 let attendanceIdentitySearchBusy =
+  false;
+
+
+
+let doorAttendanceBusy =
   false;
 
 
@@ -2705,11 +2712,174 @@ function clearAttendanceIdentitySearch(
   $("attendanceIdentityStatus")
     .textContent =
     "";
+}
 
 
-  resetDoorResolution(
-    true
-  );
+async function validateDoorCandidateAttendance(
+  candidate,
+  button
+) {
+
+  if (
+    doorAttendanceBusy ||
+    !auth.currentUser ||
+    !selectedAttendanceEventId
+  ) {
+    return;
+  }
+
+
+  const candidateRef =
+    typeof candidate?.candidateRef ===
+      "string"
+      ? candidate.candidateRef
+      : "";
+
+
+  if (
+    !/^[a-f0-9]{64}$/.test(
+      candidateRef
+    )
+  ) {
+
+    $("attendanceIdentityStatus")
+      .textContent =
+      "Esta coincidencia no tiene una referencia válida. Vuelve a realizar la búsqueda.";
+
+    return;
+  }
+
+
+  const name =
+    candidate.name ||
+    "esta persona";
+
+
+  const confirmed =
+    window.confirm(
+      `¿Confirmas que ${name} es la persona correcta y está físicamente presente en este evento?`
+    );
+
+
+  if (!confirmed) {
+    return;
+  }
+
+
+  const eventId =
+    selectedAttendanceEventId;
+
+
+  const uid =
+    auth.currentUser.uid;
+
+
+  const currentGeneration =
+    generation;
+
+
+  doorAttendanceBusy =
+    true;
+
+
+  if (button) {
+
+    button.disabled =
+      true;
+
+    button.textContent =
+      "Validando participación…";
+  }
+
+
+  $("attendanceIdentityStatus")
+    .textContent =
+    `Validando a ${name} en TERRA…`;
+
+
+  try {
+
+    const {
+      data
+    } =
+      await recordDoorEventAttendance({
+
+        eventId,
+
+        candidateRef,
+
+        checkInMethod:
+          "manual"
+      });
+
+
+    if (
+      currentGeneration !==
+        generation ||
+      auth.currentUser?.uid !==
+        uid ||
+      selectedAttendanceEventId !==
+        eventId
+    ) {
+      return;
+    }
+
+
+    if (
+      data?.success !==
+        true ||
+      data?.affiliationVerified !==
+        true
+    ) {
+
+      throw new Error(
+        "TERRA no confirmó la afiliación de esta persona."
+      );
+    }
+
+
+    $("attendanceIdentityStatus")
+      .textContent =
+      data.unchanged === true
+        ? `✅ PERSONA CONFIRMADA EN TERRA. La participación de ${name} ya estaba registrada en este evento.`
+        : `✅ PERSONA CONFIRMADA EN TERRA. Participación operativa de ${name} validada correctamente.`;
+
+
+    if (button) {
+
+      button.disabled =
+        true;
+
+      button.textContent =
+        data.unchanged === true
+          ? "Participación ya validada"
+          : "✅ Participación validada";
+    }
+
+
+  } catch (error) {
+
+    $("attendanceIdentityStatus")
+      .textContent =
+      error.message ||
+      "No fue posible validar la participación.";
+
+
+    if (button) {
+
+      button.disabled =
+        false;
+
+      button.textContent =
+        "Confirmar persona y validar participación";
+    }
+
+
+  } finally {
+
+    doorAttendanceBusy =
+      false;
+  }
 }
 
 
@@ -2736,18 +2906,10 @@ function renderAttendanceIdentityCandidates(
 
     $("attendanceIdentityStatus")
       .textContent =
-      "No encontramos coincidencias en TERRA. Antes de registrar a una persona nueva, resuelve su municipio y quién la invitó.";
-
-
-    showDoorResolution();
+      "PERSONA NO REGISTRADA EN TERRA. Pregúntale quién lo invitó y dile que busque a esa persona para que complete su afiliación desde su propio dispositivo. Después debe volver a pasar por recepción para validar su primera misión dentro de la estructura. Recepción no asigna estructura, tutor ni nivel.";
 
     return;
   }
-
-
-  resetDoorResolution(
-    true
-  );
 
 
   const total =
@@ -2854,8 +3016,53 @@ function renderAttendanceIdentityCandidates(
       "message";
 
 
+    const validateButton =
+      node(
+        "button",
+        "Confirmar persona y validar participación"
+      );
+
+
+    validateButton.type =
+      "button";
+
+    validateButton.className =
+      "button";
+
+
+    const candidateRef =
+      typeof candidate.candidateRef ===
+        "string"
+        ? candidate.candidateRef
+        : "";
+
+
+    if (
+      !/^[a-f0-9]{64}$/.test(
+        candidateRef
+      )
+    ) {
+
+      validateButton.disabled =
+        true;
+
+      validateButton.title =
+        "Vuelve a buscar esta persona para obtener una referencia válida.";
+
+    } else {
+
+      validateButton.onclick =
+        () =>
+          validateDoorCandidateAttendance(
+            candidate,
+            validateButton
+          );
+    }
+
+
     card.append(
-      warning
+      warning,
+      validateButton
     );
 
 
