@@ -4747,3 +4747,8 @@ exports.getDoorRegistrationContext =
 
 exports.searchDoorInviterCandidates =
   require("./door-resolution.cjs").searchDoorInviterCandidates;
+
+
+
+exports.getDoorTutorCandidates =
+  require("./door-tutor.cjs").getDoorTutorCandidates;
