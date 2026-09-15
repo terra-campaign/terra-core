@@ -4771,3 +4771,12 @@ exports.completeDoorRegistrationHandoff =
 
 exports.getDoorRegistrationHandoffStatus =
   require("./door-person-registration.cjs").getDoorRegistrationHandoffStatus;
+
+
+// BUILD-118C-3B3E-3A
+// Afiliación rápida accountless desde estructura.
+exports.getQuickAffiliationContext =
+  require("./quick-affiliation.cjs").getQuickAffiliationContext;
+
+exports.createQuickAffiliation =
+  require("./quick-affiliation.cjs").createQuickAffiliation;
