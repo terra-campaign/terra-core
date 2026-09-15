@@ -3837,81 +3837,299 @@ createdBy:
           1
       };
 
-      await memberRef.set(
+      // ==================================================
+      // 10. IDENTIDAD CANONICA + MEMBRESIA + PERFIL
+      // BUILD-118C-3B3E-3C
+      // ==================================================
+
+      const personRef =
+        db
+          .collection("persons")
+          .doc();
+
+
+      const membershipRef =
+        db
+          .collection(
+            "territorialMemberships"
+          )
+          .doc();
+
+
+      const logRef =
+        db
+          .collection("logs")
+          .doc();
+
+
+      const personId =
+        personRef.id;
+
+
+      const membershipId =
+        membershipRef.id;
+
+
+      // El usuario digital queda enlazado
+      // con su identidad permanente.
+      memberProfile.personId =
+        personId;
+
+      memberProfile.membershipId =
+        membershipId;
+
+
+      const canonicalPerson = {
+
+        personId,
+
+        accountUid:
+          authUser.uid,
+
+        name,
+
+        email,
+
+        phone,
+
+        hasWhatsApp,
+
+        locality,
+
+        street,
+
+        houseNumber,
+
+        active:
+          true,
+
+        campaignId,
+
+        municipalityId:
+          structure.municipalityId,
+
+        municipalityName:
+          structure.municipalityName ||
+          "",
+
+        structureId:
+          structure.id,
+
+        structureDocumentId:
+          structureSnapshot.id,
+
+        structureName:
+          structure.name ||
+          "",
+
+        identityStatus:
+          "digital",
+
+        source:
+          "hierarchy_registration",
+
+        introducedByUserId:
+          creatorUid,
+
+        referredByUserId:
+          creatorUid,
+
+        mentorUserId:
+          creatorUid,
+
+        createdByUserId:
+          creatorUid,
+
+        createdByRole:
+          creatorProfile.role,
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        updatedAt:
+          FieldValue.serverTimestamp(),
+
+        version:
+          1
+      };
+
+
+      const territorialMembership = {
+
+        membershipId,
+
+        personId,
+
+        accountUid:
+          authUser.uid,
+
+        campaignId,
+
+        municipalityId:
+          structure.municipalityId,
+
+        municipalityName:
+          structure.municipalityName ||
+          "",
+
+        structureId:
+          structure.id,
+
+        structureDocumentId:
+          structureSnapshot.id,
+
+        structureName:
+          structure.name ||
+          "",
+
+        role:
+          "integrante",
+
+        active:
+          true,
+
+        parentUserId,
+
+        parentUserName:
+          creatorProfile.name ||
+          "",
+
+        mentorUserId:
+          creatorUid,
+
+        introducedByUserId:
+          creatorUid,
+
+        referredByUserId:
+          creatorUid,
+
+        ancestorUserIds:
+          ancestorIds,
+
+        source:
+          "hierarchy_registration",
+
+        activityPreferences: {
+          eventos_mitines:
+            true
+        },
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        updatedAt:
+          FieldValue.serverTimestamp(),
+
+        version:
+          1
+      };
+
+
+      const auditRecord = {
+
+        action:
+          "CREATE_STRUCTURE_MEMBER",
+
+        campaignId,
+
+        municipalityId:
+          structure.municipalityId,
+
+        municipalityName:
+          structure.municipalityName ||
+          "",
+
+        coordinatorId:
+          structure.coordinatorId,
+
+        coordinatorName:
+          structure.coordinatorName ||
+          "",
+
+        structureId:
+          structure.id,
+
+        structureDocumentId:
+          structureSnapshot.id,
+
+        structureName:
+          structure.name ||
+          "",
+
+        structureChiefId:
+          structure.chiefId ||
+          null,
+
+        structureChiefName:
+          structure.chiefName ||
+          "",
+
+        targetUserId:
+          authUser.uid,
+
+        targetUserName:
+          name,
+
+        targetUserEmail:
+          email,
+
+        phone,
+
+        hasWhatsApp,
+
+        locality,
+
+        street,
+
+        houseNumber,
+
+        parentUserId,
+
+        personId,
+
+        membershipId,
+
+        createdBy:
+          creatorUid,
+
+        createdByRole:
+          creatorProfile.role,
+
+        createdAt:
+          FieldValue.serverTimestamp()
+      };
+
+
+      // Las cuatro escrituras Firestore son atómicas.
+      const batch =
+        db.batch();
+
+
+      batch.set(
+        memberRef,
         memberProfile
       );
 
 
-      // ==================================================
-      // 10. AUDITORÍA
-      // ==================================================
+      batch.create(
+        personRef,
+        canonicalPerson
+      );
 
-      await db
-        .collection("logs")
-        .add({
 
-          action:
-            "CREATE_STRUCTURE_MEMBER",
+      batch.create(
+        membershipRef,
+        territorialMembership
+      );
 
-          campaignId,
 
-          municipalityId:
-            structure.municipalityId,
+      batch.create(
+        logRef,
+        auditRecord
+      );
 
-          municipalityName:
-            structure.municipalityName || "",
 
-          coordinatorId:
-            structure.coordinatorId,
-
-          coordinatorName:
-            structure.coordinatorName || "",
-
-          structureId:
-            structure.id,
-
-          structureDocumentId:
-            structureSnapshot.id,
-
-          structureName:
-            structure.name || "",
-
-          structureChiefId:
-            structure.chiefId || null,
-
-          structureChiefName:
-            structure.chiefName || "",
-
-          targetUserId:
-            authUser.uid,
-
-          targetUserName:
-            name,
-
-          targetUserEmail:
-            email,
-
-          phone,
-
-          hasWhatsApp,
-
-          locality,
-
-          street,
-
-          houseNumber,
-
-          parentUserId,
-
-          createdBy:
-            creatorUid,
-
-          createdByRole:
-            creatorProfile.role,
-
-          createdAt:
-            FieldValue.serverTimestamp()
-        });
+      await batch.commit();
 
 
       // ==================================================
