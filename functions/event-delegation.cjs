@@ -2528,6 +2528,680 @@ exports.getEventWorkspace =
 
 
 // ======================================================
+// BUILD-118C-3B3E-2B
+// IDENTIDAD DE PERSONA EN PUERTA
+// ======================================================
+
+function doorPersonCandidateRef(
+  campaignId,
+  source,
+  id
+) {
+
+  return hash(
+    campaignId,
+    source,
+    id,
+    'person-candidate-v1'
+  );
+}
+
+
+function canonicalDoorIdentityRecords(
+  userRecords,
+  personRecords
+) {
+
+  const records =
+    new Map();
+
+
+  for (
+    const record of
+    Array.isArray(
+      userRecords
+    )
+      ? userRecords
+      : []
+  ) {
+
+    records.set(
+      `account:${record.id}`,
+      record
+    );
+  }
+
+
+  // PERSONA es canónica cuando ya está vinculada
+  // con una cuenta digital.
+  for (
+    const record of
+    Array.isArray(
+      personRecords
+    )
+      ? personRecords
+      : []
+  ) {
+
+    const accountUid =
+      typeof record
+        ?.profile
+        ?.accountUid ===
+          'string'
+        ? record.profile
+            .accountUid
+            .trim()
+        : '';
+
+
+    records.set(
+      accountUid
+        ? `account:${accountUid}`
+        : `person:${record.id}`,
+      record
+    );
+  }
+
+
+  return [
+    ...records.values()
+  ];
+}
+
+
+// ======================================================
+// REGISTRAR ASISTENCIA DE PERSONA ENCONTRADA EN PUERTA
+//
+// IMPORTANTE:
+// - NO crea invitación ficticia.
+// - NO asigna estructura.
+// - NO cambia nivel.
+// - Solo validadores con alcance total del evento.
+// ======================================================
+
+exports.recordDoorEventAttendance =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const db =
+        getFirestore();
+
+
+      const data =
+        request.data || {};
+
+
+      const eventId =
+        validId(
+          data.eventId
+        );
+
+
+      const candidateRef =
+        typeof data.candidateRef ===
+          'string'
+          ? data.candidateRef.trim()
+          : '';
+
+
+      if (
+        !/^[a-f0-9]{64}$/.test(
+          candidateRef
+        )
+      ) {
+
+        fail(
+          'invalid-argument',
+          'La referencia de persona no es válida.'
+        );
+      }
+
+
+      const checkInMethod =
+        eventCheckInMethod(
+          data.checkInMethod
+        );
+
+
+      return db.runTransaction(
+        async tx => {
+
+          // ==============================================
+          // VALIDADOR
+          // ==============================================
+
+          const validator =
+            await caller(
+              tx,
+              db,
+              request
+            );
+
+
+          // ==============================================
+          // EVENTO
+          // ==============================================
+
+          const eventRef =
+            db.collection(
+              'events'
+            ).doc(
+              eventId
+            );
+
+
+          const eventSnapshot =
+            await tx.get(
+              eventRef
+            );
+
+
+          if (
+            !eventSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El evento no existe.'
+            );
+          }
+
+
+          const event = {
+            ...eventSnapshot.data(),
+            id:
+              eventSnapshot.id
+          };
+
+
+          if (
+            event.campaignId !==
+              validator.campaignId
+          ) {
+
+            fail(
+              'permission-denied',
+              'El evento pertenece a otra campaña.'
+            );
+          }
+
+
+          // Persona sin invitación no tiene una relación
+          // "direct" que limite al validador.
+          // Por eso solamente se permite al creador del
+          // evento o a un attendanceValidatorId designado.
+          const scope =
+            eventAttendanceWorkspaceScope(
+              validator,
+              event
+            );
+
+
+          if (
+            scope !==
+              'event'
+          ) {
+
+            fail(
+              'permission-denied',
+              'Solo un responsable autorizado del control general del evento puede validar una persona encontrada en puerta.'
+            );
+          }
+
+
+          // ==============================================
+          // METODO
+          // ==============================================
+
+          if (
+            !EVENT_ENABLED_CHECKIN_METHODS.has(
+              checkInMethod
+            )
+          ) {
+
+            fail(
+              'failed-precondition',
+              'Este método de asistencia todavía no está habilitado.'
+            );
+          }
+
+
+          // ==============================================
+          // VENTANA -45 / +90
+          // ==============================================
+
+          if (
+            !canRecordEventAttendanceAt(
+              event,
+              Date.now()
+            )
+          ) {
+
+            fail(
+              'failed-precondition',
+              'La asistencia real solo puede registrarse entre 45 minutos antes y 1 hora 30 minutos después de la hora citada.'
+            );
+          }
+
+
+          // ==============================================
+          // RESOLVER candidateRef EN BACKEND
+          // ==============================================
+
+          const [
+            usersSnapshot,
+            personsSnapshot
+          ] =
+            await Promise.all([
+
+              tx.get(
+                db.collection(
+                  'usuarios'
+                )
+                  .where(
+                    'campaignId',
+                    '==',
+                    validator.campaignId
+                  )
+                  .limit(
+                    1001
+                  )
+              ),
+
+              tx.get(
+                db.collection(
+                  'persons'
+                )
+                  .where(
+                    'campaignId',
+                    '==',
+                    validator.campaignId
+                  )
+                  .limit(
+                    1001
+                  )
+              )
+            ]);
+
+
+          if (
+            usersSnapshot.size > 1000 ||
+            personsSnapshot.size > 1000
+          ) {
+
+            fail(
+              'resource-exhausted',
+              'La campaña requiere el índice de identidad escalable antes de continuar.'
+            );
+          }
+
+
+          const identityRecords =
+            canonicalDoorIdentityRecords(
+
+              usersSnapshot.docs.map(
+                document => ({
+                  source:
+                    'user',
+
+                  id:
+                    document.id,
+
+                  profile:
+                    document.data()
+                })
+              ),
+
+              personsSnapshot.docs.map(
+                document => ({
+                  source:
+                    'person',
+
+                  id:
+                    document.id,
+
+                  profile:
+                    document.data()
+                })
+              )
+            );
+
+
+          const identity =
+            identityRecords.find(
+              record =>
+                doorPersonCandidateRef(
+                  validator.campaignId,
+                  record.source,
+                  record.id
+                ) ===
+                  candidateRef
+            );
+
+
+          if (!identity) {
+
+            fail(
+              'not-found',
+              'La persona ya no puede resolverse con esta búsqueda. Vuelve a buscarla.'
+            );
+          }
+
+
+          const profile =
+            identity.profile ||
+            {};
+
+
+          // ==============================================
+          // VALIDAR AFILIACION / ESTADO
+          // ==============================================
+
+          let personId =
+            '';
+
+          let accountUid =
+            null;
+
+          let affiliationVerified =
+            false;
+
+
+          if (
+            identity.source ===
+              'user'
+          ) {
+
+            if (
+              profile.active !==
+                true
+            ) {
+
+              fail(
+                'failed-precondition',
+                'La cuenta encontrada no está activa.'
+              );
+            }
+
+
+            personId =
+              validId(
+                identity.id
+              );
+
+
+            accountUid =
+              personId;
+
+
+            // Usuario activo del modelo histórico.
+            affiliationVerified =
+              true;
+
+          } else {
+
+            if (
+              profile.active ===
+                false
+            ) {
+
+              fail(
+                'failed-precondition',
+                'La persona encontrada está inactiva.'
+              );
+            }
+
+
+            personId =
+              validId(
+                identity.id
+              );
+
+
+            if (
+              typeof profile.accountUid ===
+                'string' &&
+              profile.accountUid.trim()
+            ) {
+
+              accountUid =
+                validId(
+                  profile.accountUid
+                );
+            }
+
+
+            // Para PERSONA accountless exigimos que
+            // realmente haya quedado afiliada:
+            // una membresía territorial activa.
+            const membershipsSnapshot =
+              await tx.get(
+                db.collection(
+                  'territorialMemberships'
+                )
+                  .where(
+                    'personId',
+                    '==',
+                    personId
+                  )
+                  .limit(
+                    20
+                  )
+              );
+
+
+            affiliationVerified =
+              membershipsSnapshot.docs
+                .some(
+                  snapshot => {
+
+                    const membership =
+                      snapshot.data();
+
+
+                    return (
+                      membership.campaignId ===
+                        validator.campaignId &&
+                      membership.active ===
+                        true
+                    );
+                  }
+                );
+
+
+            if (
+              !affiliationVerified
+            ) {
+
+              fail(
+                'failed-precondition',
+                'La persona existe, pero todavía no tiene una afiliación territorial activa. Debe terminar su registro y volver a recepción.'
+              );
+            }
+          }
+
+
+          const personName =
+            typeof profile.name ===
+              'string'
+              ? profile.name.trim()
+              : '';
+
+
+          if (!personName) {
+
+            fail(
+              'failed-precondition',
+              'La persona encontrada no tiene un nombre válido.'
+            );
+          }
+
+
+          // ==============================================
+          // IDEMPOTENCIA
+          // ==============================================
+
+          const attendanceId =
+            eventAttendanceDocumentId(
+              event.id,
+              personId
+            );
+
+
+          const attendanceRef =
+            db.collection(
+              'eventAttendance'
+            ).doc(
+              attendanceId
+            );
+
+
+          const attendanceSnapshot =
+            await tx.get(
+              attendanceRef
+            );
+
+
+          if (
+            attendanceSnapshot.exists
+          ) {
+
+            const existing =
+              attendanceSnapshot.data();
+
+
+            return {
+
+              success:
+                true,
+
+              unchanged:
+                true,
+
+              affiliationVerified,
+
+              attendance: {
+
+                attended:
+                  existing.attended ===
+                    true,
+
+                eventId:
+                  event.id,
+
+                personName:
+                  existing.personName ||
+                  personName,
+
+                checkInMethod:
+                  existing.checkInMethod ||
+                  'manual'
+              }
+            };
+          }
+
+
+          // ==============================================
+          // CREAR ASISTENCIA REAL
+          // ==============================================
+
+          const serverNow =
+            FieldValue.serverTimestamp();
+
+
+          const attendance = {
+
+            eventId:
+              event.id,
+
+            personId,
+
+            accountUid,
+
+            // No existe invitación previa.
+            invitationId:
+              null,
+
+            personName,
+
+            campaignId:
+              validator.campaignId,
+
+            attended:
+              true,
+
+            checkInMethod,
+
+            checkInSource:
+              'door_identity_search',
+
+            affiliationVerified:
+              true,
+
+            checkedInAt:
+              serverNow,
+
+            validatedByUserId:
+              validator.uid,
+
+            validatedByName:
+              validator.name ||
+              '',
+
+            validatedByRole:
+              validator.role ||
+              '',
+
+            version:
+              1,
+
+            createdAt:
+              serverNow,
+
+            updatedAt:
+              serverNow
+          };
+
+
+          tx.create(
+            attendanceRef,
+            attendance
+          );
+
+
+          return {
+
+            success:
+              true,
+
+            unchanged:
+              false,
+
+            affiliationVerified:
+              true,
+
+            attendance: {
+
+              attended:
+                true,
+
+              eventId:
+                event.id,
+
+              personName,
+
+              checkInMethod
+            }
+          };
+        }
+      );
+    }
+  );
+
+
+// ======================================================
 // BUILD-118C-2A
 // AUTORIZACION DEL WORKSPACE DE ASISTENCIA
 // ======================================================
@@ -2647,7 +3321,9 @@ exports._test = {
   eventAttendanceWindow,
   canRecordEventAttendanceAt,
   eventAttendanceWorkspaceScope,
-  eventAttendanceInvitationAllowed
+  eventAttendanceInvitationAllowed,
+  doorPersonCandidateRef,
+  canonicalDoorIdentityRecords
 };
 
 

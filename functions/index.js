@@ -4706,6 +4706,11 @@ exports.recordEventAttendance =
   require("./event-delegation.cjs").recordEventAttendance;
 
 
+
+exports.recordDoorEventAttendance =
+  require("./event-delegation.cjs").recordDoorEventAttendance;
+
+
 exports.getEventAttendanceWorkspace =
   require("./event-delegation.cjs").getEventAttendanceWorkspace;
 

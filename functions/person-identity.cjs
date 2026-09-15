@@ -25,6 +25,11 @@ const {
 } = require('firebase-admin/firestore');
 
 
+const {
+  createHash
+} = require('node:crypto');
+
+
 const OPTIONS = {
   region: 'us-central1',
   timeoutSeconds: 60
@@ -399,6 +404,150 @@ function personCandidateMatch(
 
 
 // ======================================================
+// REFERENCIA OPACA DE PERSONA
+//
+// Nunca se entrega UID ni personId al frontend.
+// La referencia se vuelve a validar en backend antes
+// de cualquier acción posterior.
+// ======================================================
+
+function opaquePersonCandidateRef(
+  campaignId,
+  source,
+  id
+) {
+
+  return createHash(
+    'sha256'
+  )
+    .update(
+      JSON.stringify([
+        campaignId,
+        source,
+        id,
+        'person-candidate-v1'
+      ])
+    )
+    .digest(
+      'hex'
+    );
+}
+
+
+// ======================================================
+// CLAVE CANONICA PARA EVITAR DOBLE RESULTADO
+//
+// Si una PERSONA ya tiene accountUid,
+// el registro PERSONA prevalece sobre usuarios.
+// No se fusiona por nombre, teléfono ni domicilio.
+// ======================================================
+
+function identityRecordKey(
+  record
+) {
+
+  if (
+    record?.source ===
+      'user'
+  ) {
+
+    return `account:${
+      record.id
+    }`;
+  }
+
+
+  if (
+    record?.source ===
+      'person'
+  ) {
+
+    const accountUid =
+      typeof record
+        ?.profile
+        ?.accountUid ===
+          'string'
+        ? record.profile
+            .accountUid
+            .trim()
+        : '';
+
+
+    if (accountUid) {
+
+      return `account:${
+        accountUid
+      }`;
+    }
+
+
+    return `person:${
+      record.id
+    }`;
+  }
+
+
+  return `unknown:${
+    record?.id || ''
+  }`;
+}
+
+
+function mergeIdentityRecords(
+  userRecords,
+  personRecords
+) {
+
+  const records =
+    new Map();
+
+
+  for (
+    const record of
+    Array.isArray(
+      userRecords
+    )
+      ? userRecords
+      : []
+  ) {
+
+    records.set(
+      identityRecordKey(
+        record
+      ),
+      record
+    );
+  }
+
+
+  // PERSONA es el modelo canónico.
+  // Si está vinculada con una cuenta existente,
+  // sustituye el resultado duplicado de usuarios.
+  for (
+    const record of
+    Array.isArray(
+      personRecords
+    )
+      ? personRecords
+      : []
+  ) {
+
+    records.set(
+      identityRecordKey(
+        record
+      ),
+      record
+    );
+  }
+
+
+  return [
+    ...records.values()
+  ];
+}
+
+
+// ======================================================
 // CALLABLE
 // ======================================================
 
@@ -536,33 +685,55 @@ exports.searchPersonCandidates =
 
 
       // ==================================================
-      // COMPATIBILIDAD ACTUAL
+      // IDENTIDAD UNIFICADA
       //
-      // BUILD-118C-3B1 busca en "usuarios" porque
-      // actualmente las personas digitales viven ahí.
+      // usuarios:
+      // personas que tienen cuenta digital.
       //
-      // BUILD-119A incorporará colección PERSONA
-      // incluyendo personas sin cuenta digital.
+      // persons:
+      // identidad operacional canónica, incluyendo
+      // colaboradores sin cuenta.
       // ==================================================
 
-      const snapshot =
-        await db
-          .collection(
-            'usuarios'
-          )
-          .where(
-            'campaignId',
-            '==',
-            caller.campaignId
-          )
-          .limit(
-            1001
-          )
-          .get();
+      const [
+        usersSnapshot,
+        personsSnapshot
+      ] =
+        await Promise.all([
+
+          db
+            .collection(
+              'usuarios'
+            )
+            .where(
+              'campaignId',
+              '==',
+              caller.campaignId
+            )
+            .limit(
+              1001
+            )
+            .get(),
+
+          db
+            .collection(
+              'persons'
+            )
+            .where(
+              'campaignId',
+              '==',
+              caller.campaignId
+            )
+            .limit(
+              1001
+            )
+            .get()
+        ]);
 
 
       if (
-        snapshot.size > 1000
+        usersSnapshot.size > 1000 ||
+        personsSnapshot.size > 1000
       ) {
 
         fail(
@@ -570,6 +741,37 @@ exports.searchPersonCandidates =
           'La campaña requiere el índice de identidad escalable antes de continuar la búsqueda.'
         );
       }
+
+
+      const identityRecords =
+        mergeIdentityRecords(
+
+          usersSnapshot.docs.map(
+            document => ({
+              source:
+                'user',
+
+              id:
+                document.id,
+
+              profile:
+                document.data()
+            })
+          ),
+
+          personsSnapshot.docs.map(
+            document => ({
+              source:
+                'person',
+
+              id:
+                document.id,
+
+              profile:
+                document.data()
+            })
+          )
+        );
 
 
       const query = {
@@ -594,12 +796,12 @@ exports.searchPersonCandidates =
 
 
       for (
-        const document of
-        snapshot.docs
+        const record of
+        identityRecords
       ) {
 
         const profile =
-          document.data();
+          record.profile;
 
 
         const match =
@@ -616,9 +818,15 @@ exports.searchPersonCandidates =
 
         candidates.push({
 
-          // BUILD-118C-3B1 solo detecta coincidencias.
-          // No devuelve UID ni personId hasta contar
-          // con una referencia opaca segura.
+          // Referencia opaca.
+          // No expone UID ni personId.
+          candidateRef:
+            opaquePersonCandidateRef(
+              caller.campaignId,
+              record.source,
+              record.id
+            ),
+
           name:
             typeof profile.name ===
               'string'
@@ -708,5 +916,8 @@ exports._test = {
   phoneIdentityKeys,
   phonesEquivalent,
   maskedPhone,
-  personCandidateMatch
+  personCandidateMatch,
+  opaquePersonCandidateRef,
+  identityRecordKey,
+  mergeIdentityRecords
 };
