@@ -4780,3 +4780,8 @@ exports.getQuickAffiliationContext =
 
 exports.createQuickAffiliation =
   require("./quick-affiliation.cjs").createQuickAffiliation;
+
+
+
+exports.getStructureMembers =
+  require("./quick-affiliation.cjs").getStructureMembers;

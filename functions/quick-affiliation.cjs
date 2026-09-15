@@ -484,6 +484,451 @@ async function assertNoStrongDuplicate({
 
 
 // ======================================================
+// VISIBILIDAD CANONICA DE INTEGRANTES
+//
+// Admin:
+//   puede consultar estructuras de su campaña.
+//
+// Responsable de estructura:
+//   únicamente su propia estructura.
+//
+// Coordinador municipal:
+//   NO recibe detalle personal.
+// ======================================================
+
+function canViewStructureMembers(
+  viewer,
+  structure
+) {
+
+  if (
+    !viewer ||
+    !structure ||
+    viewer.active !== true ||
+    !viewer.campaignId ||
+    viewer.campaignId !==
+      structure.campaignId
+  ) {
+    return false;
+  }
+
+
+  if (
+    viewer.role ===
+      'admin'
+  ) {
+    return true;
+  }
+
+
+  if (
+    viewer.role ===
+      'jefe_estructura'
+  ) {
+
+    return (
+      !!viewer.structureId &&
+      !!structure.id &&
+      viewer.structureId ===
+        structure.id
+    );
+  }
+
+
+  return false;
+}
+
+
+async function readStructureViewer(
+  db,
+  request
+) {
+
+  if (
+    !request.auth
+  ) {
+
+    fail(
+      'unauthenticated',
+      'Inicia sesión.'
+    );
+  }
+
+
+  const snapshot =
+    await db
+      .collection(
+        'usuarios'
+      )
+      .doc(
+        request.auth.uid
+      )
+      .get();
+
+
+  if (
+    !snapshot.exists
+  ) {
+
+    fail(
+      'permission-denied',
+      'Perfil no autorizado.'
+    );
+  }
+
+
+  const viewer = {
+    ...snapshot.data(),
+    uid:
+      snapshot.id
+  };
+
+
+  if (
+    viewer.active !== true ||
+    !viewer.campaignId
+  ) {
+
+    fail(
+      'permission-denied',
+      'Perfil no autorizado.'
+    );
+  }
+
+
+  return viewer;
+}
+
+
+// ======================================================
+// LISTAR INTEGRANTES DE LA ESTRUCTURA
+// ======================================================
+
+exports.getStructureMembers =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const db =
+        getFirestore();
+
+
+      const viewer =
+        await readStructureViewer(
+          db,
+          request
+        );
+
+
+      const data =
+        request.data ||
+        {};
+
+
+      const structureDocumentId =
+        cleanText(
+          data.structureDocumentId,
+          128
+        );
+
+
+      if (
+        !structureDocumentId
+      ) {
+
+        fail(
+          'invalid-argument',
+          'Falta identificar la estructura.'
+        );
+      }
+
+
+      const structureSnapshot =
+        await db
+          .collection(
+            'estructuras'
+          )
+          .doc(
+            structureDocumentId
+          )
+          .get();
+
+
+      if (
+        !structureSnapshot.exists
+      ) {
+
+        fail(
+          'not-found',
+          'La estructura no existe.'
+        );
+      }
+
+
+      const structure = {
+        ...structureSnapshot.data(),
+        firestoreId:
+          structureSnapshot.id
+      };
+
+
+      if (
+        !canViewStructureMembers(
+          viewer,
+          structure
+        )
+      ) {
+
+        fail(
+          'permission-denied',
+          'No tienes autorización para consultar el detalle de integrantes de esta estructura.'
+        );
+      }
+
+
+      // Consulta amplia por campaña para evitar depender
+      // todavía de un índice compuesto adicional.
+      const membershipsSnapshot =
+        await db
+          .collection(
+            'territorialMemberships'
+          )
+          .where(
+            'campaignId',
+            '==',
+            viewer.campaignId
+          )
+          .limit(
+            1001
+          )
+          .get();
+
+
+      if (
+        membershipsSnapshot.size >
+          1000
+      ) {
+
+        fail(
+          'resource-exhausted',
+          'La campaña requiere un índice escalable antes de continuar.'
+        );
+      }
+
+
+      const memberships =
+        membershipsSnapshot.docs
+          .map(
+            document => ({
+              ...document.data(),
+              membershipId:
+                document.id
+            })
+          )
+          .filter(
+            membership =>
+              membership.active ===
+                true &&
+              membership.role ===
+                'integrante' &&
+              membership.structureId ===
+                structure.id
+          );
+
+
+      if (
+        memberships.length ===
+          0
+      ) {
+
+        return {
+          success:
+            true,
+
+          members:
+            []
+        };
+      }
+
+
+      const personSnapshots =
+        await db.getAll(
+          ...memberships.map(
+            membership =>
+              db
+                .collection(
+                  'persons'
+                )
+                .doc(
+                  membership.personId
+                )
+          )
+        );
+
+
+      const membershipByPerson =
+        new Map(
+          memberships.map(
+            membership => [
+              membership.personId,
+              membership
+            ]
+          )
+        );
+
+
+      const members =
+        [];
+
+
+      for (
+        const snapshot of
+        personSnapshots
+      ) {
+
+        if (
+          !snapshot.exists
+        ) {
+          continue;
+        }
+
+
+        const person =
+          snapshot.data();
+
+
+        const membership =
+          membershipByPerson.get(
+            snapshot.id
+          );
+
+
+        if (
+          !membership ||
+          person.campaignId !==
+            viewer.campaignId ||
+          person.structureId !==
+            structure.id
+        ) {
+          continue;
+        }
+
+
+        // La PERSONA sigue siendo la identidad canónica
+        // aunque posteriormente tenga cuenta digital.
+        const accountUid =
+          typeof person.accountUid ===
+            'string'
+            ? person.accountUid.trim()
+            : '';
+
+
+        members.push({
+
+          personRef:
+            hash(
+              'structure-member',
+              viewer.campaignId,
+              structure.id,
+              snapshot.id
+            ),
+
+          name:
+            typeof person.name ===
+              'string'
+              ? person.name
+              : '',
+
+          locality:
+            typeof person.locality ===
+              'string'
+              ? person.locality
+              : '',
+
+          phone:
+            typeof person.phone ===
+              'string'
+              ? person.phone
+              : '',
+
+          hasWhatsApp:
+            person.hasWhatsApp ===
+              true,
+
+          active:
+            person.active !==
+              false,
+
+          role:
+            'integrante',
+
+          accountUid:
+            accountUid ||
+            null,
+
+          hasDigitalAccount:
+            Boolean(
+              accountUid
+            ),
+
+          introducedByUserId:
+            typeof membership
+              .introducedByUserId ===
+                'string'
+              ? membership
+                  .introducedByUserId
+              : '',
+
+          introducedByName:
+            typeof membership
+              .parentUserName ===
+                'string'
+              ? membership
+                  .parentUserName
+              : ''
+        });
+      }
+
+
+      members.sort(
+        (a, b) =>
+          String(
+            a.name
+          ).localeCompare(
+            String(
+              b.name
+            ),
+            'es',
+            {
+              sensitivity:
+                'base'
+            }
+          )
+      );
+
+
+      return {
+
+        success:
+          true,
+
+        structure: {
+          id:
+            structure.id,
+
+          name:
+            structure.name ||
+            ''
+        },
+
+        members
+      };
+    }
+  );
+
+
+// ======================================================
 // CONTEXTO PARA LA PANTALLA
 // ======================================================
 
@@ -1037,5 +1482,6 @@ exports._test = {
   normalizePhone,
   normalizeText,
   nextAffiliationRole,
-  roleLabel
+  roleLabel,
+  canViewStructureMembers
 };
