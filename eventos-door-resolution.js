@@ -4,6 +4,12 @@ import {
 
 
 import {
+  resolveDoorTutor,
+  resetDoorTutor
+} from "./eventos-door-tutor.js?v=build-118c-3b3d-001";
+
+
+import {
   getFunctions,
   httpsCallable
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
@@ -606,6 +612,9 @@ function handleMunicipalityChange() {
     null;
 
 
+  resetDoorTutor();
+
+
   $("doorInviterResults")
     ?.replaceChildren();
 
@@ -877,6 +886,18 @@ function renderInviterCandidates(
             "por resolver"
           }. El siguiente paso será resolver su tutor.`
         );
+
+
+
+        resolveDoorTutor({
+          residenceMunicipalityId:
+            $("doorResidenceMunicipality")
+              ?.value ||
+            "",
+
+          inviterRef:
+            selectedInviterRef
+        });
       }
     );
 
@@ -909,6 +930,9 @@ function renderInviterCandidates(
 // ======================================================
 
 async function searchInviter() {
+
+  resetDoorTutor();
+
 
   if (
     busy ||
@@ -1057,6 +1081,9 @@ function markNoInviter() {
     null;
 
 
+  resetDoorTutor();
+
+
   $("doorInviterResults")
     ?.replaceChildren();
 
@@ -1088,6 +1115,9 @@ export function resetDoorResolution(
 
   selectedInviterRef =
     null;
+
+
+  resetDoorTutor();
 
 
   const panel =
@@ -1149,4 +1179,4 @@ export function resetDoorResolution(
         "";
     }
   }
-}
+}\n
