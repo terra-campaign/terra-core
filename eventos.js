@@ -4,6 +4,12 @@ import {
 
 
 import {
+  showDoorResolution,
+  resetDoorResolution
+} from "./eventos-door-resolution.js?v=build-118c-3b3b-002";
+
+
+import {
   createTerraWhatsAppCommunication
 } from "./terra-whatsapp.js?v=build-118a-3b-002";
 
@@ -2699,6 +2705,11 @@ function clearAttendanceIdentitySearch(
   $("attendanceIdentityStatus")
     .textContent =
     "";
+
+
+  resetDoorResolution(
+    true
+  );
 }
 
 
@@ -2725,10 +2736,18 @@ function renderAttendanceIdentityCandidates(
 
     $("attendanceIdentityStatus")
       .textContent =
-      "No encontramos coincidencias en la campaña. Todavía no se ha creado ninguna persona nueva.";
+      "No encontramos coincidencias en TERRA. Antes de registrar a una persona nueva, resuelve su municipio y quién la invitó.";
+
+
+    showDoorResolution();
 
     return;
   }
+
+
+  resetDoorResolution(
+    true
+  );
 
 
   const total =
