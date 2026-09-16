@@ -452,6 +452,7 @@ function chooseSeatNumbers({
   capacity,
   requested,
   selectedSeatNumbers,
+  zone = 'none',
   seats
 }) {
 
@@ -548,11 +549,65 @@ function chooseSeatNumbers({
       : [];
 
 
+  // ====================================================
+  // SELECCION AUTOMATICA POR LADO
+  //
+  // left  = lado chofer
+  // right = lado copiloto
+  // ====================================================
+
+  if (
+    selected.length === 0 &&
+    (
+      zone === 'left' ||
+      zone === 'right'
+    )
+  ) {
+
+    const sideSeats =
+      freeSeats.filter(
+        seat =>
+          seat.physicalSide ===
+            zone
+      );
+
+
+    if (
+      sideSeats.length < 1
+    ) {
+
+      fail(
+        'failed-precondition',
+        zone === 'left'
+          ? 'No quedan lugares disponibles del lado del chofer.'
+          : 'No quedan lugares disponibles del lado del copiloto.'
+      );
+    }
+
+
+    return sideSeats.map(
+      seat =>
+        seat.seatNumber
+    );
+  }
+
+
   const freeSet =
     new Set(
       freeSeats.map(
         seat =>
           seat.seatNumber
+      )
+    );
+
+
+  const freeSeatByNumber =
+    new Map(
+      freeSeats.map(
+        seat => [
+          seat.seatNumber,
+          seat
+        ]
       )
     );
 
@@ -583,6 +638,35 @@ function chooseSeatNumbers({
         'failed-precondition',
         `El asiento ${number} ya no está disponible.`
       );
+    }
+
+
+    // Cuando se declara un lado físico,
+    // cada asiento manual debe pertenecer
+    // realmente a ese lado.
+    if (
+      zone === 'left' ||
+      zone === 'right'
+    ) {
+
+      const seat =
+        freeSeatByNumber.get(
+          number
+        );
+
+
+      if (
+        seat?.physicalSide !==
+          zone
+      ) {
+
+        fail(
+          'invalid-argument',
+          zone === 'left'
+            ? `El asiento ${number} no pertenece al lado del chofer.`
+            : `El asiento ${number} no pertenece al lado del copiloto.`
+        );
+      }
     }
   }
 
@@ -823,10 +907,34 @@ exports.createEventTransportAllocation =
           'seat_selection'
       ) {
 
-        selectedSeatNumbers =
-          normalizeSeatNumbers(
+        const suppliedSeatNumbers =
+          Array.isArray(
             input.seatNumbers
+          )
+            ? input.seatNumbers
+            : [];
+
+
+        if (
+          suppliedSeatNumbers.length >
+            0
+        ) {
+
+          selectedSeatNumbers =
+            normalizeSeatNumbers(
+              suppliedSeatNumbers
+            );
+
+        } else if (
+          zone !== 'left' &&
+          zone !== 'right'
+        ) {
+
+          fail(
+            'invalid-argument',
+            'Selecciona asientos concretos o indica el lado del chofer/copiloto.'
           );
+        }
       }
 
 
@@ -1176,6 +1284,7 @@ exports.createEventTransportAllocation =
                 vehicle.capacity,
               requested,
               selectedSeatNumbers,
+              zone,
               seats
             });
 

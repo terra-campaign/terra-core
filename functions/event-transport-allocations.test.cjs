@@ -222,7 +222,18 @@ const seats =
         null,
 
       personId:
-        null
+        null,
+
+      physicalSide:
+        [
+          1, 2,
+          5, 6,
+          9, 10
+        ].includes(
+          index + 1
+        )
+          ? 'left'
+          : 'right'
     })
   );
 
@@ -297,6 +308,121 @@ assert.deepEqual(
     5, 6, 7, 8,
     9, 10, 11, 12
   ]
+);
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B2B2
+// SELECCION AUTOMATICA POR LADO FISICO
+// ======================================================
+
+assert.deepEqual(
+  chooseSeatNumbers({
+    type:
+      'seat_selection',
+
+    capacity:
+      12,
+
+    requested:
+      null,
+
+    selectedSeatNumbers:
+      [],
+
+    zone:
+      'left',
+
+    seats
+  }),
+  [
+    1, 2,
+    5, 6,
+    9, 10
+  ]
+);
+
+
+assert.deepEqual(
+  chooseSeatNumbers({
+    type:
+      'seat_selection',
+
+    capacity:
+      12,
+
+    requested:
+      null,
+
+    selectedSeatNumbers:
+      [],
+
+    zone:
+      'right',
+
+    seats
+  }),
+  [
+    3, 4,
+    7, 8,
+    11, 12
+  ]
+);
+
+
+// Selección manual correcta del lado chofer.
+assert.deepEqual(
+  chooseSeatNumbers({
+    type:
+      'seat_selection',
+
+    capacity:
+      12,
+
+    requested:
+      null,
+
+    selectedSeatNumbers:
+      [1, 5, 9],
+
+    zone:
+      'left',
+
+    seats
+  }),
+  [1, 5, 9]
+);
+
+
+// Un asiento del copiloto no puede declararse
+// como lado del chofer.
+assert.throws(
+  () =>
+    chooseSeatNumbers({
+      type:
+        'seat_selection',
+
+      capacity:
+        12,
+
+      requested:
+        null,
+
+      selectedSeatNumbers:
+        [1, 3],
+
+      zone:
+        'left',
+
+      seats
+    }),
+  error =>
+    error &&
+    error.code ===
+      'invalid-argument' &&
+    /lado del chofer/.test(
+      error.message
+    )
 );
 
 
