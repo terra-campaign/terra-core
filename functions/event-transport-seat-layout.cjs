@@ -51,6 +51,178 @@ const RIGHT_SIDE_MEANING =
   'passenger_side';
 
 
+const SEAT_LAYOUT_TEMPLATES =
+  new Set([
+    'custom',
+    'standard_2x2'
+  ]);
+
+
+// ======================================================
+// PLANTILLA ESTANDAR 2+2
+//
+// Mirando hacia el frente:
+//
+// CHOFER            COPILOTO
+//  1  2              3  4
+//  5  6              7  8
+//  9 10             11 12
+//
+// Cada bloque consecutivo de 4 asientos
+// representa una fila física.
+// ======================================================
+
+function standard2x2SeatLayout(
+  capacity
+) {
+
+  const number =
+    Number(
+      capacity
+    );
+
+
+  if (
+    !Number.isInteger(
+      number
+    ) ||
+    number < 4 ||
+    number > 120 ||
+    number % 4 !== 0
+  ) {
+
+    fail(
+      'invalid-argument',
+      'La plantilla 2+2 requiere una capacidad múltiplo de 4.'
+    );
+  }
+
+
+  const left = [];
+  const right = [];
+
+
+  for (
+    let first = 1;
+    first <= number;
+    first += 4
+  ) {
+
+    left.push(
+      first,
+      first + 1
+    );
+
+    right.push(
+      first + 2,
+      first + 3
+    );
+  }
+
+
+  return {
+    templateId:
+      'standard_2x2',
+
+    left,
+    right,
+    center:
+      []
+  };
+}
+
+
+// ======================================================
+// RESOLVER MAPA
+//
+// standard_2x2:
+// TERRA genera automáticamente los lados.
+//
+// custom:
+// el responsable proporciona las listas.
+// ======================================================
+
+function resolveSeatLayout({
+  layoutTemplate,
+  capacity,
+  leftSeatNumbers,
+  rightSeatNumbers,
+  centerSeatNumbers
+}) {
+
+  const templateId =
+    typeof layoutTemplate ===
+      'string' &&
+    layoutTemplate.trim()
+      ? layoutTemplate.trim()
+      : 'custom';
+
+
+  if (
+    !SEAT_LAYOUT_TEMPLATES.has(
+      templateId
+    )
+  ) {
+
+    fail(
+      'invalid-argument',
+      'Plantilla de asientos no válida.'
+    );
+  }
+
+
+  if (
+    templateId ===
+      'standard_2x2'
+  ) {
+
+    const generated =
+      standard2x2SeatLayout(
+        capacity
+      );
+
+
+    const validated =
+      validateSeatSideLayout({
+        capacity,
+
+        leftSeatNumbers:
+          generated.left,
+
+        rightSeatNumbers:
+          generated.right,
+
+        centerSeatNumbers:
+          generated.center
+      });
+
+
+    return {
+      templateId,
+
+      ...validated
+    };
+  }
+
+
+  const validated =
+    validateSeatSideLayout({
+      capacity,
+      leftSeatNumbers,
+      rightSeatNumbers,
+      centerSeatNumbers
+    });
+
+
+  return {
+    templateId:
+      'custom',
+
+    ...validated
+  };
+}
+
+
 function fail(
   code,
   message
@@ -617,7 +789,10 @@ exports.configureEventTransportSeatLayout =
           // ==============================================
 
           const layout =
-            validateSeatSideLayout({
+            resolveSeatLayout({
+              layoutTemplate:
+                input.layoutTemplate,
+
               capacity:
                 vehicle.capacity,
 
@@ -635,6 +810,7 @@ exports.configureEventTransportSeatLayout =
           const fingerprint =
             hash(
               vehicleId,
+              layout.templateId,
               layout.left,
               layout.right,
               layout.center
@@ -671,6 +847,9 @@ exports.configureEventTransportSeatLayout =
 
               layout: {
                 vehicleId,
+
+                layoutTemplate:
+                  layout.templateId,
 
                 seatSideReference:
                   SEAT_SIDE_REFERENCE,
@@ -825,6 +1004,9 @@ exports.configureEventTransportSeatLayout =
               seatLayoutType:
                 'side_map',
 
+              seatLayoutTemplate:
+                layout.templateId,
+
               seatSideReference:
                 SEAT_SIDE_REFERENCE,
 
@@ -887,6 +1069,9 @@ exports.configureEventTransportSeatLayout =
 
               vehicleId,
 
+              seatLayoutTemplate:
+                layout.templateId,
+
               seatSideReference:
                 SEAT_SIDE_REFERENCE,
 
@@ -933,6 +1118,9 @@ exports.configureEventTransportSeatLayout =
               capacity:
                 vehicle.capacity,
 
+              layoutTemplate:
+                layout.templateId,
+
               seatSideReference:
                 SEAT_SIDE_REFERENCE,
 
@@ -962,6 +1150,9 @@ exports._test = {
   SEAT_SIDE_REFERENCE,
   LEFT_SIDE_MEANING,
   RIGHT_SIDE_MEANING,
+  SEAT_LAYOUT_TEMPLATES,
+  standard2x2SeatLayout,
+  resolveSeatLayout,
   validateSeatSideLayout,
   canConfigureSeatLayout
 };
