@@ -5244,3 +5244,13 @@ exports.getMyEventTransportNeed =
 exports.setMyEventTransportNeed =
   require("./event-transport.cjs")
     .setMyEventTransportNeed;
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B1
+// Vehículos + capacidad + asientos de transporte.
+// ======================================================
+
+exports.createEventTransportVehicle =
+  require("./event-transport-vehicles.cjs")
+    .createEventTransportVehicle;
