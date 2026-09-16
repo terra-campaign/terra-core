@@ -2038,6 +2038,10 @@ function mountEventShortcuts() {
 
   bar.replaceChildren();
 
+  const isBaseCollaborator =
+    workspace?.viewer?.role ===
+    "colaborador_base";
+
   const items = [
     {
       label:
@@ -2045,12 +2049,19 @@ function mountEventShortcuts() {
       id:
         "receivedEvents"
     },
-    {
-      label:
-        "↓ Invitaciones que he creado",
-      id:
-        "createdEvents"
-    }
+
+    ...(
+      isBaseCollaborator
+        ? []
+        : [
+            {
+              label:
+                "↓ Invitaciones que he creado",
+              id:
+                "createdEvents"
+            }
+          ]
+    )
   ];
 
   for (const item of items) {
@@ -3602,7 +3613,41 @@ function renderWorkspace() {
     return;
   }
 
+  const isBaseCollaborator =
+    workspace.viewer.role ===
+    "colaborador_base";
+
+
   mountEventShortcuts();
+
+
+  const attendanceShortcut =
+    $("attendanceShortcut");
+
+  if (attendanceShortcut) {
+    attendanceShortcut.hidden =
+      isBaseCollaborator;
+  }
+
+
+  const createdMetric =
+    $("createdCount")
+      ?.closest(".card");
+
+  if (createdMetric) {
+    createdMetric.hidden =
+      isBaseCollaborator;
+  }
+
+
+  const assigneeMetric =
+    $("assigneeCount")
+      ?.closest(".card");
+
+  if (assigneeMetric) {
+    assigneeMetric.hidden =
+      isBaseCollaborator;
+  }
 
 
   $("sessionLabel").textContent =
@@ -3625,10 +3670,11 @@ function renderWorkspace() {
 
 
   $("createdSection").hidden =
-    false;
+    isBaseCollaborator;
 
 
   $("newEventSection").hidden =
+    isBaseCollaborator ||
     !workspace.canCreateEvent;
 
 
