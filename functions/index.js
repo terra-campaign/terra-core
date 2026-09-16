@@ -5254,3 +5254,13 @@ exports.setMyEventTransportNeed =
 exports.createEventTransportVehicle =
   require("./event-transport-vehicles.cjs")
     .createEventTransportVehicle;
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B2A
+// Reparto de cupos de transporte.
+// ======================================================
+
+exports.createEventTransportAllocation =
+  require("./event-transport-allocations.cjs")
+    .createEventTransportAllocation;
