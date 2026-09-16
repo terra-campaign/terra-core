@@ -250,7 +250,42 @@ assert.equal(
 
 assert.equal(
   NEXT.participante,
+  'colaborador_base'
+);
+
+assert.equal(
+  NEXT.colaborador_base,
   undefined
+);
+
+
+const baseParticipantForDelegation = {
+  uid: 'PART-BASE-PARENT',
+  role: 'participante',
+  active: true,
+  campaignId: 'CAM-001',
+  municipalityId: 'MUN-001',
+  structureId: 'EST-001'
+};
+
+
+const baseCollaboratorTarget = {
+  uid: 'BASE-001',
+  role: 'colaborador_base',
+  active: true,
+  campaignId: 'CAM-001',
+  municipalityId: 'MUN-001',
+  structureId: 'EST-001',
+  parentUserId: 'PART-BASE-PARENT'
+};
+
+
+assert.equal(
+  targetAllowed(
+    baseParticipantForDelegation,
+    baseCollaboratorTarget
+  ),
+  true
 );
 
 
@@ -1120,6 +1155,23 @@ assert.equal(
     attendanceMasterEvent
   ),
   'direct'
+);
+
+
+assert.equal(
+  eventAttendanceWorkspaceScope(
+    {
+      uid: 'BASE-ATTENDANCE',
+      role: 'colaborador_base',
+      active: true,
+      campaignId: 'CAM-001',
+      municipalityId: 'MUN-001',
+      structureId: 'EST-001',
+      parentUserId: 'PART-001'
+    },
+    attendanceMasterEvent
+  ),
+  'none'
 );
 
 

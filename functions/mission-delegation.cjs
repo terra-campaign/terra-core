@@ -2,7 +2,7 @@
 const {onCall, HttpsError} = require('firebase-functions/v2/https');
 const {getFirestore, FieldValue} = require('firebase-admin/firestore');
 const {createHash} = require('node:crypto');
-const NEXT = {lider_principal:'coordinador_municipal', admin:'coordinador_municipal', coordinador_municipal:'jefe_estructura', jefe_estructura:'integrante', integrante:'participante'};
+const NEXT = {lider_principal:'coordinador_municipal', admin:'coordinador_municipal', coordinador_municipal:'jefe_estructura', jefe_estructura:'integrante', integrante:'participante', participante:'colaborador_base'};
 const OPTIONS = {region:'us-central1', timeoutSeconds:60};
 const fail = (code, message) => { throw new HttpsError(code, message); };
 const hash = (...parts) => createHash('sha256').update(JSON.stringify(parts)).digest('hex');
@@ -19,7 +19,7 @@ async function caller(tx, db, request) {
   if (!request.auth) fail('unauthenticated','Inicia sesión.');
   const s = await tx.get(db.collection('usuarios').doc(request.auth.uid));
   const p = s.data();
-  if (!p || p.active !== true || !p.campaignId || ![...Object.keys(NEXT),'participante'].includes(p.role)) fail('permission-denied','Perfil no autorizado.');
+  if (!p || p.active !== true || !p.campaignId || ![...Object.keys(NEXT),'colaborador_base'].includes(p.role)) fail('permission-denied','Perfil no autorizado.');
   if (p.role === 'lider_principal') {
     const lock = await tx.get(db.collection('principalLeaders').doc(p.campaignId));
     if (lock.data()?.uid !== s.id) fail('permission-denied','Líder no registrado para esta campaña.');
@@ -29,7 +29,7 @@ async function caller(tx, db, request) {
 function targetAllowed(p, t) {
   return t && t.active === true && t.campaignId === p.campaignId && t.role === NEXT[p.role] &&
     (['admin','lider_principal'].includes(p.role) || (t.parentUserId === p.uid && !!p.municipalityId && t.municipalityId === p.municipalityId)) &&
-    (!['jefe_estructura','integrante'].includes(p.role) || (!!p.structureId && t.structureId === p.structureId));
+    (!['jefe_estructura','integrante','participante'].includes(p.role) || (!!p.structureId && t.structureId === p.structureId));
 }
 function deadline(value) {
   if (value == null || value === '') return null;
@@ -67,7 +67,7 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
       parent = registry.data();
       if (!parent || !source.exists || parent.campaignId !== p.campaignId || parent.assignedTo !== p.uid || parent.assignedToRole !== p.role || source.data().active !== true) fail('permission-denied','Solo puedes delegar una misión vinculada, activa y asignada a ti.');
       if (parent.content?.deadlineAt && Date.parse(parent.content.deadlineAt) <= Date.now()) fail('failed-precondition','La misión ya venció; no se puede delegar.');
-      if (parent.ancestorMissionIds.length >= 3) fail('failed-precondition','Se alcanzó el último nivel de delegación.');
+      if (parent.ancestorMissionIds.length >= 4) fail('failed-precondition','Se alcanzó el último nivel de delegación.');
     }
     const groupId = parent ? parent.groupId : hash(p.uid,requestId,'group');
     const ancestors = parent ? [...parent.ancestorMissionIds,parentId] : [];

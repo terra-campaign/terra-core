@@ -149,7 +149,8 @@ service firebase.storage {
                     roleIs("coordinador_municipal") ||
                     roleIs("jefe_estructura") ||
                     roleIs("integrante") ||
-                    roleIs("participante")
+                    roleIs("participante") ||
+                    roleIs("colaborador_base")
                   ) &&
                   profile().campaignId ==
                   campaignId &&
@@ -213,7 +214,8 @@ service firebase.storage {
                       roleIs("coordinador_municipal") ||
                       roleIs("jefe_estructura") ||
                       roleIs("integrante") ||
-                      roleIs("participante")
+                      roleIs("participante") ||
+                      roleIs("colaborador_base")
                     ) &&
                     profile().campaignId ==
                     campaignId &&

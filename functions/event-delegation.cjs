@@ -32,7 +32,8 @@ const NEXT = {
   admin: 'coordinador_municipal',
   coordinador_municipal: 'jefe_estructura',
   jefe_estructura: 'integrante',
-  integrante: 'participante'
+  integrante: 'participante',
+  participante: 'colaborador_base'
 };
 
 
@@ -783,7 +784,7 @@ async function caller(tx, db, request) {
     !profile.campaignId ||
     ![
       ...Object.keys(NEXT),
-      'participante'
+      'colaborador_base'
     ].includes(profile.role)
   ) {
     fail(
@@ -856,7 +857,7 @@ function targetAllowed(parent, target) {
 
 
   if (
-    ['jefe_estructura', 'integrante']
+    ['jefe_estructura', 'integrante', 'participante']
       .includes(parent.role)
   ) {
 
@@ -1246,7 +1247,7 @@ exports.createEventInvitations =
 
             if (
               ancestorInvitationIds.length >
-              3
+              4
             ) {
               fail(
                 'failed-precondition',
@@ -1509,7 +1510,7 @@ async function readCaller(db, request) {
     !profile.campaignId ||
     ![
       ...Object.keys(NEXT),
-      'participante'
+      'colaborador_base'
     ].includes(profile.role)
   ) {
     fail(
@@ -3219,6 +3220,17 @@ function eventAttendanceWorkspaceScope(
     !profile.campaignId ||
     event.campaignId !==
       profile.campaignId
+  ) {
+    return 'none';
+  }
+
+
+  // El Colaborador de base es destinatario operativo.
+  // Puede responder su propia invitación, pero no
+  // administra el control de asistencia de terceros.
+  if (
+    profile.role ===
+    'colaborador_base'
   ) {
     return 'none';
   }

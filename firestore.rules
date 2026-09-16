@@ -475,7 +475,8 @@ allow read: if
     roleIs("coordinador_municipal") ||
     roleIs("jefe_estructura") ||
     roleIs("integrante") ||
-    roleIs("participante")
+    roleIs("participante") ||
+    roleIs("colaborador_base")
   ) &&
 
   resource.data.campaignId ==
@@ -612,7 +613,8 @@ in resource.data.supervisorIds
           roleIs("coordinador_municipal") ||
           roleIs("jefe_estructura") ||
           roleIs("integrante") ||
-          roleIs("participante")
+          roleIs("participante") ||
+          roleIs("colaborador_base")
         ) &&
 
         request.resource.data.id ==
@@ -680,7 +682,8 @@ in resource.data.supervisorIds
     roleIs("coordinador_municipal") ||
     roleIs("jefe_estructura") ||
     roleIs("integrante") ||
-    roleIs("participante")
+    roleIs("participante") ||
+    roleIs("colaborador_base")
   ) &&
 
   resource.data.campaignId ==

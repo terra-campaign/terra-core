@@ -131,7 +131,7 @@ evidenceCountStatus.style.fontSize = "0.8rem";
 evidenceCountStatus.setAttribute("aria-live", "polite");
 totalEvidenceElement.after(evidenceCountStatus);
 function renderSession() {
-  const roles = {admin:"Administrador", coordinador_municipal:"Responsable de organización", jefe_estructura:"Responsable de estructura", integrante:"Integrante", participante:"Participante"};
+  const roles = {admin:"Administrador", coordinador_municipal:"Responsable de organización", jefe_estructura:"Responsable de estructura", integrante:"Integrante", participante:"Participante", colaborador_base:"Colaborador de base"};
   sessionLabel.textContent = currentUserProfile ? `Sesión: ${currentUserProfile.name || currentUser?.email || "Sin nombre"} · ${roles[currentUserProfile.role] || currentUserProfile.role}` : "";
 }
 async function loadEvidenceTotal(version) {
@@ -203,7 +203,8 @@ function validateMissionAccess(profile) {
     "coordinador_municipal",
     "jefe_estructura",
     "integrante",
-    "participante"
+    "participante",
+    "colaborador_base"
   ];
 
   if (!allowedRoles.includes(profile.role)) {
@@ -235,6 +236,9 @@ function getAssignableRole(profile) {
       return "participante";
 
     case "participante":
+      return "colaborador_base";
+
+    case "colaborador_base":
       return null;
 
     default:
@@ -502,7 +506,10 @@ const roleLabels = {
     "Integrante",
 
   participante:
-    "Participante"
+    "Participante",
+
+  colaborador_base:
+    "Colaborador de base"
 };
 
 role.textContent =

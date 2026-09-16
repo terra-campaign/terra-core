@@ -172,7 +172,10 @@ const ROLE_LABELS = {
     "Integrante",
 
   participante:
-    "Participante"
+    "Participante",
+
+  colaborador_base:
+    "Colaborador de base"
 };
 
 

@@ -357,7 +357,8 @@ function applyRoleInterface() {
     "coordinador_municipal",
     "jefe_estructura",
     "integrante",
-    "participante"
+    "participante",
+    "colaborador_base"
   ].includes(role);
 
   const canAccessEvents = [
@@ -365,7 +366,8 @@ function applyRoleInterface() {
     "coordinador_municipal",
     "jefe_estructura",
     "integrante",
-    "participante"
+    "participante",
+    "colaborador_base"
   ].includes(role);
 
   if (brigadistasAdminButton) {
