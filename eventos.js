@@ -51,6 +51,20 @@ const respondToEventInvitation =
 
 
 
+const getMyEventTransportNeed =
+  httpsCallable(
+    functions,
+    "getMyEventTransportNeed"
+  );
+
+
+const setMyEventTransportNeed =
+  httpsCallable(
+    functions,
+    "setMyEventTransportNeed"
+  );
+
+
 const reportEventIncident =
   httpsCallable(
     functions,
@@ -357,6 +371,322 @@ async function saveEventResponse(
       }
     );
   }
+}
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-A2
+// NECESIDAD DE TRANSPORTE — AUTOGESTION DIGITAL
+// ======================================================
+
+function createEventTransportPanel(
+  invitation
+) {
+
+  const panel =
+    node("div");
+
+
+  panel.className =
+    "event-transport-panel";
+
+
+  panel.style.cssText =
+    [
+      "margin-top:14px",
+      "padding:14px",
+      "border:1px solid #d7dee8",
+      "border-radius:12px",
+      "background:#f8fafc"
+    ].join(";");
+
+
+  const heading =
+    node(
+      "p",
+      "¿Necesitas transporte?"
+    );
+
+
+  heading.style.cssText =
+    "font-weight:700;margin:0 0 8px";
+
+
+  const status =
+    node(
+      "p",
+      "Consultando transporte..."
+    );
+
+
+  status.className =
+    "event-meta";
+
+
+  status.style.margin =
+    "0 0 10px";
+
+
+  const actions =
+    node("div");
+
+
+  actions.style.cssText =
+    "display:flex;flex-wrap:wrap;gap:8px";
+
+
+  const yesButton =
+    node(
+      "button",
+      "Sí, necesito transporte"
+    );
+
+
+  yesButton.type =
+    "button";
+
+
+  const noButton =
+    node(
+      "button",
+      "No necesito transporte"
+    );
+
+
+  noButton.type =
+    "button";
+
+
+  const buttons = [
+    yesButton,
+    noButton
+  ];
+
+
+  function setBusy(value) {
+
+    buttons.forEach(
+      button => {
+        button.disabled =
+          value;
+      }
+    );
+  }
+
+
+  function renderState(data) {
+
+    const eligible =
+      data?.eligible === true;
+
+
+    const request =
+      data?.request ||
+      null;
+
+
+    if (!eligible) {
+
+      status.textContent =
+        "La necesidad de transporte no está disponible para esta invitación.";
+
+      yesButton.className =
+        "button button--secondary";
+
+      noButton.className =
+        "button button--secondary";
+
+      setBusy(true);
+
+      return;
+    }
+
+
+    if (!request) {
+
+      status.textContent =
+        "Aún no has indicado si necesitas transporte.";
+
+      yesButton.className =
+        "button button--secondary";
+
+      noButton.className =
+        "button button--secondary";
+
+      setBusy(false);
+
+      return;
+    }
+
+
+    if (
+      request.needsTransport ===
+      true
+    ) {
+
+      status.textContent =
+        "Transporte solicitado.";
+
+      yesButton.className =
+        "button";
+
+      noButton.className =
+        "button button--secondary";
+
+      yesButton.disabled =
+        true;
+
+      noButton.disabled =
+        false;
+
+      return;
+    }
+
+
+    status.textContent =
+      "Has indicado que no necesitas transporte.";
+
+    yesButton.className =
+      "button button--secondary";
+
+    noButton.className =
+      "button";
+
+    yesButton.disabled =
+      false;
+
+    noButton.disabled =
+      true;
+  }
+
+
+  async function loadTransportNeed() {
+
+    try {
+
+      const result =
+        await getMyEventTransportNeed({
+          invitationId:
+            invitation.id
+        });
+
+
+      if (
+        !document.body.contains(
+          panel
+        )
+      ) {
+        return;
+      }
+
+
+      renderState(
+        result.data
+      );
+
+    } catch (error) {
+
+      if (
+        !document.body.contains(
+          panel
+        )
+      ) {
+        return;
+      }
+
+
+      status.textContent =
+        error.message ||
+        "No fue posible consultar el transporte.";
+
+      setBusy(false);
+    }
+  }
+
+
+  async function saveTransportNeed(
+    needsTransport
+  ) {
+
+    setBusy(true);
+
+
+    status.textContent =
+      "Guardando transporte...";
+
+
+    try {
+
+      await setMyEventTransportNeed({
+        invitationId:
+          invitation.id,
+
+        needsTransport
+      });
+
+
+      const result =
+        await getMyEventTransportNeed({
+          invitationId:
+            invitation.id
+        });
+
+
+      if (
+        !document.body.contains(
+          panel
+        )
+      ) {
+        return;
+      }
+
+
+      renderState(
+        result.data
+      );
+
+    } catch (error) {
+
+      status.textContent =
+        error.message ||
+        "No fue posible guardar el transporte.";
+
+      setBusy(false);
+    }
+  }
+
+
+  yesButton.onclick =
+    () =>
+      saveTransportNeed(
+        true
+      );
+
+
+  noButton.onclick =
+    () =>
+      saveTransportNeed(
+        false
+      );
+
+
+  actions.append(
+    yesButton,
+    noButton
+  );
+
+
+  panel.append(
+    heading,
+    status,
+    actions
+  );
+
+
+  void loadTransportNeed();
+
+
+  return panel;
 }
 
 
@@ -1795,6 +2125,19 @@ function createEventCard(
         event
       )
     );
+
+
+    if (
+      invitation.response?.status ===
+      "attending"
+    ) {
+
+      card.append(
+        createEventTransportPanel(
+          invitation
+        )
+      );
+    }
 
 
 
