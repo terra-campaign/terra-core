@@ -5264,3 +5264,13 @@ exports.createEventTransportVehicle =
 exports.createEventTransportAllocation =
   require("./event-transport-allocations.cjs")
     .createEventTransportAllocation;
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B2B1
+// Mapa físico de asientos del transporte.
+// ======================================================
+
+exports.configureEventTransportSeatLayout =
+  require("./event-transport-seat-layout.cjs")
+    .configureEventTransportSeatLayout;
