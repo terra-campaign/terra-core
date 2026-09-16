@@ -347,7 +347,8 @@ function applyRoleInterface() {
   const canAccessOrganization = [
     "coordinador_municipal",
     "jefe_estructura",
-    "integrante"
+    "integrante",
+    "participante"
   ].includes(role);
 
   const canAccessMissions = [
@@ -396,6 +397,13 @@ function applyRoleInterface() {
     if (role === "integrante" && currentUser?.uid) {
       organizationButton.href =
         `./participantes.html?id=${encodeURIComponent(
+          currentUser.uid
+        )}`;
+    }
+
+    if (role === "participante" && currentUser?.uid) {
+      organizationButton.href =
+        `./colaboradores.html?id=${encodeURIComponent(
           currentUser.uid
         )}`;
     }
@@ -511,6 +519,13 @@ organizationButton?.addEventListener("click", async (event) => {
       case "integrante": {
         destination =
           `./participantes.html?id=${encodeURIComponent(user.uid)}`;
+
+        break;
+      }
+
+      case "participante": {
+        destination =
+          `./colaboradores.html?id=${encodeURIComponent(user.uid)}`;
 
         break;
       }
@@ -2092,5 +2107,3 @@ territoryFilters.forEach((button) => {
 photoButton.addEventListener("click", () => {
   photoInput.click();
 });
-
-

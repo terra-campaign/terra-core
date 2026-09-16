@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>
+    Colaboradores de base | TERRA Campaign
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css?v=build-118c-3b3e-3e-b"
+  >
+</head>
+
+
+<body>
+
+  <header class="topbar">
+
+    <div>
+
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1 id="participantTitle">
+        Colaboradores de base
+      </h1>
+
+    </div>
+
+
+    <div class="topbar__actions">
+
+      <button
+        id="backButton"
+        class="button button--secondary"
+        type="button"
+      >
+        Volver
+      </button>
+
+      <button
+        id="logoutButton"
+        class="button button--small button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <main class="workspace">
+
+    <!-- PARTICIPANTE RESPONSABLE -->
+
+    <section class="card">
+
+      <p class="eyebrow">
+        PARTICIPANTE
+      </p>
+
+      <h2 id="participantName">
+        Cargando participante...
+      </h2>
+
+      <p
+        id="participantEmail"
+        class="muted"
+      ></p>
+
+      <p
+        id="participantPhone"
+        class="muted"
+      ></p>
+
+      <p
+        id="participantStructure"
+        class="muted"
+      ></p>
+
+      <p
+        id="participantMunicipality"
+        class="muted"
+      ></p>
+
+      <div
+        id="participantInfoStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+
+    <!-- COLABORADORES -->
+
+    <section class="card">
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            BASE TERRITORIAL
+          </p>
+
+          <h2>
+            Colaboradores de base
+          </h2>
+
+          <p class="muted">
+            Personas registradas directamente
+            bajo este Participante.
+          </p>
+
+        </div>
+
+
+        <button
+          id="newCollaboratorButton"
+          class="button"
+          type="button"
+        >
+          + Nuevo colaborador
+        </button>
+
+      </div>
+
+
+      <div
+        id="collaboratorStatus"
+        class="status"
+        hidden
+      ></div>
+
+
+      <div
+        id="collaboratorList"
+        class="stack"
+      >
+
+        <p class="muted">
+          Todavía no hay colaboradores registrados.
+        </p>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- MODAL NUEVO COLABORADOR -->
+
+  <div
+    id="collaboratorModal"
+    class="modal"
+    hidden
+  >
+
+    <div class="modal__backdrop"></div>
+
+
+    <section
+      class="modal__content card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="collaboratorModalTitle"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            BASE TERRITORIAL
+          </p>
+
+          <h2 id="collaboratorModalTitle">
+            Nuevo colaborador
+          </h2>
+
+        </div>
+
+
+        <button
+          id="closeCollaboratorModalButton"
+          class="button button--small button--secondary"
+          type="button"
+        >
+          Cerrar
+        </button>
+
+      </div>
+
+
+      <form id="collaboratorForm">
+
+        <label>
+          Nombre completo *
+
+          <input
+            id="collaboratorName"
+            type="text"
+            maxlength="120"
+            autocomplete="name"
+            required
+          >
+        </label>
+
+
+        <label>
+          Correo electrónico *
+
+          <input
+            id="collaboratorEmail"
+            type="email"
+            maxlength="160"
+            autocomplete="email"
+            required
+          >
+        </label>
+
+
+        <label>
+          Teléfono
+
+          <input
+            id="collaboratorPhone"
+            type="tel"
+            maxlength="30"
+            autocomplete="tel"
+          >
+        </label>
+
+
+        <fieldset class="binary-choice">
+
+          <legend>
+            ¿Este teléfono tiene WhatsApp? *
+          </legend>
+
+          <div class="binary-choice__options">
+
+            <label>
+
+              <input
+                id="collaboratorWhatsAppYes"
+                type="radio"
+                name="collaboratorHasWhatsApp"
+                value="yes"
+                required
+              >
+
+              Sí
+
+            </label>
+
+
+            <label>
+
+              <input
+                id="collaboratorWhatsAppNo"
+                type="radio"
+                name="collaboratorHasWhatsApp"
+                value="no"
+                required
+              >
+
+              No
+
+            </label>
+
+          </div>
+
+        </fieldset>
+
+
+        <label>
+          Población *
+
+          <input
+            id="collaboratorLocality"
+            type="text"
+            maxlength="120"
+            required
+          >
+        </label>
+
+
+        <label>
+          Calle *
+
+          <input
+            id="collaboratorStreet"
+            type="text"
+            maxlength="160"
+            required
+          >
+        </label>
+
+
+        <label>
+          Número *
+
+          <input
+            id="collaboratorHouseNumber"
+            type="text"
+            maxlength="30"
+            placeholder="Ej. 125 o S/N"
+            required
+          >
+        </label>
+
+
+        <label>
+          Contraseña temporal *
+
+          <input
+            id="collaboratorPassword"
+            type="password"
+            minlength="6"
+            autocomplete="new-password"
+            required
+          >
+        </label>
+
+
+        <div class="form-actions">
+
+          <button
+            id="saveCollaboratorButton"
+            class="button"
+            type="submit"
+          >
+            Guardar colaborador
+          </button>
+
+        </div>
+
+      </form>
+
+
+      <div
+        id="collaboratorFormStatus"
+        class="status"
+        hidden
+      ></div>
+
+
+      <!-- BIENVENIDA -->
+
+      <div
+        id="collaboratorWelcome"
+        hidden
+      >
+
+        <hr>
+
+
+        <h3>
+          Bienvenida y acceso del colaborador
+        </h3>
+
+
+        <p id="collaboratorWelcomeRecipient"></p>
+
+        <p id="collaboratorWelcomePhone"></p>
+
+
+        <p
+          id="collaboratorWelcomeChannelStatus"
+          class="muted"
+        ></p>
+
+
+        <div
+          id="collaboratorWelcomeWhatsApp"
+          hidden
+        >
+
+          <label>
+
+            Mensaje preparado
+
+            <textarea
+              id="collaboratorWelcomeMessage"
+              class="whatsapp-message"
+              rows="12"
+            ></textarea>
+
+          </label>
+
+
+          <div class="form-actions">
+
+            <a
+              id="collaboratorWelcomeDirect"
+              class="button whatsapp-link"
+              target="_blank"
+              rel="noopener noreferrer"
+              hidden
+            >
+              Abrir WhatsApp con este colaborador
+            </a>
+
+
+            <a
+              id="collaboratorWelcomeManual"
+              class="button whatsapp-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Elegir contacto en WhatsApp
+            </a>
+
+          </div>
+
+
+          <p class="muted">
+            TERRA prepara el mensaje y el destinatario.
+            El envío se confirma dentro de WhatsApp.
+            La contraseña temporal no se incluye
+            en el mensaje.
+          </p>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </div>
+
+
+  <script
+    type="module"
+    src="./colaboradores.js?v=build-118c-3b3e-3e-b"
+  ></script>
+
+
+  <script
+    src="./password-toggle.js?v=build-116d-002"
+    defer
+  ></script>
+
+</body>
+</html>

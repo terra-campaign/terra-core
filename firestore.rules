@@ -176,7 +176,8 @@ match /usuarios/{userId} {
     (
       roleIs("coordinador_municipal") ||
       roleIs("jefe_estructura") ||
-      roleIs("integrante")
+      roleIs("integrante") ||
+      roleIs("participante")
     ) &&
     resource.data.campaignId ==
     profile().campaignId &&
