@@ -5274,3 +5274,13 @@ exports.createEventTransportAllocation =
 exports.configureEventTransportSeatLayout =
   require("./event-transport-seat-layout.cjs")
     .configureEventTransportSeatLayout;
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B3A
+// Persona concreta -> asiento reservado.
+// ======================================================
+
+exports.createEventTransportPassengerAssignment =
+  require("./event-transport-passenger-assignments.cjs")
+    .createEventTransportPassengerAssignment;
