@@ -5230,3 +5230,17 @@ exports.getStructureMembers =
 // Participante -> Colaborador de base digital.
 exports.createBaseCollaborator =
   require("./base-collaborator.cjs").createBaseCollaborator;
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-A
+// Necesidad de transporte del invitado digital.
+// ======================================================
+
+exports.getMyEventTransportNeed =
+  require("./event-transport.cjs")
+    .getMyEventTransportNeed;
+
+exports.setMyEventTransportNeed =
+  require("./event-transport.cjs")
+    .setMyEventTransportNeed;
