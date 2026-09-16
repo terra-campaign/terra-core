@@ -314,6 +314,7 @@ async function loadCurrentUserProfile(user) {
   "jefe_estructura",
   "integrante",
   "participante",
+  "colaborador_base",
   "brigadista",
   "consulta",
   "lider_principal"
@@ -421,12 +422,20 @@ function applyRoleInterface() {
   }
 
   if (visitForm) {
-    visitForm.hidden = role === "consulta";
+    visitForm.hidden = [
+      "consulta",
+      "colaborador_base"
+    ].includes(role);
   }
 
   if (role === "consulta" && visitMessage) {
     visitMessage.textContent =
       "Acceso de consulta: solo lectura.";
+  }
+
+  if (role === "colaborador_base" && visitMessage) {
+    visitMessage.textContent =
+      "Cuenta activa de Colaborador de base.";
   }
 }
 
@@ -1659,6 +1668,7 @@ case "coordinador_municipal":
 case "jefe_estructura":
 case "integrante":
 case "participante":
+case "colaborador_base":
 
   latestVisits = [];
 
