@@ -105,6 +105,21 @@ const getEventTransportAllocationTargets =
   );
 
 
+
+const getEventTransportPassengerCandidates =
+  httpsCallable(
+    functions,
+    "getEventTransportPassengerCandidates"
+  );
+
+
+const createEventTransportPassengerAssignment =
+  httpsCallable(
+    functions,
+    "createEventTransportPassengerAssignment"
+  );
+
+
 const getEventTransportWorkspace =
   httpsCallable(
     functions,
@@ -272,6 +287,20 @@ let transportAllocationTargetsError = "";
 let transportAllocationBusy = false;
 let transportAllocationVehicleId = null;
 let transportAllocationAttempt = null;
+
+
+let transportPassengerCandidatesByAllocation =
+  new Map();
+
+let transportPassengerBusy =
+  false;
+
+let transportPassengerAllocationId =
+  null;
+
+let transportPassengerAttempt =
+  null;
+
 
 
 let attendanceIdentitySearchBusy =
@@ -3793,6 +3822,481 @@ async function submitTransportCapacityAllocation(
 }
 
 
+// ======================================================
+// BUILD-118C-3B3E-3G-B4D3C
+// PASAJEROS DEL CUPO
+// ======================================================
+
+function transportPassengerCandidatesState(
+  allocationId
+) {
+
+  let state =
+    transportPassengerCandidatesByAllocation
+      .get(
+        allocationId
+      );
+
+
+  if (!state) {
+
+    state = {
+      loaded:
+        false,
+
+      busy:
+        false,
+
+      error:
+        "",
+
+      message:
+        "",
+
+      items:
+        []
+    };
+
+
+    transportPassengerCandidatesByAllocation
+      .set(
+        allocationId,
+        state
+      );
+  }
+
+
+  return state;
+}
+
+
+function transportPassengerCandidateLabel(
+  candidate
+) {
+
+  const name =
+    candidate?.name ||
+    "Persona";
+
+
+  const details = [];
+
+
+  if (candidate?.locality) {
+
+    details.push(
+      candidate.locality
+    );
+  }
+
+
+  if (candidate?.role) {
+
+    details.push(
+      String(
+        candidate.role
+      )
+        .replaceAll(
+          "_",
+          " "
+        )
+    );
+  }
+
+
+  return details.length
+    ? `${name} · ${details.join(" · ")}`
+    : name;
+}
+
+
+function transportDatetimeLocalValue(
+  value
+) {
+
+  if (!value) {
+
+    return "";
+  }
+
+
+  const date =
+    new Date(
+      value
+    );
+
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+
+    return "";
+  }
+
+
+  const pad =
+    number =>
+      String(
+        number
+      ).padStart(
+        2,
+        "0"
+      );
+
+
+  return `${
+    date.getFullYear()
+  }-${
+    pad(
+      date.getMonth() + 1
+    )
+  }-${
+    pad(
+      date.getDate()
+    )
+  }T${
+    pad(
+      date.getHours()
+    )
+  }:${
+    pad(
+      date.getMinutes()
+    )
+  }`;
+}
+
+
+async function ensureTransportPassengerCandidates(
+  allocationId
+) {
+
+  if (
+    !allocationId ||
+    !selectedTransportEventId
+  ) {
+
+    return;
+  }
+
+
+  const state =
+    transportPassengerCandidatesState(
+      allocationId
+    );
+
+
+  if (
+    state.loaded ||
+    state.busy
+  ) {
+
+    return;
+  }
+
+
+  const eventId =
+    selectedTransportEventId;
+
+
+  state.busy =
+    true;
+
+  state.error =
+    "";
+
+
+  try {
+
+    const {
+      data
+    } =
+      await getEventTransportPassengerCandidates({
+        allocationId
+      });
+
+
+    if (
+      selectedTransportEventId !==
+        eventId
+    ) {
+
+      return;
+    }
+
+
+    state.items =
+      Array.isArray(
+        data?.candidates
+      )
+        ? data.candidates
+        : [];
+
+
+    state.loaded =
+      true;
+
+
+  } catch (error) {
+
+    console.error(
+      "getEventTransportPassengerCandidates",
+      error
+    );
+
+
+    state.items =
+      [];
+
+    state.loaded =
+      false;
+
+    state.error =
+      error?.message ||
+      "No fue posible consultar las personas elegibles.";
+
+
+  } finally {
+
+    state.busy =
+      false;
+
+
+    if (
+      selectedTransportEventId ===
+        eventId
+    ) {
+
+      renderTransportControl();
+    }
+  }
+}
+
+
+async function submitTransportPassengerAssignment(
+  allocation,
+  vehicle,
+  personSelect,
+  boardingInput,
+  timeInput
+) {
+
+  if (
+    transportPassengerBusy ||
+    !allocation?.id ||
+    !vehicle?.id
+  ) {
+
+    return;
+  }
+
+
+  const state =
+    transportPassengerCandidatesState(
+      allocation.id
+    );
+
+
+  const personId =
+    String(
+      personSelect?.value ||
+      ""
+    ).trim();
+
+
+  const boardingPoint =
+    String(
+      boardingInput?.value ||
+      ""
+    ).trim();
+
+
+  const scheduledRaw =
+    String(
+      timeInput?.value ||
+      ""
+    ).trim();
+
+
+  if (!personId) {
+
+    state.message =
+      "Selecciona la persona que ocupará el lugar.";
+
+    renderTransportControl();
+
+    return;
+  }
+
+
+  if (
+    boardingPoint.length <
+      2
+  ) {
+
+    state.message =
+      "Indica el punto de abordaje.";
+
+    renderTransportControl();
+
+    return;
+  }
+
+
+  const scheduledMillis =
+    Date.parse(
+      scheduledRaw
+    );
+
+
+  if (
+    !scheduledRaw ||
+    !Number.isFinite(
+      scheduledMillis
+    )
+  ) {
+
+    state.message =
+      "Indica una fecha y hora válida de abordaje.";
+
+    renderTransportControl();
+
+    return;
+  }
+
+
+  const scheduledBoardingAt =
+    new Date(
+      scheduledMillis
+    ).toISOString();
+
+
+  const attemptKey =
+    JSON.stringify({
+      allocationId:
+        allocation.id,
+
+      personId,
+
+      boardingPoint,
+
+      scheduledBoardingAt
+    });
+
+
+  if (
+    !transportPassengerAttempt ||
+    transportPassengerAttempt
+      .attemptKey !==
+        attemptKey
+  ) {
+
+    transportPassengerAttempt = {
+      attemptKey,
+
+      requestId:
+        transportOperationRequestId(
+          "passenger"
+        )
+    };
+  }
+
+
+  transportPassengerBusy =
+    true;
+
+  transportPassengerAllocationId =
+    allocation.id;
+
+  state.message =
+    "Asignando pasajero…";
+
+
+  renderTransportControl();
+
+
+  try {
+
+    const eventId =
+      selectedTransportEventId;
+
+
+    const selectedName =
+      personSelect
+        ?.selectedOptions?.[0]
+        ?.textContent
+        ?.split(" · ")[0] ||
+      "La persona";
+
+
+    await createEventTransportPassengerAssignment({
+      allocationId:
+        allocation.id,
+
+      personId,
+
+      // En capacity_block NO enviamos seatNumber.
+      // B4D3A lo asigna internamente.
+      boardingPoint,
+
+      scheduledBoardingAt,
+
+      requestId:
+        transportPassengerAttempt
+          .requestId
+    });
+
+
+    transportPassengerAttempt =
+      null;
+
+
+    state.loaded =
+      false;
+
+    state.items =
+      [];
+
+    state.error =
+      "";
+
+    state.message =
+      `✓ ${selectedName} quedó asignado al transporte.`;
+
+
+    await refreshTransportWorkspace(
+      eventId
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "createEventTransportPassengerAssignment",
+      error
+    );
+
+
+    state.message =
+      error?.message ||
+      "No fue posible asignar al pasajero.";
+
+
+  } finally {
+
+    transportPassengerBusy =
+      false;
+
+    transportPassengerAllocationId =
+      null;
+
+
+    renderTransportControl();
+  }
+}
+
+
 function renderTransportControl() {
 
   ensureTransportAllocationTargets();
@@ -4326,6 +4830,504 @@ function renderTransportControl() {
           card.append(
             allocationInfo
           );
+
+
+
+          // ==============================================
+          // B4D3C · PASAJEROS DEL CUPO
+          // ==============================================
+
+          const allocationAssignments =
+            (
+              transportWorkspace
+                .assignments ||
+              []
+            ).filter(
+              assignment =>
+                assignment
+                  .allocationId ===
+                    allocation.id &&
+                assignment.active !==
+                  false
+            );
+
+
+          const assignedPassengerCount =
+            allocationAssignments.length;
+
+
+          const remainingPassengerPlaces =
+            Math.max(
+              0,
+              amount -
+                assignedPassengerCount
+            );
+
+
+          const passengerSummary =
+            node(
+              "p",
+              `Pasajeros: ${
+                assignedPassengerCount
+              } de ${
+                amount
+              } asignado${
+                amount === 1
+                  ? ""
+                  : "s"
+              }`
+            );
+
+
+          passengerSummary.className =
+            "event-meta";
+
+
+          card.append(
+            passengerSummary
+          );
+
+
+          for (
+            const assignment of
+            allocationAssignments
+          ) {
+
+            const passengerParts = [
+              `✓ ${
+                assignment.personName ||
+                "Persona asignada"
+              }`
+            ];
+
+
+            if (
+              transportUsesPhysicalSeatMap(
+                vehicle
+              ) &&
+              Number(
+                assignment.seatNumber
+              ) > 0
+            ) {
+
+              passengerParts.push(
+                `Asiento ${
+                  assignment.seatNumber
+                }`
+              );
+            }
+
+
+            if (
+              assignment.boardingPoint
+            ) {
+
+              passengerParts.push(
+                `Abordaje: ${
+                  assignment.boardingPoint
+                }`
+              );
+            }
+
+
+            if (
+              assignment
+                .scheduledBoardingAt
+            ) {
+
+              passengerParts.push(
+                formatDate(
+                  assignment
+                    .scheduledBoardingAt
+                )
+              );
+            }
+
+
+            const passengerInfo =
+              node(
+                "p",
+                passengerParts.join(
+                  " · "
+                )
+              );
+
+
+            passengerInfo.className =
+              "event-meta";
+
+
+            card.append(
+              passengerInfo
+            );
+          }
+
+
+          if (
+            allocation.allocationType ===
+              "capacity_block" &&
+            !transportUsesPhysicalSeatMap(
+              vehicle
+            ) &&
+            remainingPassengerPlaces >
+              0
+          ) {
+
+            const candidateState =
+              transportPassengerCandidatesState(
+                allocation.id
+              );
+
+
+            void ensureTransportPassengerCandidates(
+              allocation.id
+            );
+
+
+            const passengerBox =
+              node(
+                "div",
+                ""
+              );
+
+
+            passengerBox.style.cssText =
+              [
+                "margin-top:10px",
+                "margin-bottom:14px",
+                "padding:12px",
+                "border:1px solid #d4dee7",
+                "border-radius:9px",
+                "background:#ffffff"
+              ].join(
+                ";"
+              );
+
+
+            const passengerTitle =
+              node(
+                "strong",
+                "Agregar pasajero"
+              );
+
+
+            const remainingInfo =
+              node(
+                "p",
+                `${
+                  remainingPassengerPlaces
+                } lugar${
+                  remainingPassengerPlaces ===
+                    1
+                    ? ""
+                    : "es"
+                } disponible${
+                  remainingPassengerPlaces ===
+                    1
+                    ? ""
+                    : "s"
+                } en este cupo.`
+              );
+
+
+            remainingInfo.className =
+              "event-meta";
+
+
+            const passengerStatus =
+              node(
+                "p",
+                ""
+              );
+
+
+            passengerStatus.className =
+              "message";
+
+            passengerStatus.dataset
+              .transportPassengerStatus =
+                allocation.id;
+
+
+            passengerBox.append(
+              passengerTitle,
+              remainingInfo
+            );
+
+
+            if (
+              candidateState.busy
+            ) {
+
+              passengerStatus.textContent =
+                candidateState.message ||
+                "Cargando personas elegibles…";
+
+
+              passengerBox.append(
+                passengerStatus
+              );
+
+
+            } else if (
+              candidateState.error
+            ) {
+
+              passengerStatus.textContent =
+                candidateState.error;
+
+
+              const retryButton =
+                node(
+                  "button",
+                  "Reintentar personas"
+                );
+
+
+              retryButton.type =
+                "button";
+
+              retryButton.className =
+                "button button--secondary";
+
+
+              retryButton.onclick =
+                () => {
+
+                  candidateState.loaded =
+                    false;
+
+                  candidateState.error =
+                    "";
+
+                  candidateState.message =
+                    "";
+
+
+                  void ensureTransportPassengerCandidates(
+                    allocation.id
+                  );
+
+
+                  renderTransportControl();
+                };
+
+
+              passengerBox.append(
+                passengerStatus,
+                retryButton
+              );
+
+
+            } else if (
+              !candidateState.items.length
+            ) {
+
+              passengerStatus.textContent =
+                candidateState.message ||
+                "No hay personas elegibles pendientes para este cupo.";
+
+
+              passengerBox.append(
+                passengerStatus
+              );
+
+
+            } else {
+
+              const personLabel =
+                document.createElement(
+                  "label"
+                );
+
+
+              personLabel.textContent =
+                "Persona";
+
+
+              const personSelect =
+                document.createElement(
+                  "select"
+                );
+
+
+              personSelect.style.width =
+                "100%";
+
+
+              const emptyPersonOption =
+                document.createElement(
+                  "option"
+                );
+
+
+              emptyPersonOption.value =
+                "";
+
+              emptyPersonOption.textContent =
+                "Selecciona persona";
+
+
+              personSelect.append(
+                emptyPersonOption
+              );
+
+
+              for (
+                const candidate of
+                candidateState.items
+              ) {
+
+                const option =
+                  document.createElement(
+                    "option"
+                  );
+
+
+                option.value =
+                  candidate.personId;
+
+                option.textContent =
+                  transportPassengerCandidateLabel(
+                    candidate
+                  );
+
+
+                personSelect.append(
+                  option
+                );
+              }
+
+
+              personLabel.append(
+                personSelect
+              );
+
+
+              const boardingLabel =
+                document.createElement(
+                  "label"
+                );
+
+
+              boardingLabel.textContent =
+                "Punto de abordaje";
+
+
+              const boardingInput =
+                document.createElement(
+                  "input"
+                );
+
+
+              boardingInput.type =
+                "text";
+
+              boardingInput.maxLength =
+                200;
+
+              boardingInput.placeholder =
+                "Ej. Plaza principal de Compostela";
+
+              boardingInput.value =
+                vehicle.origin ||
+                "";
+
+              boardingInput.style.width =
+                "100%";
+
+
+              boardingLabel.append(
+                boardingInput
+              );
+
+
+              const timeLabel =
+                document.createElement(
+                  "label"
+                );
+
+
+              timeLabel.textContent =
+                "Hora de abordaje";
+
+
+              const timeInput =
+                document.createElement(
+                  "input"
+                );
+
+
+              timeInput.type =
+                "datetime-local";
+
+              timeInput.value =
+                transportDatetimeLocalValue(
+                  vehicle.departureAt
+                );
+
+              timeInput.style.width =
+                "100%";
+
+
+              timeLabel.append(
+                timeInput
+              );
+
+
+              const passengerButton =
+                node(
+                  "button",
+                  (
+                    transportPassengerBusy &&
+                    transportPassengerAllocationId ===
+                      allocation.id
+                  )
+                    ? "Asignando pasajero…"
+                    : "Asignar pasajero"
+                );
+
+
+              passengerButton.type =
+                "button";
+
+              passengerButton.className =
+                "button button--secondary";
+
+              passengerButton.disabled =
+                transportPassengerBusy;
+
+
+              passengerButton.onclick =
+                () =>
+                  submitTransportPassengerAssignment(
+                    allocation,
+                    vehicle,
+                    personSelect,
+                    boardingInput,
+                    timeInput
+                  );
+
+
+              passengerStatus.textContent =
+                candidateState.message ||
+                "TERRA asignará automáticamente un lugar disponible dentro del cupo.";
+
+
+              passengerBox.append(
+                personLabel,
+                boardingLabel,
+                timeLabel,
+                passengerButton,
+                passengerStatus
+              );
+            }
+
+
+            card.append(
+              passengerBox
+            );
+          }
         }
       }
 
@@ -4651,6 +5653,19 @@ async function openTransportControl(
     null;
 
 
+  transportPassengerCandidatesByAllocation =
+    new Map();
+
+  transportPassengerBusy =
+    false;
+
+  transportPassengerAllocationId =
+    null;
+
+  transportPassengerAttempt =
+    null;
+
+
   const panel =
     $("transportControlPanel");
 
@@ -4789,6 +5804,19 @@ function closeTransportControl() {
     null;
 
   transportAllocationAttempt =
+    null;
+
+
+  transportPassengerCandidatesByAllocation =
+    new Map();
+
+  transportPassengerBusy =
+    false;
+
+  transportPassengerAllocationId =
+    null;
+
+  transportPassengerAttempt =
     null;
 
 
