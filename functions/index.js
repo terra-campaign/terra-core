@@ -5324,3 +5324,13 @@ exports.releaseEventTransportPassengerAssignment =
 exports.confirmEventTransportPassengerAssignment =
   require("./event-transport-passenger-assignments.cjs")
     .confirmEventTransportPassengerAssignment;
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B3C2
+// Registrar abordaje físico del pasajero.
+// ======================================================
+
+exports.recordEventTransportPassengerBoarding =
+  require("./event-transport-passenger-assignments.cjs")
+    .recordEventTransportPassengerBoarding;

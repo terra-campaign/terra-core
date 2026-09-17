@@ -4346,6 +4346,1086 @@ exports.confirmEventTransportPassengerAssignment =
 
 
 // ======================================================
+// B3C2 — ABORDAJE DEL PASAJERO
+//
+// confirmationStatus = confirmed
+// boardingStatus     = pending
+//
+//              ↓
+//
+// boardingStatus     = boarded
+//
+// CONFIRMAR != ABORDAR != ASISTIR
+//
+// El abordaje es una validación física/operativa.
+// NO existe autoabordaje.
+//
+// Puede registrarlo:
+// A) creador / transport manager;
+// B) responsable del allocation.
+//
+// Efecto contable:
+// vehicle.occupiedCount += 1
+//
+// NO modifica:
+// - assignedSeatCount
+// - allocatedSeatCount
+// - availableSeatCount
+// - allocation
+// - asiento
+// - eventAttendance
+// ======================================================
+
+function assignmentCanBoard(
+  assignment
+) {
+
+  return Boolean(
+    assignment &&
+    assignment.active ===
+      true &&
+    assignment.status ===
+      'assigned' &&
+    assignment.confirmationStatus ===
+      'confirmed' &&
+    assignment.confirmationId &&
+    assignment.boardingStatus ===
+      'pending' &&
+    assignment.personId &&
+    assignment.seatId &&
+    Number.isInteger(
+      assignment.seatNumber
+    )
+  );
+}
+
+
+function canRecordBoarding(
+  profile,
+  event,
+  allocation
+) {
+
+  // Intencionalmente NO existe modalidad "self".
+  //
+  // El pasajero puede confirmar su intención cuando
+  // corresponda, pero "abordó" requiere validación
+  // operativa de un responsable autorizado.
+
+  return canAssignPassengers(
+    profile,
+    event,
+    allocation
+  );
+}
+
+
+function boardingIdFor(
+  assignmentId,
+  assignmentCycle,
+  requestId
+) {
+
+  return hash(
+    assignmentId,
+    assignmentCycle,
+    requestId,
+    'event-transport-passenger-boarding-v1'
+  );
+}
+
+
+// ======================================================
+// CONTADORES DE ABORDAJE DEL VEHICULO
+// ======================================================
+
+function vehicleBoardingCounters(
+  vehicle
+) {
+
+  if (!vehicle) {
+    return null;
+  }
+
+
+  const capacity =
+    Number(
+      vehicle.capacity
+    );
+
+
+  const occupiedBefore =
+    Number(
+      vehicle.occupiedCount
+    );
+
+
+  const assignedSeatCount =
+    Number(
+      vehicle.assignedSeatCount
+    );
+
+
+  if (
+    !Number.isInteger(
+      capacity
+    ) ||
+    capacity < 1 ||
+    !Number.isInteger(
+      occupiedBefore
+    ) ||
+    occupiedBefore < 0 ||
+    !Number.isInteger(
+      assignedSeatCount
+    ) ||
+    assignedSeatCount < 1 ||
+    assignedSeatCount >
+      capacity ||
+    occupiedBefore >
+      assignedSeatCount
+  ) {
+
+    return null;
+  }
+
+
+  const occupiedAfter =
+    occupiedBefore +
+    1;
+
+
+  if (
+    occupiedAfter >
+      capacity ||
+    occupiedAfter >
+      assignedSeatCount
+  ) {
+
+    return null;
+  }
+
+
+  return {
+
+    capacity,
+
+    assignedSeatCount,
+
+    occupiedBefore,
+
+    occupiedAfter
+  };
+}
+
+
+// ======================================================
+// RECORD EVENT TRANSPORT PASSENGER BOARDING
+// ======================================================
+
+exports.recordEventTransportPassengerBoarding =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const input =
+        request.data ||
+        {};
+
+
+      const assignmentId =
+        validId(
+          input.assignmentId,
+          'Asignación'
+        );
+
+
+      const requestId =
+        validRequestId(
+          input.requestId
+        );
+
+
+      const db =
+        getFirestore();
+
+
+      return db.runTransaction(
+        async tx => {
+
+          // ==============================================
+          // ACTOR
+          // ==============================================
+
+          const profile =
+            await loadCaller(
+              tx,
+              db,
+              request
+            );
+
+
+          // ==============================================
+          // ASSIGNMENT
+          // ==============================================
+
+          const assignmentRef =
+            db.collection(
+              'eventTransportAssignments'
+            ).doc(
+              assignmentId
+            );
+
+
+          const assignmentSnapshot =
+            await tx.get(
+              assignmentRef
+            );
+
+
+          if (
+            !assignmentSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'La asignación de pasajero no existe.'
+            );
+          }
+
+
+          const assignment = {
+            ...assignmentSnapshot.data(),
+
+            id:
+              assignmentSnapshot.id
+          };
+
+
+          if (
+            assignment.campaignId !==
+              profile.campaignId
+          ) {
+
+            fail(
+              'permission-denied',
+              'La asignación no pertenece a esta campaña.'
+            );
+          }
+
+
+          // ==============================================
+          // CICLO DE ASSIGNMENT
+          // ==============================================
+
+          const reactivationCount =
+            Math.max(
+              0,
+              Number(
+                assignment
+                  .reactivationCount
+              ) ||
+              0
+            );
+
+
+          const assignmentCycle =
+            reactivationCount +
+            1;
+
+
+          const boardingId =
+            boardingIdFor(
+              assignmentId,
+              assignmentCycle,
+              requestId
+            );
+
+
+          const boardingRef =
+            db.collection(
+              'eventTransportAssignmentBoardings'
+            ).doc(
+              boardingId
+            );
+
+
+          const boardingSnapshot =
+            await tx.get(
+              boardingRef
+            );
+
+
+          // ==============================================
+          // IDEMPOTENCIA PRIMERO
+          //
+          // Después del éxito boardingStatus ya será
+          // "boarded", por eso el retry se resuelve aquí.
+          // ==============================================
+
+          if (
+            boardingSnapshot.exists
+          ) {
+
+            const saved =
+              boardingSnapshot.data();
+
+
+            if (
+              saved.campaignId ===
+                profile.campaignId &&
+              saved.assignmentId ===
+                assignmentId &&
+              saved.assignmentCycle ===
+                assignmentCycle &&
+              saved.boardedByUserId ===
+                profile.uid
+            ) {
+
+              return {
+
+                success:
+                  true,
+
+                idempotent:
+                  true,
+
+                boarding: {
+
+                  id:
+                    boardingId,
+
+                  assignmentId,
+
+                  assignmentCycle,
+
+                  personId:
+                    saved.personId,
+
+                  seatNumber:
+                    saved.seatNumber,
+
+                  boardingStatus:
+                    'boarded',
+
+                  boardedByUserId:
+                    saved.boardedByUserId
+                },
+
+                vehicleOccupiedCount:
+                  saved
+                    .vehicleOccupiedCountAfter
+              };
+            }
+
+
+            fail(
+              'already-exists',
+              'Este identificador de abordaje ya fue utilizado.'
+            );
+          }
+
+
+          // ==============================================
+          // ESTADO PREVIO
+          // ==============================================
+
+          if (
+            !assignmentCanBoard(
+              assignment
+            )
+          ) {
+
+            fail(
+              'failed-precondition',
+              'La asignación no puede registrar abordaje en esta etapa.'
+            );
+          }
+
+
+          const allocationId =
+            validId(
+              assignment.allocationId,
+              'Cupo'
+            );
+
+
+          const eventId =
+            validId(
+              assignment.eventId,
+              'Evento'
+            );
+
+
+          const vehicleId =
+            validId(
+              assignment.vehicleId,
+              'Vehículo'
+            );
+
+
+          const seatId =
+            validId(
+              assignment.seatId,
+              'Asiento'
+            );
+
+
+          const confirmationId =
+            validId(
+              assignment.confirmationId,
+              'Confirmación'
+            );
+
+
+          const allocationRef =
+            db.collection(
+              'eventTransportAllocations'
+            ).doc(
+              allocationId
+            );
+
+
+          const eventRef =
+            db.collection(
+              'events'
+            ).doc(
+              eventId
+            );
+
+
+          const vehicleRef =
+            db.collection(
+              'eventTransportVehicles'
+            ).doc(
+              vehicleId
+            );
+
+
+          const seatRef =
+            db.collection(
+              'eventTransportSeats'
+            ).doc(
+              seatId
+            );
+
+
+          const confirmationRef =
+            db.collection(
+              'eventTransportAssignmentConfirmations'
+            ).doc(
+              confirmationId
+            );
+
+
+          const [
+            allocationSnapshot,
+            eventSnapshot,
+            vehicleSnapshot,
+            seatSnapshot,
+            confirmationSnapshot
+          ] =
+            await Promise.all([
+
+              tx.get(
+                allocationRef
+              ),
+
+              tx.get(
+                eventRef
+              ),
+
+              tx.get(
+                vehicleRef
+              ),
+
+              tx.get(
+                seatRef
+              ),
+
+              tx.get(
+                confirmationRef
+              )
+            ]);
+
+
+          if (
+            !allocationSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El cupo de transporte no existe.'
+            );
+          }
+
+
+          if (
+            !eventSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El evento no existe.'
+            );
+          }
+
+
+          if (
+            !vehicleSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El vehículo no existe.'
+            );
+          }
+
+
+          if (
+            !seatSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El asiento no existe.'
+            );
+          }
+
+
+          if (
+            !confirmationSnapshot.exists
+          ) {
+
+            fail(
+              'failed-precondition',
+              'La confirmación previa no existe.'
+            );
+          }
+
+
+          const allocation = {
+            ...allocationSnapshot.data(),
+
+            id:
+              allocationSnapshot.id
+          };
+
+
+          const event = {
+            ...eventSnapshot.data(),
+
+            id:
+              eventSnapshot.id
+          };
+
+
+          const vehicle = {
+            ...vehicleSnapshot.data(),
+
+            id:
+              vehicleSnapshot.id
+          };
+
+
+          const seat = {
+            ...seatSnapshot.data(),
+
+            id:
+              seatSnapshot.id
+          };
+
+
+          const confirmation = {
+            ...confirmationSnapshot.data(),
+
+            id:
+              confirmationSnapshot.id
+          };
+
+
+          // ==============================================
+          // INTEGRIDAD DEL EVENTO / CUPO / VEHICULO
+          // ==============================================
+
+          if (
+            event.active !==
+              true ||
+            event.campaignId !==
+              profile.campaignId ||
+            event.id !==
+              assignment.eventId
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El evento no está activo o no corresponde a la asignación.'
+            );
+          }
+
+
+          if (
+            allocation.active !==
+              true ||
+            allocation.campaignId !==
+              profile.campaignId ||
+            allocation.eventId !==
+              assignment.eventId ||
+            allocation.vehicleId !==
+              assignment.vehicleId
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El cupo ya no corresponde a esta asignación.'
+            );
+          }
+
+
+          if (
+            vehicle.active !==
+              true ||
+            vehicle.campaignId !==
+              profile.campaignId ||
+            vehicle.eventId !==
+              assignment.eventId ||
+            vehicle.id !==
+              assignment.vehicleId
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El vehículo ya no corresponde a esta asignación.'
+            );
+          }
+
+
+          // ==============================================
+          // CONFIRMACION B3C1 REAL
+          // ==============================================
+
+          if (
+            confirmation.campaignId !==
+              profile.campaignId ||
+            confirmation.assignmentId !==
+              assignmentId ||
+            confirmation.assignmentCycle !==
+              assignmentCycle ||
+            confirmation.confirmationStatus !==
+              'confirmed' ||
+            confirmation.personId !==
+              assignment.personId
+          ) {
+
+            fail(
+              'failed-precondition',
+              'La confirmación previa no corresponde al pasajero actual.'
+            );
+          }
+
+
+          // ==============================================
+          // INTEGRIDAD DEL ASIENTO
+          // ==============================================
+
+          if (
+            seat.active !==
+              true ||
+            seat.status !==
+              'assigned' ||
+            seat.assignmentId !==
+              assignmentId ||
+            seat.personId !==
+              assignment.personId ||
+            seat.allocationId !==
+              assignment.allocationId ||
+            seat.vehicleId !==
+              assignment.vehicleId ||
+            seat.seatNumber !==
+              assignment.seatNumber
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El asiento físico no coincide con la asignación.'
+            );
+          }
+
+
+          // ==============================================
+          // AUTORIDAD
+          // ==============================================
+
+          if (
+            !canRecordBoarding(
+              profile,
+              event,
+              allocation
+            )
+          ) {
+
+            fail(
+              'permission-denied',
+              'No tienes autorización para registrar el abordaje.'
+            );
+          }
+
+
+          // ==============================================
+          // CAPACIDAD FISICA
+          // ==============================================
+
+          const counters =
+            vehicleBoardingCounters(
+              vehicle
+            );
+
+
+          if (!counters) {
+
+            fail(
+              'failed-precondition',
+              'Los contadores del vehículo son inconsistentes o no existe capacidad física disponible.'
+            );
+          }
+
+
+          // ==============================================
+          // TODAS LAS LECTURAS TERMINARON
+          // ==============================================
+
+          const serverNow =
+            FieldValue
+              .serverTimestamp();
+
+
+          // ==============================================
+          // ASSIGNMENT
+          // ==============================================
+
+          tx.update(
+            assignmentRef,
+            {
+
+              boardingStatus:
+                'boarded',
+
+              boardingId,
+
+              boardedAt:
+                serverNow,
+
+              boardedByUserId:
+                profile.uid,
+
+              boardedByName:
+                profile.name ||
+                '',
+
+              boardedByRole:
+                profile.role,
+
+              updatedAt:
+                serverNow,
+
+              version:
+                (
+                  Number(
+                    assignment.version
+                  ) ||
+                  0
+                ) +
+                1
+            }
+          );
+
+
+          // ==============================================
+          // VEHICULO
+          //
+          // Esta es la primera transición real que
+          // incrementa occupiedCount.
+          //
+          // NO modifica assignedSeatCount.
+          // NO modifica allocatedSeatCount.
+          // NO modifica availableSeatCount.
+          // ==============================================
+
+          tx.update(
+            vehicleRef,
+            {
+
+              occupiedCount:
+                counters
+                  .occupiedAfter,
+
+              updatedAt:
+                serverNow,
+
+              version:
+                (
+                  Number(
+                    vehicle.version
+                  ) ||
+                  0
+                ) +
+                1
+            }
+          );
+
+
+          // ==============================================
+          // HISTORIAL INMUTABLE
+          // ==============================================
+
+          tx.create(
+            boardingRef,
+            {
+
+              id:
+                boardingId,
+
+              campaignId:
+                profile.campaignId,
+
+              eventId:
+                assignment.eventId,
+
+              vehicleId:
+                assignment.vehicleId,
+
+              allocationId:
+                assignment.allocationId,
+
+              assignmentId,
+
+              assignmentCycle,
+
+              confirmationId:
+
+                assignment
+                  .confirmationId,
+
+              personId:
+                assignment.personId,
+
+              accountUid:
+                assignment.accountUid ||
+                null,
+
+              personName:
+                assignment.personName ||
+                '',
+
+              seatId:
+                assignment.seatId,
+
+              seatNumber:
+                assignment.seatNumber,
+
+              boardingStatus:
+                'boarded',
+
+              requestId,
+
+              boardedByUserId:
+                profile.uid,
+
+              boardedByName:
+                profile.name ||
+                '',
+
+              boardedByRole:
+                profile.role,
+
+              vehicleCapacity:
+                counters.capacity,
+
+              vehicleAssignedSeatCount:
+                counters
+                  .assignedSeatCount,
+
+              vehicleOccupiedCountBefore:
+                counters
+                  .occupiedBefore,
+
+              vehicleOccupiedCountAfter:
+                counters
+                  .occupiedAfter,
+
+              createdAt:
+                serverNow,
+
+              version:
+                1
+            }
+          );
+
+
+          // ==============================================
+          // AUDITORIA
+          // ==============================================
+
+          tx.create(
+            db.collection(
+              'logs'
+            ).doc(),
+            {
+
+              action:
+                'EVENT_TRANSPORT_PASSENGER_BOARDED',
+
+              campaignId:
+                profile.campaignId,
+
+              eventId:
+                assignment.eventId,
+
+              vehicleId:
+                assignment.vehicleId,
+
+              allocationId:
+                assignment.allocationId,
+
+              assignmentId,
+
+              assignmentCycle,
+
+              confirmationId:
+                assignment
+                  .confirmationId,
+
+              boardingId,
+
+              personId:
+                assignment.personId,
+
+              accountUid:
+                assignment.accountUid ||
+                null,
+
+              seatId:
+                assignment.seatId,
+
+              seatNumber:
+                assignment.seatNumber,
+
+              boardedByUserId:
+                profile.uid,
+
+              boardedByRole:
+                profile.role,
+
+              vehicleOccupiedCountBefore:
+                counters
+                  .occupiedBefore,
+
+              vehicleOccupiedCountAfter:
+                counters
+                  .occupiedAfter,
+
+              createdAt:
+                serverNow,
+
+              version:
+                1
+            }
+          );
+
+
+          // ==============================================
+          // RESPUESTA
+          // ==============================================
+
+          return {
+
+            success:
+              true,
+
+            idempotent:
+              false,
+
+            boarding: {
+
+              id:
+                boardingId,
+
+              assignmentId,
+
+              assignmentCycle,
+
+              confirmationId:
+                assignment
+                  .confirmationId,
+
+              personId:
+                assignment.personId,
+
+              seatId:
+                assignment.seatId,
+
+              seatNumber:
+                assignment.seatNumber,
+
+              boardingStatus:
+                'boarded',
+
+              boardedByUserId:
+                profile.uid
+            },
+
+            assignment: {
+
+              id:
+                assignmentId,
+
+              personId:
+                assignment.personId,
+
+              seatId:
+                assignment.seatId,
+
+              seatNumber:
+                assignment.seatNumber,
+
+              status:
+                assignment.status,
+
+              confirmationStatus:
+                assignment
+                  .confirmationStatus,
+
+              boardingStatus:
+                'boarded',
+
+              active:
+                assignment.active
+            },
+
+            vehicle: {
+
+              id:
+                vehicle.id,
+
+              capacity:
+                counters.capacity,
+
+              assignedSeatCount:
+                counters
+                  .assignedSeatCount,
+
+              occupiedCount:
+                counters
+                  .occupiedAfter
+            }
+          };
+        }
+      );
+    }
+  );
+
+
+// ======================================================
 // B3B1 — MANIFIESTO DEL CUPO
 //
 // Vista operacional de:
@@ -4973,6 +6053,10 @@ exports._test = {
   assignmentCanConfirm,
   confirmationModeFor,
   confirmationIdFor,
+  assignmentCanBoard,
+  canRecordBoarding,
+  boardingIdFor,
+  vehicleBoardingCounters,
   assignmentCanMove,
   movementIdFor,
   buildAllocationManifest
