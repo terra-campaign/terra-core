@@ -6384,6 +6384,46 @@ function buildEventTransportWorkspace({
               vehicle.occupiedCount
             ) || 0,
 
+          seatLayoutConfigured:
+            vehicle.seatLayoutConfigured ===
+              true,
+
+          seatLayoutType:
+            vehicle.seatLayoutType ||
+            '',
+
+          seatLayoutTemplate:
+            vehicle.seatLayoutTemplate ||
+            '',
+
+          seatSideReference:
+            vehicle.seatSideReference ||
+            '',
+
+          leftSideMeaning:
+            vehicle.leftSideMeaning ||
+            '',
+
+          rightSideMeaning:
+            vehicle.rightSideMeaning ||
+            '',
+
+          leftSeatCount:
+            Number(
+              vehicle.leftSeatCount
+            ) || 0,
+
+          rightSeatCount:
+            Number(
+              vehicle.rightSeatCount
+            ) || 0,
+
+          centerSeatCount:
+            Number(
+              vehicle.centerSeatCount
+            ) || 0,
+
+
           sharingMode:
             vehicle.sharingMode ||
             '',

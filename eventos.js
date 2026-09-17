@@ -84,6 +84,13 @@ const createEventTransportVehicle =
   );
 
 
+const configureEventTransportSeatLayout =
+  httpsCallable(
+    functions,
+    "configureEventTransportSeatLayout"
+  );
+
+
 const getEventTransportWorkspace =
   httpsCallable(
     functions,
@@ -238,6 +245,10 @@ let transportBusy = false;
 
 let transportVehicleBusy = false;
 let transportVehicleAttempt = null;
+
+let transportSeatLayoutBusy = false;
+let transportSeatLayoutVehicleId = null;
+let transportSeatLayoutAttempt = null;
 
 
 let attendanceIdentitySearchBusy =
@@ -3042,6 +3053,15 @@ async function submitTransportVehicle(
     transportVehicleAttempt =
       null;
 
+    transportSeatLayoutBusy =
+      false;
+
+    transportSeatLayoutVehicleId =
+      null;
+
+    transportSeatLayoutAttempt =
+      null;
+
 
     $("transportVehicleForm")
       ?.reset();
@@ -3080,6 +3100,267 @@ async function submitTransportVehicle(
 
 
     syncTransportVehicleForm();
+  }
+}
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B4D2A
+// MAPA FÍSICO DE ASIENTOS
+//
+// Referencia:
+// mirando hacia el frente desde el interior:
+// left  = lado del chofer
+// right = lado del copiloto
+// ======================================================
+
+function transportUsesPhysicalSeatMap(
+  vehicle
+) {
+
+  const type =
+    String(
+      vehicle?.vehicleType ||
+      ""
+    )
+      .normalize("NFD")
+      .replace(
+        /[\u0300-\u036f]/g,
+        ""
+      )
+      .trim()
+      .toLowerCase();
+
+
+  return (
+    type.includes("autobus") ||
+    type.includes("camion") ||
+    type === "bus"
+  );
+}
+
+
+function transportStandard2x2Sides(
+  capacity
+) {
+
+  const number =
+    Number(
+      capacity
+    );
+
+
+  if (
+    !Number.isInteger(
+      number
+    ) ||
+    number < 4 ||
+    number > 120 ||
+    number % 4 !== 0
+  ) {
+
+    return null;
+  }
+
+
+  const left = [];
+  const right = [];
+
+
+  for (
+    let first = 1;
+    first <= number;
+    first += 4
+  ) {
+
+    left.push(
+      first,
+      first + 1
+    );
+
+
+    right.push(
+      first + 2,
+      first + 3
+    );
+  }
+
+
+  return {
+    left,
+    right,
+    center: []
+  };
+}
+
+
+async function configureTransportStandard2x2(
+  vehicleId
+) {
+
+  if (
+    transportSeatLayoutBusy ||
+    !vehicleId ||
+    !selectedTransportEventId ||
+    !transportWorkspace
+  ) {
+
+    return;
+  }
+
+
+  const vehicle =
+    (
+      transportWorkspace
+        .vehicles ||
+      []
+    ).find(
+      item =>
+        item?.id ===
+          vehicleId
+    );
+
+
+  if (!vehicle) {
+
+    $("transportStatus").textContent =
+      "No fue posible localizar el vehículo.";
+
+    return;
+  }
+
+
+  if (
+    vehicle.seatLayoutConfigured ===
+      true
+  ) {
+
+    $("transportStatus").textContent =
+      "El mapa de asientos de esta unidad ya está configurado.";
+
+    return;
+  }
+
+
+  const sides =
+    transportStandard2x2Sides(
+      vehicle.capacity
+    );
+
+
+  if (!sides) {
+
+    $("transportStatus").textContent =
+      "La plantilla 2+2 requiere una capacidad múltiplo de 4.";
+
+    return;
+  }
+
+
+  const attemptKey =
+    `${vehicleId}|standard_2x2`;
+
+
+  if (
+    !transportSeatLayoutAttempt ||
+    transportSeatLayoutAttempt
+      .attemptKey !==
+        attemptKey
+  ) {
+
+    transportSeatLayoutAttempt = {
+      attemptKey,
+
+      requestId:
+        transportOperationRequestId(
+          "seatlayout"
+        )
+    };
+  }
+
+
+  transportSeatLayoutBusy =
+    true;
+
+  transportSeatLayoutVehicleId =
+    vehicleId;
+
+
+  renderTransportControl();
+
+
+  $("transportStatus").textContent =
+    `Configurando mapa 2+2 de ${
+      vehicle.name ||
+      "la unidad"
+    }…`;
+
+
+  let finalMessage =
+    "";
+
+
+  try {
+
+    const eventId =
+      selectedTransportEventId;
+
+
+    await configureEventTransportSeatLayout({
+      vehicleId,
+
+      requestId:
+        transportSeatLayoutAttempt
+          .requestId,
+
+      layoutTemplate:
+        "standard_2x2"
+    });
+
+
+    transportSeatLayoutAttempt =
+      null;
+
+
+    await refreshTransportWorkspace(
+      eventId
+    );
+
+
+    finalMessage =
+      "✓ Mapa de asientos 2+2 configurado correctamente.";
+
+
+  } catch (error) {
+
+    console.error(
+      "configureEventTransportSeatLayout",
+      error
+    );
+
+
+    finalMessage =
+      error?.message ||
+      "No fue posible configurar el mapa de asientos.";
+
+
+  } finally {
+
+    transportSeatLayoutBusy =
+      false;
+
+    transportSeatLayoutVehicleId =
+      null;
+
+
+    renderTransportControl();
+
+
+    if (finalMessage) {
+
+      $("transportStatus").textContent =
+        finalMessage;
+    }
   }
 }
 
@@ -3330,6 +3611,213 @@ function renderTransportControl() {
       }
 
 
+      const usesPhysicalSeatMap =
+        transportUsesPhysicalSeatMap(
+          vehicle
+        );
+
+
+      if (!usesPhysicalSeatMap) {
+
+        const automaticInfo =
+          node(
+            "p",
+            "Lugares: asignación automática por capacidad"
+          );
+
+
+        automaticInfo.className =
+          "event-meta";
+
+
+        card.append(
+          automaticInfo
+        );
+
+
+      } else {
+
+        const layoutConfigured =
+          vehicle.seatLayoutConfigured ===
+            true;
+
+
+        const layoutTemplate =
+          vehicle.seatLayoutTemplate ||
+          "";
+
+
+        const layoutTitle =
+          node(
+            "p",
+            layoutConfigured
+              ? (
+                  layoutTemplate ===
+                    "standard_2x2"
+                    ? "Mapa de asientos: ✓ Estándar 2+2"
+                    : "Mapa de asientos: ✓ Configurado"
+                )
+              : "Mapa de asientos: Sin configurar"
+          );
+
+
+        layoutTitle.className =
+          "event-meta";
+
+
+        card.append(
+          layoutTitle
+        );
+
+
+        if (layoutConfigured) {
+
+          if (
+            layoutTemplate ===
+              "standard_2x2"
+          ) {
+
+            const sides =
+              transportStandard2x2Sides(
+                vehicle.capacity
+              );
+
+
+            if (sides) {
+
+              const leftInfo =
+                node(
+                  "p",
+                  `Lado chofer: ${
+                    sides.left.join(
+                      ", "
+                    )
+                  }`
+                );
+
+
+              leftInfo.className =
+                "event-meta";
+
+
+              const rightInfo =
+                node(
+                  "p",
+                  `Lado copiloto: ${
+                    sides.right.join(
+                      ", "
+                    )
+                  }`
+                );
+
+
+              rightInfo.className =
+                "event-meta";
+
+
+              card.append(
+                leftInfo,
+                rightInfo
+              );
+            }
+
+          } else {
+
+            const counts =
+              node(
+                "p",
+                `Chofer: ${
+                  Number(
+                    vehicle.leftSeatCount
+                  ) || 0
+                } · Copiloto: ${
+                  Number(
+                    vehicle.rightSeatCount
+                  ) || 0
+                } · Centro: ${
+                  Number(
+                    vehicle.centerSeatCount
+                  ) || 0
+                }`
+              );
+
+
+            counts.className =
+              "event-meta";
+
+
+            card.append(
+              counts
+            );
+          }
+
+
+        } else {
+
+          const sides =
+            transportStandard2x2Sides(
+              vehicle.capacity
+            );
+
+
+          if (sides) {
+
+            const layoutButton =
+              node(
+                "button",
+                (
+                  transportSeatLayoutBusy &&
+                  transportSeatLayoutVehicleId ===
+                    vehicle.id
+                )
+                  ? "Configurando 2+2…"
+                  : "Configurar asientos 2+2"
+              );
+
+
+            layoutButton.type =
+              "button";
+
+            layoutButton.className =
+              "button button--secondary";
+
+            layoutButton.disabled =
+              transportSeatLayoutBusy;
+
+
+            layoutButton.onclick =
+              () =>
+                configureTransportStandard2x2(
+                  vehicle.id
+                );
+
+
+            card.append(
+              layoutButton
+            );
+
+
+          } else {
+
+            const customNotice =
+              node(
+                "p",
+                "Este autobús requiere una distribución personalizada de asientos."
+              );
+
+
+            customNotice.className =
+              "message";
+
+
+            card.append(
+              customNotice
+            );
+          }
+        }
+      }
+
+
       details.append(
         card
       );
@@ -3472,6 +3960,15 @@ function closeTransportControl() {
     false;
 
   transportVehicleAttempt =
+    null;
+
+  transportSeatLayoutBusy =
+    false;
+
+  transportSeatLayoutVehicleId =
+    null;
+
+  transportSeatLayoutAttempt =
     null;
 
 

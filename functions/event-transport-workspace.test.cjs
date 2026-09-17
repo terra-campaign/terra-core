@@ -58,6 +58,34 @@ const workspace =
           2,
         occupiedCount:
           1,
+
+        seatLayoutConfigured:
+          true,
+
+        seatLayoutType:
+          'side_map',
+
+        seatLayoutTemplate:
+          'standard_2x2',
+
+        seatSideReference:
+          'forward_facing_from_inside',
+
+        leftSideMeaning:
+          'driver_side',
+
+        rightSideMeaning:
+          'passenger_side',
+
+        leftSeatCount:
+          6,
+
+        rightSeatCount:
+          6,
+
+        centerSeatCount:
+          0,
+
         active:
           true
       }
@@ -288,6 +316,48 @@ assert.match(
 assert.match(
   source,
   /canManageEventTransport\(\s*profile,\s*event/
+);
+
+
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B4D2A
+// ESTADO DEL MAPA FÍSICO EN WORKSPACE
+// ======================================================
+
+assert.equal(
+  workspace.vehicles[0]
+    .seatLayoutConfigured,
+  true
+);
+
+
+assert.equal(
+  workspace.vehicles[0]
+    .seatLayoutTemplate,
+  'standard_2x2'
+);
+
+
+assert.equal(
+  workspace.vehicles[0]
+    .leftSeatCount,
+  6
+);
+
+
+assert.equal(
+  workspace.vehicles[0]
+    .rightSeatCount,
+  6
+);
+
+
+assert.equal(
+  workspace.vehicles[0]
+    .centerSeatCount,
+  0
 );
 
 
