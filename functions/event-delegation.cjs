@@ -823,6 +823,410 @@ async function caller(tx, db, request) {
 }
 
 
+// ======================================================
+// BUILD-118C-3B3E-3G-B3D1
+// IDENTIDAD CANONICA EN EVENTOS
+//
+// PERSONA:
+//   personId = identidad primaria permanente.
+//
+// CUENTA:
+//   accountUid = Firebase Auth UID.
+//
+// assignedTo se conserva por compatibilidad del dominio
+// actual de invitaciones, pero NO sustituye personId.
+// ======================================================
+
+async function resolveDigitalCanonicalIdentity(
+  tx,
+  db,
+  {
+    accountUid,
+    profile,
+    campaignId
+  }
+) {
+
+  const uid =
+    validId(
+      accountUid
+    );
+
+
+  if (
+    !profile ||
+    profile.active !== true ||
+    profile.campaignId !==
+      campaignId
+  ) {
+
+    fail(
+      'failed-precondition',
+      'La cuenta no tiene una identidad territorial activa válida.'
+    );
+  }
+
+
+  const profilePersonId =
+    typeof profile.personId ===
+      'string'
+      ? profile.personId.trim()
+      : '';
+
+
+  let personSnapshot;
+
+
+  // ------------------------------------------------------
+  // MODELO CANONICO ACTUAL
+  // usuarios/{uid}.personId
+  // ------------------------------------------------------
+
+  if (profilePersonId) {
+
+    personSnapshot =
+      await tx.get(
+        db.collection(
+          'persons'
+        ).doc(
+          validId(
+            profilePersonId
+          )
+        )
+      );
+
+  } else {
+
+    // ----------------------------------------------------
+    // COMPATIBILIDAD CON CUENTAS DIGITALES ANTERIORES
+    //
+    // Si usuarios todavía no tiene personId, buscamos la
+    // persona por accountUid. Debe existir exactamente una
+    // persona activa dentro de la misma campaña.
+    // ----------------------------------------------------
+
+    const personsSnapshot =
+      await tx.get(
+        db.collection(
+          'persons'
+        )
+          .where(
+            'accountUid',
+            '==',
+            uid
+          )
+          .limit(
+            3
+          )
+      );
+
+
+    const matches =
+      personsSnapshot.docs
+        .filter(
+          snapshot => {
+
+            const person =
+              snapshot.data();
+
+            return (
+              person.active ===
+                true &&
+              person.campaignId ===
+                campaignId
+            );
+          }
+        );
+
+
+    if (
+      matches.length !==
+        1
+    ) {
+
+      fail(
+        'failed-precondition',
+        'No fue posible resolver de forma única la persona canónica de esta cuenta.'
+      );
+    }
+
+
+    personSnapshot =
+      matches[0];
+  }
+
+
+  if (
+    !personSnapshot ||
+    !personSnapshot.exists
+  ) {
+
+    fail(
+      'failed-precondition',
+      'La persona canónica vinculada a la cuenta no existe.'
+    );
+  }
+
+
+  const person = {
+    ...personSnapshot.data(),
+
+    id:
+      personSnapshot.id
+  };
+
+
+  const storedPersonId =
+    typeof person.personId ===
+      'string' &&
+    person.personId.trim()
+      ? person.personId.trim()
+      : personSnapshot.id;
+
+
+  const personId =
+    validId(
+      storedPersonId
+    );
+
+
+  const personAccountUid =
+    typeof person.accountUid ===
+      'string'
+      ? person.accountUid.trim()
+      : '';
+
+
+  if (
+    personSnapshot.id !==
+      personId ||
+    person.active !==
+      true ||
+    person.campaignId !==
+      campaignId ||
+    personAccountUid !==
+      uid ||
+    (
+      profilePersonId &&
+      profilePersonId !==
+        personId
+    )
+  ) {
+
+    fail(
+      'failed-precondition',
+      'La cuenta y la persona canónica tienen datos de identidad inconsistentes.'
+    );
+  }
+
+
+  return {
+
+    personId,
+
+    accountUid:
+      uid,
+
+    person
+  };
+}
+
+
+// ======================================================
+// RESOLVER IDENTIDAD DE UNA INVITACION
+//
+// Soporta:
+// 1) invitación nueva con personId;
+// 2) invitación digital anterior con solo assignedTo;
+// 3) futura invitación accountless con personId.
+// ======================================================
+
+async function resolveInvitationCanonicalIdentity(
+  tx,
+  db,
+  invitation,
+  campaignId
+) {
+
+  if (!invitation) {
+
+    fail(
+      'failed-precondition',
+      'La invitación no tiene identidad válida.'
+    );
+  }
+
+
+  const storedPersonId =
+    typeof invitation.personId ===
+      'string'
+      ? invitation.personId.trim()
+      : '';
+
+
+  const storedAccountUid =
+    typeof invitation.accountUid ===
+      'string' &&
+    invitation.accountUid.trim()
+      ? invitation.accountUid.trim()
+      : (
+          typeof invitation.assignedTo ===
+            'string' &&
+          invitation.assignedTo.trim()
+            ? invitation.assignedTo.trim()
+            : ''
+        );
+
+
+  // ------------------------------------------------------
+  // INVITACION CANONICA / ACCOUNTLESS
+  // ------------------------------------------------------
+
+  if (storedPersonId) {
+
+    const personSnapshot =
+      await tx.get(
+        db.collection(
+          'persons'
+        ).doc(
+          validId(
+            storedPersonId
+          )
+        )
+      );
+
+
+    if (
+      !personSnapshot.exists
+    ) {
+
+      fail(
+        'failed-precondition',
+        'La persona canónica de la invitación no existe.'
+      );
+    }
+
+
+    const person = {
+      ...personSnapshot.data(),
+
+      id:
+        personSnapshot.id
+    };
+
+
+    const canonicalPersonId =
+      validId(
+        typeof person.personId ===
+          'string' &&
+        person.personId.trim()
+          ? person.personId.trim()
+          : personSnapshot.id
+      );
+
+
+    const personAccountUid =
+      typeof person.accountUid ===
+        'string' &&
+      person.accountUid.trim()
+        ? person.accountUid.trim()
+        : null;
+
+
+    if (
+      personSnapshot.id !==
+        canonicalPersonId ||
+      canonicalPersonId !==
+        validId(
+          storedPersonId
+        ) ||
+      person.active !==
+        true ||
+      person.campaignId !==
+        campaignId ||
+      (
+        storedAccountUid &&
+        personAccountUid !==
+          storedAccountUid
+      )
+    ) {
+
+      fail(
+        'failed-precondition',
+        'La identidad canónica almacenada en la invitación es inconsistente.'
+      );
+    }
+
+
+    return {
+
+      personId:
+        canonicalPersonId,
+
+      accountUid:
+        storedAccountUid ||
+        personAccountUid ||
+        null,
+
+      person
+    };
+  }
+
+
+  // ------------------------------------------------------
+  // INVITACION DIGITAL LEGADA
+  // assignedTo = Firebase UID
+  // ------------------------------------------------------
+
+  if (!storedAccountUid) {
+
+    fail(
+      'failed-precondition',
+      'La invitación no permite resolver una persona canónica.'
+    );
+  }
+
+
+  const userSnapshot =
+    await tx.get(
+      db.collection(
+        'usuarios'
+      ).doc(
+        validId(
+          storedAccountUid
+        )
+      )
+    );
+
+
+  if (
+    !userSnapshot.exists
+  ) {
+
+    fail(
+      'failed-precondition',
+      'La cuenta asociada a la invitación ya no existe.'
+    );
+  }
+
+
+  return resolveDigitalCanonicalIdentity(
+    tx,
+    db,
+    {
+
+      accountUid:
+        storedAccountUid,
+
+      profile:
+        userSnapshot.data(),
+
+      campaignId
+    }
+  );
+}
+
+
 function targetAllowed(parent, target) {
 
   if (
@@ -1292,6 +1696,23 @@ exports.createEventInvitations =
             }
 
 
+            const targetIdentity =
+              await resolveDigitalCanonicalIdentity(
+                tx,
+                db,
+                {
+                  accountUid:
+                    uid,
+
+                  profile:
+                    target,
+
+                  campaignId:
+                    parent.campaignId
+                }
+              );
+
+
             const invitationId =
               hash(
                 eventId,
@@ -1363,6 +1784,12 @@ exports.createEventInvitations =
 
                 assignedTo:
                   uid,
+
+                accountUid:
+                  uid,
+
+                personId:
+                  targetIdentity.personId,
 
                 assignedToName:
                   target.name ||
@@ -1659,13 +2086,22 @@ function invitationView(snapshot) {
     assignedTo:
       d.assignedTo || '',
 
-    // Identidad operativa independiente de la cuenta.
-    // En registros actuales cae en assignedTo.
-    // BUILD-119 podrá persistir personId sin Firebase Auth.
+    // Identidad primaria permanente.
+    //
+    // IMPORTANTE:
+    // assignedTo NO es fallback de personId.
     personId:
       d.personId ||
-      d.assignedTo ||
       '',
+
+    // Cuenta digital explícita.
+    //
+    // assignedTo se conserva como compatibilidad del
+    // dominio actual de invitaciones.
+    accountUid:
+      d.accountUid ||
+      d.assignedTo ||
+      null,
 
     assignedToName:
       d.assignedToName || '',
@@ -2250,7 +2686,6 @@ exports.getEventWorkspace =
 
                   const personId =
                     invitation.personId ||
-                    invitation.assignedTo ||
                     '';
 
 
@@ -2341,7 +2776,6 @@ exports.getEventWorkspace =
 
           const personId =
             invitation.personId ||
-            invitation.assignedTo ||
             '';
 
 
@@ -2927,17 +3361,30 @@ exports.recordDoorEventAttendance =
             }
 
 
-            personId =
-              validId(
-                identity.id
+            const canonicalIdentity =
+              await resolveDigitalCanonicalIdentity(
+                tx,
+                db,
+                {
+                  accountUid:
+                    identity.id,
+
+                  profile,
+
+                  campaignId:
+                    validator.campaignId
+                }
               );
 
 
+            personId =
+              canonicalIdentity.personId;
+
+
             accountUid =
-              personId;
+              canonicalIdentity.accountUid;
 
 
-            // Usuario activo del modelo histórico.
             affiliationVerified =
               true;
 
@@ -3312,6 +3759,7 @@ function eventAttendanceInvitationAllowed(
 exports._test = {
   NEXT,
   targetAllowed,
+  invitationView,
   eventContactView,
   EVENT_RESPONSE_STATUSES,
   eventStartsAtMillis,
@@ -4339,41 +4787,42 @@ exports.recordEventAttendance =
 
 
           // ==============================================
-          // IDENTIDAD OPERATIVA
+          // IDENTIDAD CANONICA
           //
-          // Hoy assignedTo es UID porque los invitados
-          // actuales tienen cuenta.
+          // personId = identidad primaria permanente.
+          // accountUid = cuenta digital opcional.
           //
-          // El documento de asistencia usa personId para
-          // permitir que BUILD-119 incorpore posteriormente
-          // personas sin Firebase Auth.
+          // También resuelve invitaciones digitales
+          // anteriores que todavía solo tienen assignedTo.
           // ==============================================
 
-          const personId =
-            validId(
-              invitation.personId ||
-              invitation.assignedTo
+          const canonicalIdentity =
+            await resolveInvitationCanonicalIdentity(
+              tx,
+              db,
+              invitation,
+              validator.campaignId
             );
+
+
+          const personId =
+            canonicalIdentity.personId;
+
+
+          const accountUid =
+            canonicalIdentity.accountUid;
 
 
           const personName =
             typeof invitation.assignedToName ===
-              'string'
-              ? invitation.assignedToName
-              : '';
-
-
-          // REQ-002:
-          // la identidad operativa puede existir
-          // sin cuenta digital.
-          const accountUid =
-            typeof invitation.assignedTo ===
               'string' &&
-            invitation.assignedTo.trim()
-              ? validId(
-                  invitation.assignedTo
-                )
-              : null;
+            invitation.assignedToName.trim()
+              ? invitation.assignedToName
+              : (
+                  canonicalIdentity.person
+                    ?.name ||
+                  ''
+                );
 
 
           const attendanceId =
@@ -4803,7 +5252,6 @@ exports.getEventAttendanceWorkspace =
 
               const personId =
                 invitation.personId ||
-                invitation.assignedTo ||
                 '';
 
 
