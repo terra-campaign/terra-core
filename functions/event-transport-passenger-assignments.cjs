@@ -6036,6 +6036,701 @@ exports.getEventTransportAllocationManifest =
   );
 
 
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B4A
+// WORKSPACE OPERATIVO DE TRANSPORTE DEL EVENTO
+//
+// Lectura central para:
+// - creador del evento;
+// - transportManagerIds.
+//
+// No modifica datos.
+// ======================================================
+
+function transportWorkspaceIso(
+  value
+) {
+
+  if (
+    typeof value ===
+      'string'
+  ) {
+    return value;
+  }
+
+
+  if (
+    value &&
+    typeof value.toDate ===
+      'function'
+  ) {
+
+    return value
+      .toDate()
+      .toISOString();
+  }
+
+
+  if (
+    value instanceof Date
+  ) {
+    return value.toISOString();
+  }
+
+
+  return '';
+}
+
+
+function buildEventTransportWorkspace({
+  event,
+  vehicles,
+  allocations,
+  requests,
+  assignments
+}) {
+
+  const safeVehicles =
+    Array.isArray(vehicles)
+      ? vehicles.filter(
+          item =>
+            item &&
+            item.active === true
+        )
+      : [];
+
+
+  const safeAllocations =
+    Array.isArray(allocations)
+      ? allocations.filter(
+          item =>
+            item &&
+            item.active === true
+        )
+      : [];
+
+
+  const safeRequests =
+    Array.isArray(requests)
+      ? requests.filter(Boolean)
+      : [];
+
+
+  const safeAssignments =
+    Array.isArray(assignments)
+      ? assignments.filter(
+          item =>
+            item &&
+            item.active === true
+        )
+      : [];
+
+
+  const transportRequestedCount =
+    safeRequests.filter(
+      item =>
+        item.needsTransport ===
+          true
+    ).length;
+
+
+  const transportNotRequestedCount =
+    safeRequests.filter(
+      item =>
+        item.needsTransport ===
+          false
+    ).length;
+
+
+  const assignedPassengerCount =
+    safeAssignments.filter(
+      item =>
+        item.status ===
+          'assigned'
+    ).length;
+
+
+  const confirmedPassengerCount =
+    safeAssignments.filter(
+      item =>
+        item.confirmationStatus ===
+          'confirmed'
+    ).length;
+
+
+  const boardedCount =
+    safeAssignments.filter(
+      item =>
+        item.boardingStatus ===
+          'boarded'
+    ).length;
+
+
+  return {
+
+    event: {
+
+      id:
+        event.id,
+
+      title:
+        event.title ||
+        '',
+
+      venue:
+        event.venue ||
+        '',
+
+      locality:
+        event.locality ||
+        '',
+
+      startsAt:
+        event.startsAt ||
+        ''
+    },
+
+
+    scope: {
+
+      canManageTransport:
+        true
+    },
+
+
+    summary: {
+
+      vehicleCount:
+        safeVehicles.length,
+
+      allocationCount:
+        safeAllocations.length,
+
+      transportResponseCount:
+        safeRequests.length,
+
+      transportRequestedCount,
+
+      transportNotRequestedCount,
+
+      assignedPassengerCount,
+
+      confirmedPassengerCount,
+
+      boardedCount
+    },
+
+
+    vehicles:
+      safeVehicles.map(
+        vehicle => ({
+
+          id:
+            vehicle.id,
+
+          eventId:
+            vehicle.eventId,
+
+          name:
+            vehicle.name ||
+            '',
+
+          vehicleType:
+            vehicle.vehicleType ||
+            '',
+
+          capacity:
+            Number(
+              vehicle.capacity
+            ) || 0,
+
+          seatCount:
+            Number(
+              vehicle.seatCount
+            ) || 0,
+
+          allocatedSeatCount:
+            Number(
+              vehicle
+                .allocatedSeatCount
+            ) || 0,
+
+          availableSeatCount:
+            Number(
+              vehicle
+                .availableSeatCount
+            ) || 0,
+
+          assignedSeatCount:
+            Number(
+              vehicle
+                .assignedSeatCount
+            ) || 0,
+
+          occupiedCount:
+            Number(
+              vehicle.occupiedCount
+            ) || 0,
+
+          sharingMode:
+            vehicle.sharingMode ||
+            '',
+
+          origin:
+            vehicle.origin ||
+            '',
+
+          destination:
+            vehicle.destination ||
+            '',
+
+          departureAt:
+            transportWorkspaceIso(
+              vehicle.departureAt
+            ),
+
+          managedByUserId:
+            vehicle
+              .managedByUserId ||
+            '',
+
+          active:
+            true
+        })
+      ),
+
+
+    allocations:
+      safeAllocations.map(
+        allocation => ({
+
+          id:
+            allocation.id,
+
+          eventId:
+            allocation.eventId,
+
+          vehicleId:
+            allocation.vehicleId,
+
+          allocationType:
+            allocation
+              .allocationType ||
+            '',
+
+          allocatedCapacity:
+            Number(
+              allocation
+                .allocatedCapacity
+            ) || 0,
+
+          seatNumbers:
+            Array.isArray(
+              allocation.seatNumbers
+            )
+              ? allocation
+                  .seatNumbers
+              : [],
+
+          zone:
+            allocation.zone ||
+            '',
+
+          customZoneLabel:
+            allocation
+              .customZoneLabel ||
+            '',
+
+          allocatedToUserId:
+            allocation
+              .allocatedToUserId ||
+            '',
+
+          allocatedToName:
+            allocation
+              .allocatedToName ||
+            '',
+
+          allocatedToRole:
+            allocation
+              .allocatedToRole ||
+            '',
+
+          allocatedToStructureId:
+            allocation
+              .allocatedToStructureId ||
+            '',
+
+          allocatedToMunicipalityId:
+            allocation
+              .allocatedToMunicipalityId ||
+            '',
+
+          active:
+            true
+        })
+      ),
+
+
+    transportRequests:
+      safeRequests.map(
+        item => ({
+
+          id:
+            item.id,
+
+          eventId:
+            item.eventId,
+
+          invitationId:
+            item.invitationId ||
+            '',
+
+          personId:
+            item.personId ||
+            '',
+
+          accountUid:
+            item.accountUid ||
+            null,
+
+          needsTransport:
+            item.needsTransport ===
+              true,
+
+          recordedByUserId:
+            item
+              .recordedByUserId ||
+            '',
+
+          recordedByRole:
+            item
+              .recordedByRole ||
+            '',
+
+          recordedMode:
+            item.recordedMode ||
+            '',
+
+          source:
+            item.source ||
+            ''
+        })
+      ),
+
+
+    assignments:
+      safeAssignments.map(
+        assignment => ({
+
+          id:
+            assignment.id,
+
+          eventId:
+            assignment.eventId,
+
+          allocationId:
+            assignment
+              .allocationId,
+
+          vehicleId:
+            assignment.vehicleId,
+
+          personId:
+            assignment.personId,
+
+          accountUid:
+            assignment.accountUid ||
+            null,
+
+          personName:
+            assignment.personName ||
+            '',
+
+          seatId:
+            assignment.seatId ||
+            '',
+
+          seatNumber:
+            Number(
+              assignment.seatNumber
+            ) || 0,
+
+          status:
+            assignment.status ||
+            '',
+
+          confirmationStatus:
+            assignment
+              .confirmationStatus ||
+            'pending',
+
+          boardingStatus:
+            assignment
+              .boardingStatus ||
+            'pending',
+
+          active:
+            true
+        })
+      )
+  };
+}
+
+
+exports.getEventTransportWorkspace =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const eventId =
+        validId(
+          request.data
+            ?.eventId,
+          'Evento'
+        );
+
+
+      const db =
+        getFirestore();
+
+
+      return db.runTransaction(
+        async tx => {
+
+          const profile =
+            await loadCaller(
+              tx,
+              db,
+              request
+            );
+
+
+          const eventRef =
+            db.collection(
+              'events'
+            ).doc(
+              eventId
+            );
+
+
+          const eventSnapshot =
+            await tx.get(
+              eventRef
+            );
+
+
+          if (
+            !eventSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El evento no existe.'
+            );
+          }
+
+
+          const event = {
+            ...eventSnapshot.data(),
+
+            id:
+              eventSnapshot.id
+          };
+
+
+          if (
+            event.active !==
+              true ||
+            event.campaignId !==
+              profile.campaignId
+          ) {
+
+            fail(
+              'permission-denied',
+              'El evento no está disponible para esta cuenta.'
+            );
+          }
+
+
+          if (
+            !canManageEventTransport(
+              profile,
+              event
+            )
+          ) {
+
+            fail(
+              'permission-denied',
+              'No tienes autorización para administrar el transporte de este evento.'
+            );
+          }
+
+
+          const vehiclesQuery =
+            db.collection(
+              'eventTransportVehicles'
+            ).where(
+              'eventId',
+              '==',
+              eventId
+            );
+
+
+          const allocationsQuery =
+            db.collection(
+              'eventTransportAllocations'
+            ).where(
+              'eventId',
+              '==',
+              eventId
+            );
+
+
+          const requestsQuery =
+            db.collection(
+              'eventTransportRequests'
+            ).where(
+              'eventId',
+              '==',
+              eventId
+            );
+
+
+          const assignmentsQuery =
+            db.collection(
+              'eventTransportAssignments'
+            ).where(
+              'eventId',
+              '==',
+              eventId
+            );
+
+
+          const [
+            vehiclesSnapshot,
+            allocationsSnapshot,
+            requestsSnapshot,
+            assignmentsSnapshot
+          ] =
+            await Promise.all([
+
+              tx.get(
+                vehiclesQuery
+              ),
+
+              tx.get(
+                allocationsQuery
+              ),
+
+              tx.get(
+                requestsQuery
+              ),
+
+              tx.get(
+                assignmentsQuery
+              )
+            ]);
+
+
+          const campaignId =
+            profile.campaignId;
+
+
+          const vehicles =
+            vehiclesSnapshot.docs
+              .map(
+                doc => ({
+                  ...doc.data(),
+                  id:
+                    doc.id
+                })
+              )
+              .filter(
+                item =>
+                  item.campaignId ===
+                    campaignId &&
+                  item.eventId ===
+                    eventId
+              );
+
+
+          const allocations =
+            allocationsSnapshot.docs
+              .map(
+                doc => ({
+                  ...doc.data(),
+                  id:
+                    doc.id
+                })
+              )
+              .filter(
+                item =>
+                  item.campaignId ===
+                    campaignId &&
+                  item.eventId ===
+                    eventId
+              );
+
+
+          const requests =
+            requestsSnapshot.docs
+              .map(
+                doc => ({
+                  ...doc.data(),
+                  id:
+                    doc.id
+                })
+              )
+              .filter(
+                item =>
+                  item.campaignId ===
+                    campaignId &&
+                  item.eventId ===
+                    eventId
+              );
+
+
+          const assignments =
+            assignmentsSnapshot.docs
+              .map(
+                doc => ({
+                  ...doc.data(),
+                  id:
+                    doc.id
+                })
+              )
+              .filter(
+                item =>
+                  item.campaignId ===
+                    campaignId &&
+                  item.eventId ===
+                    eventId
+              );
+
+
+          return {
+
+            success:
+              true,
+
+            workspace:
+              buildEventTransportWorkspace({
+                event,
+                vehicles,
+                allocations,
+                requests,
+                assignments
+              })
+          };
+        }
+      );
+    }
+  );
+
+
 // ======================================================
 // TEST HELPERS
 // ======================================================
@@ -6059,5 +6754,6 @@ exports._test = {
   vehicleBoardingCounters,
   assignmentCanMove,
   movementIdFor,
-  buildAllocationManifest
+  buildAllocationManifest,
+  buildEventTransportWorkspace
 };

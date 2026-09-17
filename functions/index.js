@@ -5334,3 +5334,13 @@ exports.confirmEventTransportPassengerAssignment =
 exports.recordEventTransportPassengerBoarding =
   require("./event-transport-passenger-assignments.cjs")
     .recordEventTransportPassengerBoarding;
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B4A
+// Workspace operativo de transporte.
+// ======================================================
+
+exports.getEventTransportWorkspace =
+  require("./event-transport-passenger-assignments.cjs")
+    .getEventTransportWorkspace;
