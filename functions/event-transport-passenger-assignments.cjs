@@ -160,6 +160,89 @@ function validSeatNumber(
 // PUNTO Y HORA PROGRAMADA DE ABORDAJE
 // ======================================================
 
+function optionalSeatNumber(
+  value
+) {
+
+  if (
+    value === undefined ||
+    value === null ||
+    (
+      typeof value ===
+        'string' &&
+      !value.trim()
+    )
+  ) {
+
+    return null;
+  }
+
+
+  return validSeatNumber(
+    value
+  );
+}
+
+
+// ======================================================
+// B4D3A
+// ASIENTO AUTOMATICO DENTRO DE UN CAPACITY BLOCK
+// ======================================================
+
+function resolveAutomaticAllocatedSeat({
+  seats,
+  allocation,
+  vehicleId
+}) {
+
+  const allowedNumbers =
+    new Set(
+      Array.isArray(
+        allocation?.seatNumbers
+      )
+        ? allocation.seatNumbers
+        : []
+    );
+
+
+  const candidates =
+    (
+      Array.isArray(
+        seats
+      )
+        ? seats
+        : []
+    )
+      .filter(
+        seat =>
+          seat &&
+          seat.active ===
+            true &&
+          seat.vehicleId ===
+            vehicleId &&
+          seat.allocationId ===
+            allocation?.id &&
+          allowedNumbers.has(
+            seat.seatNumber
+          ) &&
+          seat.status ===
+            'allocated' &&
+          !seat.assignmentId &&
+          !seat.personId &&
+          !seat.accountUid
+      )
+      .sort(
+        (a, b) =>
+          a.seatNumber -
+          b.seatNumber
+      );
+
+
+  return candidates[0] ||
+    null;
+}
+
+
 function validBoardingPoint(
   value
 ) {
@@ -725,8 +808,8 @@ exports.createEventTransportPassengerAssignment =
         );
 
 
-      const seatNumber =
-        validSeatNumber(
+      const requestedSeatNumber =
+        optionalSeatNumber(
           input.seatNumber
         );
 
@@ -947,9 +1030,31 @@ exports.createEventTransportPassengerAssignment =
               : [];
 
 
+          const automaticSeatSelection =
+            requestedSeatNumber ===
+              null &&
+            allocation.allocationType ===
+              'capacity_block';
+
+
           if (
+            requestedSeatNumber ===
+              null &&
+            !automaticSeatSelection
+          ) {
+
+            fail(
+              'invalid-argument',
+              'Selecciona un asiento para este tipo de cupo.'
+            );
+          }
+
+
+          if (
+            requestedSeatNumber !==
+              null &&
             !seatNumbers.includes(
-              seatNumber
+              requestedSeatNumber
             )
           ) {
 
@@ -1058,25 +1163,42 @@ exports.createEventTransportPassengerAssignment =
               );
 
 
-          const seat =
-            resolveAllocatedSeat({
-              seats:
-                vehicleSeats,
-
-              allocation,
-
-              vehicleId,
-
-              seatNumber
-            });
+          let seatNumber =
+            requestedSeatNumber;
 
 
-          const seatId =
-            seat.id;
+          let seat =
+            null;
 
 
-          const seatRef =
-            seat.ref;
+          if (
+            !automaticSeatSelection
+          ) {
+
+            seat =
+              resolveAllocatedSeat({
+                seats:
+                  vehicleSeats,
+
+                allocation,
+
+                vehicleId,
+
+                seatNumber
+              });
+          }
+
+
+          let seatId =
+            seat
+              ? seat.id
+              : null;
+
+
+          let seatRef =
+            seat
+              ? seat.ref
+              : null;
 
 
           // ==============================================
@@ -1174,10 +1296,16 @@ exports.createEventTransportPassengerAssignment =
           // el mismo assignmentId.
           // ==============================================
 
+          const seatFingerprint =
+            automaticSeatSelection
+              ? 'AUTO_CAPACITY_BLOCK'
+              : seatNumber;
+
+
           const fingerprint =
             hash(
               allocation.id,
-              seatNumber,
+              seatFingerprint,
               personId,
               boardingPoint,
               scheduledBoarding.iso
@@ -1278,7 +1406,49 @@ exports.createEventTransportPassengerAssignment =
 
           // ==============================================
           // ASIENTO
+          //
+          // En capacity_block, el usuario no escoge
+          // asiento. TERRA toma un asiento reservado
+          // que siga disponible.
+          //
+          // Esto ocurre DESPUES de la comprobación
+          // de idempotencia.
           // ==============================================
+
+          if (
+            automaticSeatSelection
+          ) {
+
+            seat =
+              resolveAutomaticAllocatedSeat({
+                seats:
+                  vehicleSeats,
+
+                allocation,
+
+                vehicleId
+              });
+
+
+            if (!seat) {
+
+              fail(
+                'failed-precondition',
+                'El cupo ya no tiene lugares disponibles para asignar personas.'
+              );
+            }
+
+
+            seatNumber =
+              seat.seatNumber;
+
+            seatId =
+              seat.id;
+
+            seatRef =
+              seat.ref;
+          }
+
 
           if (
             !seatCanReceivePassenger({
@@ -6903,6 +7073,8 @@ exports.getEventTransportWorkspace =
 // ======================================================
 
 exports._test = {
+  optionalSeatNumber,
+  resolveAutomaticAllocatedSeat,
   validBoardingPoint,
   validScheduledBoardingAt,
   canManageEventTransport,
