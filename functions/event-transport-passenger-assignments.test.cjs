@@ -7,6 +7,8 @@ const assert =
 
 
 const {
+  validBoardingPoint,
+  validScheduledBoardingAt,
   canManageEventTransport,
   canAssignPassengers,
   personBelongsToAllocationBranch,
@@ -640,6 +642,63 @@ assert.notEqual(
 );
 
 
+// ======================================================
+// BUILD-118C-3B3E-3G-B4C
+// PUNTO Y HORA PROGRAMADA DE ABORDAJE
+// ======================================================
+
+assert.equal(
+  validBoardingPoint(
+    '  Plaza principal de Compostela  '
+  ),
+  'Plaza principal de Compostela'
+);
+
+
+assert.throws(
+  () =>
+    validBoardingPoint(
+      ''
+    ),
+  error =>
+    error &&
+    error.code ===
+      'invalid-argument'
+);
+
+
+const scheduledBoarding =
+  validScheduledBoardingAt(
+    '2026-09-17T17:30:00-07:00'
+  );
+
+
+assert.equal(
+  scheduledBoarding.iso,
+  '2026-09-18T00:30:00.000Z'
+);
+
+
+assert.equal(
+  scheduledBoarding.millis,
+  Date.parse(
+    '2026-09-17T17:30:00-07:00'
+  )
+);
+
+
+assert.throws(
+  () =>
+    validScheduledBoardingAt(
+      'hora-invalida'
+    ),
+  error =>
+    error &&
+    error.code ===
+      'invalid-argument'
+);
+
+
 console.log(
-  'OK: BUILD-118C-3B3E-3G-B3A passenger assignment domain tests passed.'
+  'OK: BUILD-118C-3B3E-3G-B3A + B4C passenger assignment domain tests passed.'
 );

@@ -154,6 +154,95 @@ function validSeatNumber(
 }
 
 
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B4C
+// PUNTO Y HORA PROGRAMADA DE ABORDAJE
+// ======================================================
+
+function validBoardingPoint(
+  value
+) {
+
+  if (
+    typeof value !==
+      'string'
+  ) {
+
+    fail(
+      'invalid-argument',
+      'Punto de abordaje inválido.'
+    );
+  }
+
+
+  const boardingPoint =
+    value.trim();
+
+
+  if (
+    boardingPoint.length < 2 ||
+    boardingPoint.length > 200
+  ) {
+
+    fail(
+      'invalid-argument',
+      'Punto de abordaje inválido.'
+    );
+  }
+
+
+  return boardingPoint;
+}
+
+
+function validScheduledBoardingAt(
+  value
+) {
+
+  if (
+    typeof value !==
+      'string' ||
+    !value.trim()
+  ) {
+
+    fail(
+      'invalid-argument',
+      'Hora de abordaje inválida.'
+    );
+  }
+
+
+  const millis =
+    Date.parse(
+      value.trim()
+    );
+
+
+  if (
+    !Number.isFinite(
+      millis
+    )
+  ) {
+
+    fail(
+      'invalid-argument',
+      'Hora de abordaje inválida.'
+    );
+  }
+
+
+  return {
+    iso:
+      new Date(
+        millis
+      ).toISOString(),
+
+    millis
+  };
+}
+
+
 // ======================================================
 // AUTORIDAD LOGISTICA GENERAL
 // ======================================================
@@ -642,6 +731,18 @@ exports.createEventTransportPassengerAssignment =
         );
 
 
+      const boardingPoint =
+        validBoardingPoint(
+          input.boardingPoint
+        );
+
+
+      const scheduledBoarding =
+        validScheduledBoardingAt(
+          input.scheduledBoardingAt
+        );
+
+
       const requestId =
         validRequestId(
           input.requestId
@@ -1077,7 +1178,9 @@ exports.createEventTransportPassengerAssignment =
             hash(
               allocation.id,
               seatNumber,
-              personId
+              personId,
+              boardingPoint,
+              scheduledBoarding.iso
             );
 
 
@@ -1309,6 +1412,14 @@ exports.createEventTransportPassengerAssignment =
             accountUid,
 
             personName,
+
+            boardingPoint,
+
+            scheduledBoardingAt:
+              scheduledBoarding.iso,
+
+            scheduledBoardingAtMillis:
+              scheduledBoarding.millis,
 
             membershipId:
               membership
@@ -6448,6 +6559,22 @@ function buildEventTransportWorkspace({
             assignment.personName ||
             '',
 
+          boardingPoint:
+            assignment.boardingPoint ||
+            '',
+
+          scheduledBoardingAt:
+            transportWorkspaceIso(
+              assignment
+                .scheduledBoardingAt
+            ),
+
+          scheduledBoardingAtMillis:
+            Number(
+              assignment
+                .scheduledBoardingAtMillis
+            ) || 0,
+
           seatId:
             assignment.seatId ||
             '',
@@ -6736,6 +6863,8 @@ exports.getEventTransportWorkspace =
 // ======================================================
 
 exports._test = {
+  validBoardingPoint,
+  validScheduledBoardingAt,
   canManageEventTransport,
   canAssignPassengers,
   personBelongsToAllocationBranch,

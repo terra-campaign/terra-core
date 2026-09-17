@@ -125,6 +125,14 @@ const workspace =
           'VEH-001',
         personId:
           'PERSON-001',
+        personName:
+          'Persona uno',
+        boardingPoint:
+          'Plaza principal',
+        scheduledBoardingAt:
+          '2026-09-17T17:30:00.000Z',
+        scheduledBoardingAtMillis:
+          1789666200000,
         seatNumber:
           5,
         status:
@@ -224,6 +232,21 @@ assert.equal(
   workspace.assignments[0]
     .boardingStatus,
   'boarded'
+);
+
+
+
+assert.equal(
+  workspace.assignments[0]
+    .boardingPoint,
+  'Plaza principal'
+);
+
+
+assert.equal(
+  workspace.assignments[0]
+    .scheduledBoardingAt,
+  '2026-09-17T17:30:00.000Z'
 );
 
 
