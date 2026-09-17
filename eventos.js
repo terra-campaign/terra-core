@@ -71,6 +71,19 @@ const setMyEventTransportNeed =
   );
 
 
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B4B
+// WORKSPACE VISUAL DE TRANSPORTE
+// ======================================================
+
+const getEventTransportWorkspace =
+  httpsCallable(
+    functions,
+    "getEventTransportWorkspace"
+  );
+
+
 const reportEventIncident =
   httpsCallable(
     functions,
@@ -209,6 +222,12 @@ let busy = false;
 let attendanceWorkspace = null;
 let selectedAttendanceEventId = null;
 let attendanceBusy = false;
+
+
+
+let transportWorkspace = null;
+let selectedTransportEventId = null;
+let transportBusy = false;
 
 
 let attendanceIdentitySearchBusy =
@@ -2502,6 +2521,571 @@ function mountEventShortcuts() {
 }
 
 
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B4B
+// WORKSPACE OPERATIVO DE TRANSPORTE · UI SOLO LECTURA
+// ======================================================
+
+function transportEventIds() {
+
+  return [
+    ...new Set(
+      (
+        workspace?.events ||
+        []
+      )
+        .map(
+          event =>
+            event?.id
+        )
+        .filter(Boolean)
+    )
+  ];
+}
+
+
+function setTransportMetric(
+  id,
+  value
+) {
+
+  const element =
+    $(id);
+
+
+  if (!element) {
+    return;
+  }
+
+
+  element.textContent =
+    String(
+      Number(value) ||
+      0
+    );
+}
+
+
+function renderTransportEventChooser() {
+
+  const section =
+    $("transportSection");
+
+  const list =
+    $("transportEventChooser");
+
+  const shortcut =
+    $("transportShortcut");
+
+
+  if (
+    !section ||
+    !list
+  ) {
+    return;
+  }
+
+
+  const ids =
+    transportEventIds();
+
+
+  const visible =
+    workspace?.viewer?.role !==
+      "colaborador_base" &&
+    ids.length > 0;
+
+
+  section.hidden =
+    !visible;
+
+
+  if (shortcut) {
+    shortcut.hidden =
+      !visible;
+  }
+
+
+  list.replaceChildren();
+
+
+  if (!visible) {
+    return;
+  }
+
+
+  for (const eventId of ids) {
+
+    const event =
+      eventById(
+        eventId
+      );
+
+
+    if (!event) {
+      continue;
+    }
+
+
+    const card =
+      node(
+        "article"
+      );
+
+
+    card.className =
+      "attendance-event-option";
+
+
+    const title =
+      node(
+        "strong",
+        event.title ||
+          "Evento"
+      );
+
+
+    const meta =
+      node(
+        "p",
+        `${
+          formatDate(
+            event.startsAt
+          )
+        } · ${
+          event.venue ||
+          "Lugar sin especificar"
+        }`
+      );
+
+
+    meta.className =
+      "event-meta";
+
+
+    const button =
+      node(
+        "button",
+        selectedTransportEventId ===
+          eventId
+          ? "Actualizar transporte"
+          : "Abrir transporte"
+      );
+
+
+    button.type =
+      "button";
+
+    button.className =
+      "button";
+
+
+    button.onclick =
+      () =>
+        openTransportControl(
+          eventId
+        );
+
+
+    card.append(
+      title,
+      meta,
+      button
+    );
+
+
+    list.append(
+      card
+    );
+  }
+}
+
+
+function renderTransportControl() {
+
+  const panel =
+    $("transportControlPanel");
+
+  const details =
+    $("transportDetails");
+
+
+  if (
+    !panel ||
+    !details
+  ) {
+    return;
+  }
+
+
+  if (!transportWorkspace) {
+
+    panel.hidden =
+      true;
+
+    details.replaceChildren();
+
+    return;
+  }
+
+
+  const event =
+    transportWorkspace.event ||
+    {};
+
+
+  panel.hidden =
+    false;
+
+
+  $("transportTitle").textContent =
+    event.title ||
+    "Transporte del evento";
+
+
+  $("transportEventMeta").textContent =
+    `${
+      formatDate(
+        event.startsAt
+      )
+    } · ${
+      event.venue ||
+      "Lugar sin especificar"
+    }${
+      event.locality
+        ? ` · ${event.locality}`
+        : ""
+    }`;
+
+
+  const summary =
+    transportWorkspace.summary ||
+    {};
+
+
+  setTransportMetric(
+    "transportVehicleCount",
+    summary.vehicleCount
+  );
+
+  setTransportMetric(
+    "transportAllocationCount",
+    summary.allocationCount
+  );
+
+  setTransportMetric(
+    "transportResponseCount",
+    summary.transportResponseCount
+  );
+
+  setTransportMetric(
+    "transportRequestedCount",
+    summary.transportRequestedCount
+  );
+
+  setTransportMetric(
+    "transportNotRequestedCount",
+    summary.transportNotRequestedCount
+  );
+
+  setTransportMetric(
+    "transportAssignedCount",
+    summary.assignedPassengerCount
+  );
+
+  setTransportMetric(
+    "transportConfirmedCount",
+    summary.confirmedPassengerCount
+  );
+
+  setTransportMetric(
+    "transportBoardedCount",
+    summary.boardedCount
+  );
+
+
+  details.replaceChildren();
+
+
+  const vehicles =
+    Array.isArray(
+      transportWorkspace.vehicles
+    )
+      ? transportWorkspace.vehicles
+      : [];
+
+
+  if (!vehicles.length) {
+
+    details.append(
+      node(
+        "p",
+        "Este evento todavía no tiene vehículos de transporte registrados."
+      )
+    );
+
+  } else {
+
+    for (const vehicle of vehicles) {
+
+      const card =
+        node(
+          "article"
+        );
+
+
+      card.className =
+        "attendance-event-option";
+
+
+      const title =
+        node(
+          "strong",
+          vehicle.name ||
+          "Vehículo"
+        );
+
+
+      const capacity =
+        Number(
+          vehicle.capacity
+        ) || 0;
+
+      const allocated =
+        Number(
+          vehicle.allocatedSeatCount
+        ) || 0;
+
+      const available =
+        Number(
+          vehicle.availableSeatCount
+        ) || 0;
+
+      const assigned =
+        Number(
+          vehicle.assignedSeatCount
+        ) || 0;
+
+      const occupied =
+        Number(
+          vehicle.occupiedCount
+        ) || 0;
+
+
+      const meta =
+        node(
+          "p",
+          `Capacidad: ${capacity} · ` +
+          `Cupos asignados: ${allocated} · ` +
+          `Disponibles: ${available} · ` +
+          `Pasajeros asignados: ${assigned} · ` +
+          `Abordados: ${occupied}`
+        );
+
+
+      meta.className =
+        "event-meta";
+
+
+      card.append(
+        title,
+        meta
+      );
+
+
+      if (
+        vehicle.origin ||
+        vehicle.destination
+      ) {
+
+        const route =
+          node(
+            "p",
+            `${
+              vehicle.origin ||
+              "Origen pendiente"
+            } → ${
+              vehicle.destination ||
+              "Destino pendiente"
+            }`
+          );
+
+
+        route.className =
+          "event-meta";
+
+
+        card.append(
+          route
+        );
+      }
+
+
+      details.append(
+        card
+      );
+    }
+  }
+
+
+  $("transportStatus").textContent =
+    "Información de transporte actualizada.";
+}
+
+
+async function openTransportControl(
+  eventId
+) {
+
+  if (
+    transportBusy ||
+    !eventId
+  ) {
+    return;
+  }
+
+
+  transportBusy =
+    true;
+
+  selectedTransportEventId =
+    eventId;
+
+  transportWorkspace =
+    null;
+
+
+  const panel =
+    $("transportControlPanel");
+
+
+  if (panel) {
+    panel.hidden =
+      false;
+  }
+
+
+  $("transportStatus").textContent =
+    "Consultando transporte…";
+
+
+  renderTransportEventChooser();
+
+
+  try {
+
+    const {
+      data
+    } =
+      await getEventTransportWorkspace({
+        eventId
+      });
+
+
+    const current =
+      data?.workspace ||
+      null;
+
+
+    if (!current) {
+
+      throw new Error(
+        "TERRA no devolvió el workspace de transporte."
+      );
+    }
+
+
+    if (
+      selectedTransportEventId !==
+      eventId
+    ) {
+      return;
+    }
+
+
+    transportWorkspace =
+      current;
+
+
+    renderTransportControl();
+
+
+    $("transportControlPanel")
+      ?.scrollIntoView({
+        behavior:
+          "smooth",
+
+        block:
+          "start"
+      });
+
+
+  } catch (error) {
+
+    transportWorkspace =
+      null;
+
+
+    if (panel) {
+      panel.hidden =
+        false;
+    }
+
+
+    $("transportStatus").textContent =
+      error.message ||
+      "No fue posible consultar el transporte de este evento.";
+
+
+  } finally {
+
+    transportBusy =
+      false;
+
+
+    renderTransportEventChooser();
+  }
+}
+
+
+function closeTransportControl() {
+
+  selectedTransportEventId =
+    null;
+
+  transportWorkspace =
+    null;
+
+  transportBusy =
+    false;
+
+
+  const panel =
+    $("transportControlPanel");
+
+
+  if (panel) {
+    panel.hidden =
+      true;
+  }
+
+
+  const status =
+    $("transportStatus");
+
+
+  if (status) {
+    status.textContent =
+      "";
+  }
+
+
+  renderTransportEventChooser();
+}
+
+
 // ======================================================
 // BUILD-118C-2B
 // CONTROL MANUAL DE ASISTENCIA
@@ -4118,6 +4702,8 @@ function renderWorkspace() {
   renderAssignees();
 
 
+  renderTransportEventChooser();
+
   renderAttendanceEventChooser();
 
 
@@ -4908,6 +5494,14 @@ $("attendanceCloseButton")
   );
 
 
+
+$("transportCloseButton")
+  .addEventListener(
+    "click",
+    closeTransportControl
+  );
+
+
 // ======================================================
 // BOTONES GENERALES
 // ======================================================
@@ -5013,6 +5607,15 @@ onAuthStateChanged(
     attendanceBusy =
       false;
 
+    transportWorkspace =
+      null;
+
+    selectedTransportEventId =
+      null;
+
+    transportBusy =
+      false;
+
     attendanceIdentitySearchBusy =
       false;
 
@@ -5027,6 +5630,12 @@ onAuthStateChanged(
       true;
 
     $("createdSection").hidden =
+      true;
+
+    $("transportSection").hidden =
+      true;
+
+    $("transportControlPanel").hidden =
       true;
 
     $("attendanceSection").hidden =

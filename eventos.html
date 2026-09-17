@@ -332,6 +332,16 @@
         Control de asistencia
       </a>
 
+
+      <a
+        id="transportShortcut"
+        class="button button--secondary"
+        href="#transportSection"
+        hidden
+      >
+        Administrar transporte
+      </a>
+
       <button
         id="backButton"
         class="button button--secondary"
@@ -622,6 +632,144 @@
 
     </section>
 
+
+
+
+    <section
+      id="transportSection"
+      class="card event-form-card"
+      hidden
+    >
+
+      <div class="events-heading">
+
+        <div>
+          <p class="eyebrow">
+            TRANSPORTE
+          </p>
+
+          <h2>
+            Administración de transporte
+          </h2>
+        </div>
+
+      </div>
+
+
+      <p class="message">
+        Selecciona un evento.
+        TERRA validará en el servidor si tienes autorización
+        para administrar su transporte.
+      </p>
+
+
+      <div
+        id="transportEventChooser"
+        class="attendance-event-list"
+      ></div>
+
+
+      <div
+        id="transportControlPanel"
+        class="attendance-control-panel"
+        hidden
+      >
+
+        <div class="events-heading">
+
+          <div>
+            <p class="eyebrow">
+              OPERACIÓN DE TRANSPORTE
+            </p>
+
+            <h3 id="transportTitle">
+              Transporte del evento
+            </h3>
+          </div>
+
+
+          <button
+            id="transportCloseButton"
+            class="button button--secondary"
+            type="button"
+          >
+            Cerrar transporte
+          </button>
+
+        </div>
+
+
+        <p
+          id="transportEventMeta"
+          class="event-meta"
+        ></p>
+
+
+        <div class="attendance-metrics">
+
+          <article class="attendance-metric">
+            <span>Vehículos</span>
+            <strong id="transportVehicleCount">0</strong>
+          </article>
+
+          <article class="attendance-metric">
+            <span>Cupos</span>
+            <strong id="transportAllocationCount">0</strong>
+          </article>
+
+          <article class="attendance-metric">
+            <span>Respuestas</span>
+            <strong id="transportResponseCount">0</strong>
+          </article>
+
+          <article class="attendance-metric">
+            <span>Solicitan transporte</span>
+            <strong id="transportRequestedCount">0</strong>
+          </article>
+
+          <article class="attendance-metric">
+            <span>No lo necesitan</span>
+            <strong id="transportNotRequestedCount">0</strong>
+          </article>
+
+          <article class="attendance-metric">
+            <span>Asignados</span>
+            <strong id="transportAssignedCount">0</strong>
+          </article>
+
+          <article class="attendance-metric">
+            <span>Confirmados</span>
+            <strong id="transportConfirmedCount">0</strong>
+          </article>
+
+          <article class="attendance-metric">
+            <span>Abordados</span>
+            <strong id="transportBoardedCount">0</strong>
+          </article>
+
+        </div>
+
+
+        <h3>
+          Vehículos
+        </h3>
+
+
+        <div
+          id="transportDetails"
+          class="attendance-event-list"
+        ></div>
+
+
+        <p
+          id="transportStatus"
+          class="message"
+          role="status"
+        ></p>
+
+      </div>
+
+    </section>
 
     <section
       id="attendanceSection"
@@ -940,7 +1088,7 @@
 
   <script
     type="module"
-    src="./eventos.js?v=build-118c-3b3e-3g-a4"
+    src="./eventos.js?v=build-118c-3b3e-3g-b4b"
   ></script>
 
 </body>
