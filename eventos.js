@@ -77,6 +77,13 @@ const setMyEventTransportNeed =
 // WORKSPACE VISUAL DE TRANSPORTE
 // ======================================================
 
+const createEventTransportVehicle =
+  httpsCallable(
+    functions,
+    "createEventTransportVehicle"
+  );
+
+
 const getEventTransportWorkspace =
   httpsCallable(
     functions,
@@ -228,6 +235,9 @@ let attendanceBusy = false;
 let transportWorkspace = null;
 let selectedTransportEventId = null;
 let transportBusy = false;
+
+let transportVehicleBusy = false;
+let transportVehicleAttempt = null;
 
 
 let attendanceIdentitySearchBusy =
@@ -2703,6 +2713,377 @@ function renderTransportEventChooser() {
 }
 
 
+// ======================================================
+// BUILD-118C-3B3E-3G-B4D1
+// REGISTRO OPERATIVO DE VEHÍCULOS
+//
+// origin + departureAt pertenecen a la unidad.
+// El punto/hora individual de abordaje pertenece
+// posteriormente a PassengerAssignment.
+// ======================================================
+
+function transportOperationRequestId(
+  prefix =
+    "transport"
+) {
+
+  const randomPart =
+    globalThis.crypto
+      ?.randomUUID
+      ?.()
+      ?.replaceAll(
+        "-",
+        ""
+      ) ||
+    (
+      Date.now().toString(36) +
+      Math.random()
+        .toString(36)
+        .slice(2)
+    );
+
+
+  return `${prefix}_${randomPart}`
+    .replace(
+      /[^A-Za-z0-9_-]/g,
+      ""
+    )
+    .slice(
+      0,
+      128
+    );
+}
+
+
+function syncTransportVehicleForm() {
+
+  const form =
+    $("transportVehicleForm");
+
+  const submit =
+    $("transportVehicleSubmit");
+
+
+  if (!form) {
+    return;
+  }
+
+
+  const enabled =
+    Boolean(
+      selectedTransportEventId &&
+      transportWorkspace
+        ?.scope
+        ?.canManageTransport ===
+          true
+    );
+
+
+  form
+    .querySelectorAll(
+      "input, select, button"
+    )
+    .forEach(
+      control => {
+
+        control.disabled =
+          !enabled ||
+          transportVehicleBusy;
+      }
+    );
+
+
+  if (submit) {
+
+    submit.textContent =
+      transportVehicleBusy
+        ? "Registrando unidad…"
+        : "+ Registrar vehículo";
+  }
+}
+
+
+function vehiclePayloadKey(
+  payload
+) {
+
+  return JSON.stringify({
+    eventId:
+      payload.eventId,
+
+    name:
+      payload.name,
+
+    vehicleType:
+      payload.vehicleType,
+
+    capacity:
+      payload.capacity,
+
+    origin:
+      payload.origin,
+
+    destination:
+      payload.destination,
+
+    departureAt:
+      payload.departureAt
+  });
+}
+
+
+async function refreshTransportWorkspace(
+  eventId
+) {
+
+  const {
+    data
+  } =
+    await getEventTransportWorkspace({
+      eventId
+    });
+
+
+  if (
+    selectedTransportEventId !==
+      eventId
+  ) {
+
+    return;
+  }
+
+
+  const current =
+    data?.workspace ||
+    null;
+
+
+  if (!current) {
+
+    throw new Error(
+      "TERRA no devolvió el workspace de transporte."
+    );
+  }
+
+
+  transportWorkspace =
+    current;
+
+
+  renderTransportControl();
+}
+
+
+async function submitTransportVehicle(
+  event
+) {
+
+  event.preventDefault();
+
+
+  if (
+    transportVehicleBusy ||
+    !selectedTransportEventId ||
+    !transportWorkspace
+  ) {
+
+    return;
+  }
+
+
+  const name =
+    $("transportVehicleName")
+      ?.value
+      ?.trim() ||
+    "";
+
+
+  const vehicleType =
+    $("transportVehicleType")
+      ?.value
+      ?.trim() ||
+    "";
+
+
+  const capacity =
+    Number(
+      $("transportVehicleCapacity")
+        ?.value
+    );
+
+
+  const origin =
+    $("transportVehicleOrigin")
+      ?.value
+      ?.trim() ||
+    "";
+
+
+  const destination =
+    $("transportVehicleDestination")
+      ?.value
+      ?.trim() ||
+    "";
+
+
+  const departureLocal =
+    $("transportVehicleDepartureAt")
+      ?.value ||
+    "";
+
+
+  if (
+    !name ||
+    !vehicleType ||
+    !Number.isInteger(
+      capacity
+    ) ||
+    capacity < 1 ||
+    capacity > 120 ||
+    !origin ||
+    !departureLocal
+  ) {
+
+    $("transportStatus").textContent =
+      "Completa nombre, tipo, capacidad, punto de salida y hora de salida.";
+
+    return;
+  }
+
+
+  const departureDate =
+    new Date(
+      departureLocal
+    );
+
+
+  if (
+    Number.isNaN(
+      departureDate.getTime()
+    )
+  ) {
+
+    $("transportStatus").textContent =
+      "La fecha u hora de salida no es válida.";
+
+    return;
+  }
+
+
+  const payload = {
+    eventId:
+      selectedTransportEventId,
+
+    name,
+
+    vehicleType,
+
+    capacity,
+
+    origin,
+
+    destination,
+
+    departureAt:
+      departureDate.toISOString()
+  };
+
+
+  const payloadKey =
+    vehiclePayloadKey(
+      payload
+    );
+
+
+  if (
+    !transportVehicleAttempt ||
+    transportVehicleAttempt
+      .payloadKey !==
+        payloadKey
+  ) {
+
+    transportVehicleAttempt = {
+      payloadKey,
+
+      requestId:
+        transportOperationRequestId(
+          "vehicle"
+        )
+    };
+  }
+
+
+  transportVehicleBusy =
+    true;
+
+
+  syncTransportVehicleForm();
+
+
+  $("transportStatus").textContent =
+    "Registrando vehículo y creando sus asientos…";
+
+
+  try {
+
+    const eventId =
+      selectedTransportEventId;
+
+
+    await createEventTransportVehicle({
+      ...payload,
+
+      requestId:
+        transportVehicleAttempt
+          .requestId
+    });
+
+
+    transportVehicleAttempt =
+      null;
+
+
+    $("transportVehicleForm")
+      ?.reset();
+
+
+    $("transportStatus").textContent =
+      "Vehículo registrado. Actualizando transporte…";
+
+
+    await refreshTransportWorkspace(
+      eventId
+    );
+
+
+    $("transportStatus").textContent =
+      "✓ Vehículo registrado correctamente.";
+
+
+  } catch (error) {
+
+    console.error(
+      "createEventTransportVehicle",
+      error
+    );
+
+
+    $("transportStatus").textContent =
+      error?.message ||
+      "No fue posible registrar el vehículo.";
+
+
+  } finally {
+
+    transportVehicleBusy =
+      false;
+
+
+    syncTransportVehicleForm();
+  }
+}
+
+
 function renderTransportControl() {
 
   const panel =
@@ -2738,6 +3119,9 @@ function renderTransportControl() {
 
   panel.hidden =
     false;
+
+
+  syncTransportVehicleForm();
 
 
   $("transportTitle").textContent =
@@ -2889,8 +3273,31 @@ function renderTransportControl() {
         "event-meta";
 
 
+      const operationMeta =
+        node(
+          "p",
+          `${
+            vehicle.vehicleType ||
+            "Vehículo"
+          }${
+            vehicle.departureAt
+              ? ` · Salida general: ${
+                  formatDate(
+                    vehicle.departureAt
+                  )
+                }`
+              : ""
+          }`
+        );
+
+
+      operationMeta.className =
+        "event-meta";
+
+
       card.append(
         title,
+        operationMeta,
         meta
       );
 
@@ -3060,6 +3467,12 @@ function closeTransportControl() {
 
   transportBusy =
     false;
+
+  transportVehicleBusy =
+    false;
+
+  transportVehicleAttempt =
+    null;
 
 
   const panel =
@@ -5499,6 +5912,13 @@ $("transportCloseButton")
   .addEventListener(
     "click",
     closeTransportControl
+  );
+
+
+$("transportVehicleForm")
+  .addEventListener(
+    "submit",
+    submitTransportVehicle
   );
 
 

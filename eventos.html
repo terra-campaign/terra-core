@@ -750,6 +750,147 @@
         </div>
 
 
+        <div
+          id="transportVehicleCreatePanel"
+          class="event-form-card"
+        >
+
+          <p class="eyebrow">
+            NUEVA UNIDAD
+          </p>
+
+          <h3>
+            Registrar vehículo
+          </h3>
+
+          <p class="message">
+            Registra la salida general de la unidad.
+            El punto y la hora de abordaje de cada persona
+            se asignarán posteriormente de forma individual.
+          </p>
+
+
+          <form id="transportVehicleForm">
+
+            <div class="form-grid">
+
+              <label>
+                Nombre de la unidad
+
+                <input
+                  id="transportVehicleName"
+                  type="text"
+                  maxlength="100"
+                  placeholder="Ej. Combi 1"
+                  required
+                >
+              </label>
+
+
+              <label>
+                Tipo de vehículo
+
+                <select
+                  id="transportVehicleType"
+                  required
+                >
+                  <option value="">
+                    Selecciona
+                  </option>
+
+                  <option value="Autobús">
+                    Autobús
+                  </option>
+
+                  <option value="Combi">
+                    Combi
+                  </option>
+
+                  <option value="Van">
+                    Van
+                  </option>
+
+                  <option value="Automóvil">
+                    Automóvil
+                  </option>
+
+                  <option value="Otro">
+                    Otro
+                  </option>
+                </select>
+              </label>
+
+
+              <label>
+                Capacidad
+
+                <input
+                  id="transportVehicleCapacity"
+                  type="number"
+                  min="1"
+                  max="120"
+                  step="1"
+                  placeholder="Ej. 15"
+                  required
+                >
+              </label>
+
+
+              <label>
+                Punto de salida general
+
+                <input
+                  id="transportVehicleOrigin"
+                  type="text"
+                  maxlength="180"
+                  placeholder="Ej. Plaza principal de Compostela"
+                  required
+                >
+              </label>
+
+
+              <label>
+                Destino
+
+                <input
+                  id="transportVehicleDestination"
+                  type="text"
+                  maxlength="180"
+                  placeholder="Opcional"
+                >
+              </label>
+
+
+              <label>
+                Hora de salida general
+
+                <input
+                  id="transportVehicleDepartureAt"
+                  type="datetime-local"
+                  required
+                >
+              </label>
+
+            </div>
+
+
+            <div class="actions">
+
+              <button
+                id="transportVehicleSubmit"
+                class="button"
+                type="submit"
+              >
+                + Registrar vehículo
+              </button>
+
+            </div>
+
+          </form>
+
+        </div>
+
+
         <h3>
           Vehículos
         </h3>
@@ -1088,7 +1229,7 @@
 
   <script
     type="module"
-    src="./eventos.js?v=build-118c-3b3e-3g-b4b"
+    src="./eventos.js?v=build-118c-3b3e-3g-b4d1"
   ></script>
 
 </body>
