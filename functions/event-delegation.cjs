@@ -3992,6 +3992,38 @@ exports.respondToEventInvitation =
           // Un documento por invitación.
           // ==============================================
 
+            // ==============================================
+            // IDENTIDAD CANONICA DEL RESPONDIENTE
+            //
+            // personId = identidad permanente.
+            // accountUid = cuenta Firebase Auth.
+            // ==============================================
+
+            const canonicalIdentity =
+              await resolveInvitationCanonicalIdentity(
+                tx,
+                db,
+                invitation,
+                profile.campaignId
+              );
+
+            if (
+              canonicalIdentity.accountUid !==
+                profile.uid
+            ) {
+              fail(
+                'failed-precondition',
+                'La identidad canónica de la invitación no corresponde a la cuenta autenticada.'
+              );
+            }
+
+            const personId =
+              canonicalIdentity.personId;
+
+            const accountUid =
+              canonicalIdentity.accountUid;
+
+
           const responseRef =
             db.collection(
               'eventResponses'
@@ -4086,8 +4118,9 @@ exports.respondToEventInvitation =
             campaignId:
               profile.campaignId,
 
-            personId:
-              profile.uid,
+            personId,
+
+            accountUid,
 
             personName:
               profile.name || '',
@@ -4147,8 +4180,9 @@ exports.respondToEventInvitation =
               campaignId:
                 profile.campaignId,
 
-              personId:
-                profile.uid,
+              personId,
+
+              accountUid,
 
               personName:
                 profile.name || '',

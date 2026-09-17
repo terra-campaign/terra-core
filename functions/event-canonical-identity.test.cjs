@@ -180,6 +180,77 @@ assert.doesNotMatch(
 );
 
 
+
+// =========================================================
+// B3D1A — RESPUESTA DE EVENTO CON IDENTIDAD CANONICA
+// =========================================================
+
+const responseCanonicalStart =
+  source.indexOf(
+    'exports.respondToEventInvitation ='
+  );
+
+const responseCanonicalEnd =
+  source.indexOf(
+    '// BUILD-118B-3C-1',
+    responseCanonicalStart
+  );
+
+assert.notEqual(
+  responseCanonicalStart,
+  -1,
+  'Debe existir respondToEventInvitation.'
+);
+
+assert.notEqual(
+  responseCanonicalEnd,
+  -1,
+  'Debe existir el final de respondToEventInvitation.'
+);
+
+const responseCanonicalBlock =
+  source.slice(
+    responseCanonicalStart,
+    responseCanonicalEnd
+  );
+
+assert.match(
+  responseCanonicalBlock,
+  /resolveInvitationCanonicalIdentity\s*\(/,
+  'La respuesta debe resolver identidad canónica.'
+);
+
+assert.equal(
+  (
+    responseCanonicalBlock.match(
+      /personId:\s*profile\.uid/g
+    ) || []
+  ).length,
+  0,
+  'No debe usarse UID como personId.'
+);
+
+assert.equal(
+  (
+    responseCanonicalBlock.match(
+      /personId,\s*accountUid,/g
+    ) || []
+  ).length,
+  2,
+  'eventResponses e historial deben guardar personId + accountUid.'
+);
+
+assert.match(
+  responseCanonicalBlock,
+  /canonicalIdentity\.accountUid\s*!==\s*profile\.uid/,
+  'Debe verificarse la correspondencia con la cuenta autenticada.'
+);
+
+console.log(
+  'OK: BUILD-118C-3B3E-3G-B3D1A canonical event response identity passed.'
+);
+
+
 console.log(
   'OK: BUILD-118C-3B3E-3G-B3D1 canonical event identity tests passed.'
 );
