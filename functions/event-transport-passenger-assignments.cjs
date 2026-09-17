@@ -1492,6 +1492,617 @@ exports.createEventTransportPassengerAssignment =
 
 
 // ======================================================
+// B3B1 — MANIFIESTO DEL CUPO
+//
+// Vista operacional de:
+//
+// allocation
+//   -> asientos reservados
+//   -> PassengerAssignments activos
+//
+// NO modifica datos.
+// ======================================================
+
+function buildAllocationManifest({
+  allocation,
+  seats,
+  assignments
+}) {
+
+  const allowedSeatNumbers =
+    new Set(
+      Array.isArray(
+        allocation?.seatNumbers
+      )
+        ? allocation.seatNumbers
+        : []
+    );
+
+
+  const activeAssignments =
+    Array.isArray(
+      assignments
+    )
+      ? assignments.filter(
+          assignment =>
+            assignment &&
+            assignment.active ===
+              true &&
+            assignment.allocationId ===
+              allocation.id &&
+            assignment.eventId ===
+              allocation.eventId &&
+            assignment.vehicleId ===
+              allocation.vehicleId
+        )
+      : [];
+
+
+  const assignmentsById =
+    new Map(
+      activeAssignments.map(
+        assignment => [
+          assignment.id,
+          assignment
+        ]
+      )
+    );
+
+
+  const allocationSeats =
+    (
+      Array.isArray(
+        seats
+      )
+        ? seats
+        : []
+    )
+      .filter(
+        seat =>
+          seat &&
+          seat.active ===
+            true &&
+          seat.vehicleId ===
+            allocation.vehicleId &&
+          seat.allocationId ===
+            allocation.id &&
+          allowedSeatNumbers.has(
+            seat.seatNumber
+          )
+      )
+      .sort(
+        (a, b) =>
+          a.seatNumber -
+          b.seatNumber
+      );
+
+
+  const issues = [];
+
+
+  const rows =
+    allocationSeats.map(
+      seat => {
+
+        const assignment =
+          seat.assignmentId
+            ? assignmentsById.get(
+                seat.assignmentId
+              ) ||
+              null
+            : null;
+
+
+        if (
+          seat.status ===
+            'assigned' &&
+          !assignment
+        ) {
+
+          issues.push(
+            `Asiento ${seat.seatNumber}: marcado assigned sin PassengerAssignment activo.`
+          );
+        }
+
+
+        if (
+          assignment &&
+          (
+            assignment.seatId !==
+              seat.id ||
+            assignment.seatNumber !==
+              seat.seatNumber ||
+            assignment.personId !==
+              seat.personId
+          )
+        ) {
+
+          issues.push(
+            `Asiento ${seat.seatNumber}: PassengerAssignment no coincide con el asiento físico.`
+          );
+        }
+
+
+        if (
+          seat.status ===
+            'allocated' &&
+          (
+            seat.assignmentId ||
+            seat.personId
+          )
+        ) {
+
+          issues.push(
+            `Asiento ${seat.seatNumber}: estado allocated conserva identidad de pasajero.`
+          );
+        }
+
+
+        return {
+
+          seatId:
+            seat.id,
+
+          seatNumber:
+            seat.seatNumber,
+
+          seatLabel:
+            seat.seatLabel ||
+            String(
+              seat.seatNumber
+            ),
+
+          physicalSide:
+            seat.physicalSide ||
+            null,
+
+          status:
+            seat.status ||
+            null,
+
+          assignmentId:
+            seat.assignmentId ||
+            null,
+
+          personId:
+            seat.personId ||
+            null,
+
+          accountUid:
+            seat.accountUid ||
+            null,
+
+          passenger:
+            assignment
+              ? {
+                  assignmentId:
+                    assignment.id,
+
+                  personId:
+                    assignment.personId,
+
+                  accountUid:
+                    assignment.accountUid ||
+                    null,
+
+                  personName:
+                    assignment.personName ||
+                    '',
+
+                  membershipRole:
+                    assignment.membershipRole ||
+                    '',
+
+                  status:
+                    assignment.status,
+
+                  confirmationStatus:
+                    assignment.confirmationStatus,
+
+                  boardingStatus:
+                    assignment.boardingStatus
+                }
+              : null
+        };
+      }
+    );
+
+
+  const representedAssignmentIds =
+    new Set(
+      rows
+        .filter(
+          row =>
+            row.assignmentId
+        )
+        .map(
+          row =>
+            row.assignmentId
+        )
+    );
+
+
+  for (
+    const assignment of
+    activeAssignments
+  ) {
+
+    if (
+      !representedAssignmentIds.has(
+        assignment.id
+      )
+    ) {
+
+      issues.push(
+        `PassengerAssignment ${assignment.id} no está representado por un asiento del cupo.`
+      );
+    }
+  }
+
+
+  if (
+    allocationSeats.length !==
+      allowedSeatNumbers.size
+  ) {
+
+    issues.push(
+      `El cupo declara ${allowedSeatNumbers.size} asientos pero se resolvieron ${allocationSeats.length}.`
+    );
+  }
+
+
+  const observedAssignedSeatCount =
+    rows.filter(
+      row =>
+        row.status ===
+          'assigned' &&
+        row.passenger
+    ).length;
+
+
+  const assignedSeatCount =
+    Number(
+      allocation
+        .assignedSeatCount
+    ) ||
+    0;
+
+
+  if (
+    assignedSeatCount !==
+      observedAssignedSeatCount
+  ) {
+
+    issues.push(
+      `Contador assignedSeatCount=${assignedSeatCount}, observado=${observedAssignedSeatCount}.`
+    );
+  }
+
+
+  const allocatedCapacity =
+    Number(
+      allocation
+        .allocatedCapacity
+    ) ||
+    allowedSeatNumbers.size;
+
+
+  const remainingAssignableSeatCount =
+    Number.isInteger(
+      allocation
+        .remainingAssignableSeatCount
+    )
+      ? allocation
+          .remainingAssignableSeatCount
+      : Math.max(
+          0,
+          allocatedCapacity -
+            observedAssignedSeatCount
+        );
+
+
+  return {
+
+    allocation: {
+
+      id:
+        allocation.id,
+
+      eventId:
+        allocation.eventId,
+
+      vehicleId:
+        allocation.vehicleId,
+
+      allocationType:
+        allocation.allocationType ||
+        '',
+
+      zone:
+        allocation.zone ||
+        'none',
+
+      allocatedCapacity,
+
+      allocatedToUserId:
+        allocation.allocatedToUserId ||
+        '',
+
+      allocatedToName:
+        allocation.allocatedToName ||
+        '',
+
+      allocatedToRole:
+        allocation.allocatedToRole ||
+        '',
+
+      allocatedToStructureId:
+        allocation.allocatedToStructureId ||
+        ''
+    },
+
+    summary: {
+
+      allocatedCapacity,
+
+      assignedSeatCount,
+
+      observedAssignedSeatCount,
+
+      remainingAssignableSeatCount,
+
+      integrityOk:
+        issues.length ===
+        0
+    },
+
+    seats:
+      rows,
+
+    issues
+  };
+}
+
+
+// ======================================================
+// GET EVENT TRANSPORT ALLOCATION MANIFEST
+// ======================================================
+
+exports.getEventTransportAllocationManifest =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const input =
+        request.data ||
+        {};
+
+
+      const allocationId =
+        validId(
+          input.allocationId,
+          'Cupo'
+        );
+
+
+      const db =
+        getFirestore();
+
+
+      return db.runTransaction(
+        async tx => {
+
+          // ==============================================
+          // ACTOR
+          // ==============================================
+
+          const profile =
+            await loadCaller(
+              tx,
+              db,
+              request
+            );
+
+
+          // ==============================================
+          // ALLOCATION
+          // ==============================================
+
+          const allocationRef =
+            db.collection(
+              'eventTransportAllocations'
+            ).doc(
+              allocationId
+            );
+
+
+          const allocationSnapshot =
+            await tx.get(
+              allocationRef
+            );
+
+
+          if (
+            !allocationSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El cupo de transporte no existe.'
+            );
+          }
+
+
+          const allocation = {
+            ...allocationSnapshot.data(),
+
+            id:
+              allocationSnapshot.id
+          };
+
+
+          if (
+            allocation.active !==
+              true ||
+            allocation.campaignId !==
+              profile.campaignId
+          ) {
+
+            fail(
+              'permission-denied',
+              'Cupo de transporte no disponible.'
+            );
+          }
+
+
+          const eventId =
+            validId(
+              allocation.eventId,
+              'Evento'
+            );
+
+
+          const vehicleId =
+            validId(
+              allocation.vehicleId,
+              'Vehículo'
+            );
+
+
+          // ==============================================
+          // EVENTO
+          // ==============================================
+
+          const eventSnapshot =
+            await tx.get(
+              db.collection(
+                'events'
+              ).doc(
+                eventId
+              )
+            );
+
+
+          if (
+            !eventSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El evento no existe.'
+            );
+          }
+
+
+          const event = {
+            ...eventSnapshot.data(),
+
+            id:
+              eventSnapshot.id
+          };
+
+
+          if (
+            !canAssignPassengers(
+              profile,
+              event,
+              allocation
+            )
+          ) {
+
+            fail(
+              'permission-denied',
+              'No tienes autorización para consultar este cupo.'
+            );
+          }
+
+
+          // ==============================================
+          // ASIENTOS + ASSIGNMENTS
+          // ==============================================
+
+          const seatsQuery =
+            db.collection(
+              'eventTransportSeats'
+            )
+              .where(
+                'vehicleId',
+                '==',
+                vehicleId
+              );
+
+
+          const assignmentsQuery =
+            db.collection(
+              'eventTransportAssignments'
+            )
+              .where(
+                'allocationId',
+                '==',
+                allocationId
+              );
+
+
+          const [
+            seatsSnapshot,
+            assignmentsSnapshot
+          ] =
+            await Promise.all([
+              tx.get(
+                seatsQuery
+              ),
+
+              tx.get(
+                assignmentsQuery
+              )
+            ]);
+
+
+          const seats =
+            seatsSnapshot.docs.map(
+              doc => ({
+                ...doc.data(),
+
+                id:
+                  doc.id
+              })
+            );
+
+
+          const assignments =
+            assignmentsSnapshot.docs.map(
+              doc => ({
+                ...doc.data(),
+
+                id:
+                  doc.id
+              })
+            );
+
+
+          const manifest =
+            buildAllocationManifest({
+              allocation,
+              seats,
+              assignments
+            });
+
+
+          return {
+
+            success:
+              true,
+
+            manifest
+          };
+        }
+      );
+    }
+  );
+
+
+// ======================================================
 // TEST HELPERS
 // ======================================================
 
@@ -1501,5 +2112,6 @@ exports._test = {
   personBelongsToAllocationBranch,
   seatCanReceivePassenger,
   resolveAllocatedSeat,
-  assignmentIdFor
+  assignmentIdFor,
+  buildAllocationManifest
 };
