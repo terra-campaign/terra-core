@@ -5707,6 +5707,845 @@ exports.recordEventTransportPassengerBoarding =
 
 
 // ======================================================
+// BUILD-118C-3B3E-3G-B4D3B
+// PERSONAS ELEGIBLES PARA UN CUPO
+// ======================================================
+
+function buildTransportPassengerCandidates({
+  allocation,
+  memberships,
+  persons,
+  assignments
+}) {
+
+  const safeMemberships =
+    Array.isArray(
+      memberships
+    )
+      ? memberships
+      : [];
+
+
+  const safePersons =
+    Array.isArray(
+      persons
+    )
+      ? persons
+      : [];
+
+
+  const safeAssignments =
+    Array.isArray(
+      assignments
+    )
+      ? assignments
+      : [];
+
+
+  const membershipsByPerson =
+    new Map();
+
+
+  for (
+    const membership of
+    safeMemberships
+  ) {
+
+    if (
+      !membership ||
+      membership.active !==
+        true ||
+      membership.campaignId !==
+        allocation.campaignId ||
+      typeof membership.personId !==
+        'string' ||
+      !membership.personId
+    ) {
+
+      continue;
+    }
+
+
+    const current =
+      membershipsByPerson.get(
+        membership.personId
+      ) || [];
+
+
+    current.push(
+      membership
+    );
+
+
+    membershipsByPerson.set(
+      membership.personId,
+      current
+    );
+  }
+
+
+  const alreadyAssigned =
+    new Set(
+      safeAssignments
+        .filter(
+          assignment =>
+            assignment &&
+            assignment.active ===
+              true &&
+            assignment.eventId ===
+              allocation.eventId &&
+            typeof assignment.personId ===
+              'string'
+        )
+        .map(
+          assignment =>
+            assignment.personId
+        )
+    );
+
+
+  const candidates = [];
+
+
+  for (
+    const person of
+    safePersons
+  ) {
+
+    if (!person) {
+
+      continue;
+    }
+
+
+    const personId =
+      typeof person.personId ===
+        'string' &&
+      person.personId
+        ? person.personId
+        : (
+            typeof person.id ===
+              'string'
+              ? person.id
+              : ''
+          );
+
+
+    if (
+      !personId ||
+      person.active !==
+        true ||
+      person.campaignId !==
+        allocation.campaignId ||
+      alreadyAssigned.has(
+        personId
+      )
+    ) {
+
+      continue;
+    }
+
+
+    const personMemberships =
+      membershipsByPerson.get(
+        personId
+      ) || [];
+
+
+    // createEventTransportPassengerAssignment
+    // exige una sola membresía activa.
+    if (
+      personMemberships.length !==
+        1
+    ) {
+
+      continue;
+    }
+
+
+    const membership =
+      personMemberships[0];
+
+
+    if (
+      !personBelongsToAllocationBranch({
+        person,
+        membership,
+        allocation
+      })
+    ) {
+
+      continue;
+    }
+
+
+    candidates.push({
+      personId,
+
+      name:
+        (
+          person.name ||
+          person.fullName ||
+          person.displayName ||
+          ''
+        ),
+
+      locality:
+        (
+          person.locality ||
+          person.localidad ||
+          ''
+        ),
+
+      accountUid:
+        typeof person.accountUid ===
+          'string' &&
+        person.accountUid
+          ? person.accountUid
+          : null,
+
+      hasDigitalAccount:
+        Boolean(
+          typeof person.accountUid ===
+            'string' &&
+          person.accountUid
+        ),
+
+      membershipId:
+        membership.membershipId ||
+        membership.id ||
+        '',
+
+      role:
+        membership.role ||
+        '',
+
+      structureId:
+        membership.structureId ||
+        '',
+
+      municipalityId:
+        membership.municipalityId ||
+        ''
+    });
+  }
+
+
+  candidates.sort(
+    (a, b) =>
+      String(
+        a.name ||
+        a.personId
+      ).localeCompare(
+        String(
+          b.name ||
+          b.personId
+        ),
+        'es',
+        {
+          sensitivity:
+            'base'
+        }
+      )
+  );
+
+
+  return candidates;
+}
+
+
+// ======================================================
+// GET EVENT TRANSPORT PASSENGER CANDIDATES
+// ======================================================
+
+exports.getEventTransportPassengerCandidates =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const input =
+        request.data ||
+        {};
+
+
+      const allocationId =
+        validId(
+          input.allocationId,
+          'Cupo'
+        );
+
+
+      const db =
+        getFirestore();
+
+
+      // ================================================
+      // AUTORIZACION
+      // ================================================
+
+      const context =
+        await db.runTransaction(
+          async tx => {
+
+            const profile =
+              await loadCaller(
+                tx,
+                db,
+                request
+              );
+
+
+            const allocationSnapshot =
+              await tx.get(
+                db.collection(
+                  'eventTransportAllocations'
+                ).doc(
+                  allocationId
+                )
+              );
+
+
+            if (
+              !allocationSnapshot.exists
+            ) {
+
+              fail(
+                'not-found',
+                'El cupo de transporte no existe.'
+              );
+            }
+
+
+            const allocation = {
+              ...allocationSnapshot.data(),
+
+              id:
+                allocationSnapshot.id
+            };
+
+
+            if (
+              allocation.active !==
+                true ||
+              allocation.campaignId !==
+                profile.campaignId
+            ) {
+
+              fail(
+                'permission-denied',
+                'Cupo de transporte no disponible.'
+              );
+            }
+
+
+            const eventId =
+              validId(
+                allocation.eventId,
+                'Evento'
+              );
+
+
+            const eventSnapshot =
+              await tx.get(
+                db.collection(
+                  'events'
+                ).doc(
+                  eventId
+                )
+              );
+
+
+            if (
+              !eventSnapshot.exists
+            ) {
+
+              fail(
+                'not-found',
+                'El evento no existe.'
+              );
+            }
+
+
+            const event = {
+              ...eventSnapshot.data(),
+
+              id:
+                eventSnapshot.id
+            };
+
+
+            if (
+              !canAssignPassengers(
+                profile,
+                event,
+                allocation
+              )
+            ) {
+
+              fail(
+                'permission-denied',
+                'No tienes autorización para administrar pasajeros de este cupo.'
+              );
+            }
+
+
+            const responsibleUid =
+              validId(
+                allocation
+                  .allocatedToUserId,
+                'Responsable'
+              );
+
+
+            return {
+              profile,
+              event,
+              allocation,
+              responsibleUid
+            };
+          }
+        );
+
+
+      const {
+        event,
+        allocation,
+        responsibleUid
+      } = context;
+
+
+      // ================================================
+      // RAMA TERRITORIAL + RESPONSABLE
+      // ================================================
+
+      const [
+        descendantMembershipsSnapshot,
+        directMembershipsSnapshot,
+        responsiblePersonsSnapshot,
+        eventAssignmentsSnapshot
+      ] =
+        await Promise.all([
+
+          db.collection(
+            'territorialMemberships'
+          )
+            .where(
+              'ancestorUserIds',
+              'array-contains',
+              responsibleUid
+            )
+            .limit(
+              500
+            )
+            .get(),
+
+          db.collection(
+            'territorialMemberships'
+          )
+            .where(
+              'parentUserId',
+              '==',
+              responsibleUid
+            )
+            .limit(
+              500
+            )
+            .get(),
+
+          db.collection(
+            'persons'
+          )
+            .where(
+              'accountUid',
+              '==',
+              responsibleUid
+            )
+            .limit(
+              10
+            )
+            .get(),
+
+          db.collection(
+            'eventTransportAssignments'
+          )
+            .where(
+              'eventId',
+              '==',
+              event.id
+            )
+            .limit(
+              1000
+            )
+            .get()
+        ]);
+
+
+      const membershipMap =
+        new Map();
+
+
+      const addMembership =
+        doc => {
+
+          const data = {
+            ...doc.data(),
+
+            id:
+              doc.id,
+
+            membershipId:
+              doc.id
+          };
+
+
+          if (
+            data.active !==
+              true ||
+            data.campaignId !==
+              allocation.campaignId
+          ) {
+
+            return;
+          }
+
+
+          membershipMap.set(
+            doc.id,
+            data
+          );
+        };
+
+
+      descendantMembershipsSnapshot
+        .docs
+        .forEach(
+          addMembership
+        );
+
+
+      directMembershipsSnapshot
+        .docs
+        .forEach(
+          addMembership
+        );
+
+
+      // ================================================
+      // MEMBRESIA DEL PROPIO RESPONSABLE
+      // ================================================
+
+      const responsiblePersons =
+        responsiblePersonsSnapshot.docs
+          .map(
+            doc => ({
+              ...doc.data(),
+
+              id:
+                doc.id,
+
+              personId:
+                doc.id
+            })
+          )
+          .filter(
+            person =>
+              person.active ===
+                true &&
+              person.campaignId ===
+                allocation.campaignId
+          );
+
+
+      for (
+        const person of
+        responsiblePersons
+      ) {
+
+        const snapshot =
+          await db.collection(
+            'territorialMemberships'
+          )
+            .where(
+              'personId',
+              '==',
+              person.personId
+            )
+            .limit(
+              20
+            )
+            .get();
+
+
+        snapshot.docs.forEach(
+          addMembership
+        );
+      }
+
+
+      // ================================================
+      // PERSON IDS
+      // ================================================
+
+      const personIds =
+        new Set(
+          Array.from(
+            membershipMap.values()
+          )
+            .map(
+              membership =>
+                membership.personId
+            )
+            .filter(
+              value =>
+                typeof value ===
+                  'string' &&
+                Boolean(
+                  value
+                )
+            )
+        );
+
+
+      for (
+        const person of
+        responsiblePersons
+      ) {
+
+        personIds.add(
+          person.personId
+        );
+      }
+
+
+      // ================================================
+      // TODAS LAS MEMBRESIAS DE LOS CANDIDATOS
+      //
+      // IMPORTANTE:
+      // createEventTransportPassengerAssignment exige
+      // exactamente una membresía territorial activa
+      // en la campaña.
+      //
+      // No basta con conocer solamente las membresías
+      // encontradas dentro de la rama del responsable.
+      // ================================================
+
+      const allMembershipsById =
+        new Map();
+
+
+      const personIdList =
+        Array.from(
+          personIds
+        );
+
+
+      for (
+        let offset = 0;
+        offset < personIdList.length;
+        offset += 30
+      ) {
+
+        const part =
+          personIdList.slice(
+            offset,
+            offset + 30
+          );
+
+
+        if (!part.length) {
+
+          continue;
+        }
+
+
+        const snapshot =
+          await db.collection(
+            'territorialMemberships'
+          )
+            .where(
+              'personId',
+              'in',
+              part
+            )
+            .get();
+
+
+        for (
+          const doc of
+          snapshot.docs
+        ) {
+
+          const data = {
+            ...doc.data(),
+
+            id:
+              doc.id,
+
+            membershipId:
+              doc.id
+          };
+
+
+          if (
+            data.active !==
+              true ||
+            data.campaignId !==
+              allocation.campaignId
+          ) {
+
+            continue;
+          }
+
+
+          allMembershipsById.set(
+            doc.id,
+            data
+          );
+        }
+      }
+
+
+      // ================================================
+      // PERSONAS
+      // ================================================
+
+      const personsById =
+        new Map();
+
+
+      for (
+        const person of
+        responsiblePersons
+      ) {
+
+        personsById.set(
+          person.personId,
+          person
+        );
+      }
+
+
+      const refs =
+        Array.from(
+          personIds
+        ).map(
+          personId =>
+            db.collection(
+              'persons'
+            ).doc(
+              personId
+            )
+        );
+
+
+      for (
+        let offset = 0;
+        offset < refs.length;
+        offset += 100
+      ) {
+
+        const part =
+          refs.slice(
+            offset,
+            offset + 100
+          );
+
+
+        if (!part.length) {
+
+          continue;
+        }
+
+
+        const snapshots =
+          await db.getAll(
+            ...part
+          );
+
+
+        for (
+          const snapshot of
+          snapshots
+        ) {
+
+          if (
+            !snapshot.exists
+          ) {
+
+            continue;
+          }
+
+
+          personsById.set(
+            snapshot.id,
+            {
+              ...snapshot.data(),
+
+              id:
+                snapshot.id,
+
+              personId:
+                snapshot.id
+            }
+          );
+        }
+      }
+
+
+      const assignments =
+        eventAssignmentsSnapshot.docs
+          .map(
+            doc => ({
+              ...doc.data(),
+
+              id:
+                doc.id
+            })
+          );
+
+
+      const candidates =
+        buildTransportPassengerCandidates({
+          allocation,
+
+          memberships:
+            Array.from(
+              allMembershipsById.values()
+            ),
+
+          persons:
+            Array.from(
+              personsById.values()
+            ),
+
+          assignments
+        });
+
+
+      return {
+        success:
+          true,
+
+        allocationId:
+          allocation.id,
+
+        eventId:
+          event.id,
+
+        responsibleUserId:
+          responsibleUid,
+
+        total:
+          candidates.length,
+
+        candidates
+      };
+    }
+  );
+
+
+// ======================================================
 // B3B1 — MANIFIESTO DEL CUPO
 //
 // Vista operacional de:
@@ -7080,6 +7919,7 @@ exports._test = {
   canManageEventTransport,
   canAssignPassengers,
   personBelongsToAllocationBranch,
+  buildTransportPassengerCandidates,
   seatCanReceivePassenger,
   resolveAllocatedSeat,
   assignmentIdFor,

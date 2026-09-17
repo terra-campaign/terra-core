@@ -5292,6 +5292,12 @@ exports.createEventTransportPassengerAssignment =
     .createEventTransportPassengerAssignment;
 
 
+
+exports.getEventTransportPassengerCandidates =
+  require("./event-transport-passenger-assignments.cjs")
+    .getEventTransportPassengerCandidates;
+
+
 // ======================================================
 // BUILD-118C-3B3E-3G-B3B1
 // Manifiesto del cupo: asientos + pasajeros.
