@@ -5266,6 +5266,12 @@ exports.createEventTransportAllocation =
     .createEventTransportAllocation;
 
 
+
+exports.getEventTransportAllocationTargets =
+  require("./event-transport-allocations.cjs")
+    .getEventTransportAllocationTargets;
+
+
 // ======================================================
 // BUILD-118C-3B3E-3G-B2B1
 // Mapa físico de asientos del transporte.

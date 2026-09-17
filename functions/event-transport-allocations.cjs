@@ -830,6 +830,478 @@ async function findTargetInvitation(
 
 
 // ======================================================
+// BUILD-118C-3B3E-3G-B4D2B
+// DESTINATARIOS ELEGIBLES PARA REPARTO DE CUPOS
+// ======================================================
+
+function buildEventTransportAllocationTargets({
+  event,
+  invitations,
+  profiles
+}) {
+
+  const safeInvitations =
+    Array.isArray(
+      invitations
+    )
+      ? invitations
+      : [];
+
+
+  const safeProfiles =
+    Array.isArray(
+      profiles
+    )
+      ? profiles
+      : [];
+
+
+  const invitationsByUid =
+    new Map();
+
+
+  for (
+    const invitation of
+    safeInvitations
+  ) {
+
+    if (
+      !invitation ||
+      invitation.active !==
+        true ||
+      invitation.eventId !==
+        event.id ||
+      invitation.campaignId !==
+        event.campaignId ||
+      typeof invitation.assignedTo !==
+        'string' ||
+      !invitation.assignedTo.trim()
+    ) {
+
+      continue;
+    }
+
+
+    const uid =
+      invitation.assignedTo.trim();
+
+
+    const current =
+      invitationsByUid.get(
+        uid
+      ) || [];
+
+
+    current.push(
+      invitation
+    );
+
+
+    invitationsByUid.set(
+      uid,
+      current
+    );
+  }
+
+
+  const targets = [];
+
+
+  for (
+    const profile of
+    safeProfiles
+  ) {
+
+    if (
+      !profile ||
+      typeof profile.uid !==
+        'string' ||
+      !profile.uid
+    ) {
+
+      continue;
+    }
+
+
+    let invitation =
+      null;
+
+
+    if (
+      profile.uid !==
+        event.createdBy
+    ) {
+
+      const matches =
+        invitationsByUid.get(
+          profile.uid
+        ) || [];
+
+
+      // El create real rechaza múltiples
+      // invitaciones activas. No ofrecerlo
+      // en la interfaz hasta corregir datos.
+      if (
+        matches.length !==
+          1
+      ) {
+
+        continue;
+      }
+
+
+      invitation =
+        matches[0];
+    }
+
+
+    if (
+      !canReceiveAllocation(
+        profile,
+        event,
+        invitation
+      )
+    ) {
+
+      continue;
+    }
+
+
+    targets.push({
+      uid:
+        profile.uid,
+
+      name:
+        (
+          profile.name ||
+          profile.displayName ||
+          ''
+        ),
+
+      role:
+        profile.role ||
+        '',
+
+      structureId:
+        profile.structureId ||
+        '',
+
+      structureName:
+        profile.structureName ||
+        '',
+
+      municipalityId:
+        profile.municipalityId ||
+        '',
+
+      municipalityName:
+        profile.municipalityName ||
+        '',
+
+      invitationId:
+        invitation
+          ? invitation.id
+          : null
+    });
+  }
+
+
+  targets.sort(
+    (a, b) =>
+      String(
+        a.name ||
+        a.uid
+      ).localeCompare(
+        String(
+          b.name ||
+          b.uid
+        ),
+        'es',
+        {
+          sensitivity:
+            'base'
+        }
+      )
+  );
+
+
+  return targets;
+}
+
+
+exports.getEventTransportAllocationTargets =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const input =
+        request.data || {};
+
+
+      const eventId =
+        validId(
+          input.eventId,
+          'Evento'
+        );
+
+
+      const db =
+        getFirestore();
+
+
+      // ================================================
+      // AUTORIZACION + EVENTO
+      // ================================================
+
+      const context =
+        await db.runTransaction(
+          async tx => {
+
+            const profile =
+              await loadCaller(
+                tx,
+                db,
+                request
+              );
+
+
+            const eventSnapshot =
+              await tx.get(
+                db.collection(
+                  'events'
+                ).doc(
+                  eventId
+                )
+              );
+
+
+            if (
+              !eventSnapshot.exists
+            ) {
+
+              fail(
+                'not-found',
+                'El evento no existe.'
+              );
+            }
+
+
+            const event = {
+              ...eventSnapshot.data(),
+
+              id:
+                eventSnapshot.id
+            };
+
+
+            if (
+              event.active !==
+                true ||
+              event.campaignId !==
+                profile.campaignId
+            ) {
+
+              fail(
+                'permission-denied',
+                'Evento no disponible.'
+              );
+            }
+
+
+            if (
+              !canManageEventTransport(
+                profile,
+                event
+              )
+            ) {
+
+              fail(
+                'permission-denied',
+                'No tienes autorización para repartir transporte en este evento.'
+              );
+            }
+
+
+            return {
+              profile,
+              event
+            };
+          }
+        );
+
+
+      const {
+        event
+      } = context;
+
+
+      // ================================================
+      // INVITACIONES DEL EVENTO
+      // ================================================
+
+      const invitationsSnapshot =
+        await db.collection(
+          'eventInvitations'
+        )
+          .where(
+            'eventId',
+            '==',
+            event.id
+          )
+          .get();
+
+
+      const invitations =
+        invitationsSnapshot.docs
+          .map(
+            doc => ({
+              ...doc.data(),
+
+              id:
+                doc.id
+            })
+          )
+          .filter(
+            invitation =>
+              invitation.active ===
+                true &&
+              invitation.campaignId ===
+                event.campaignId &&
+              typeof invitation.assignedTo ===
+                'string' &&
+              Boolean(
+                invitation.assignedTo
+                  .trim()
+              )
+          );
+
+
+      // ================================================
+      // UIDs POSIBLES
+      // ================================================
+
+      const uidSet =
+        new Set();
+
+
+      if (
+        typeof event.createdBy ===
+          'string' &&
+        event.createdBy
+      ) {
+
+        uidSet.add(
+          event.createdBy
+        );
+      }
+
+
+      for (
+        const invitation of
+        invitations
+      ) {
+
+        uidSet.add(
+          invitation.assignedTo
+            .trim()
+        );
+      }
+
+
+      const refs =
+        Array.from(
+          uidSet
+        ).map(
+          uid =>
+            db.collection(
+              'usuarios'
+            ).doc(
+              uid
+            )
+        );
+
+
+      // ================================================
+      // PERFILES
+      // ================================================
+
+      const profiles = [];
+
+
+      for (
+        let offset = 0;
+        offset < refs.length;
+        offset += 100
+      ) {
+
+        const part =
+          refs.slice(
+            offset,
+            offset + 100
+          );
+
+
+        if (!part.length) {
+
+          continue;
+        }
+
+
+        const snapshots =
+          await db.getAll(
+            ...part
+          );
+
+
+        for (
+          const snapshot of
+          snapshots
+        ) {
+
+          if (
+            !snapshot.exists
+          ) {
+
+            continue;
+          }
+
+
+          profiles.push({
+            ...snapshot.data(),
+
+            uid:
+              snapshot.id
+          });
+        }
+      }
+
+
+      const targets =
+        buildEventTransportAllocationTargets({
+          event,
+          invitations,
+          profiles
+        });
+
+
+      return {
+        success:
+          true,
+
+        eventId:
+          event.id,
+
+        total:
+          targets.length,
+
+        targets
+      };
+    }
+  );
+
+
+// ======================================================
 // CREATE ALLOCATION
 // ======================================================
 
@@ -1660,6 +2132,7 @@ exports._test = {
   ALLOCATION_TYPES,
   ALLOCATION_ZONES,
   ALLOCATION_TARGET_ROLES,
+  buildEventTransportAllocationTargets,
   canManageEventTransport,
   canReceiveAllocation,
   chooseSeatNumbers,

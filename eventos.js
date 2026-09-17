@@ -91,6 +91,20 @@ const configureEventTransportSeatLayout =
   );
 
 
+const createEventTransportAllocation =
+  httpsCallable(
+    functions,
+    "createEventTransportAllocation"
+  );
+
+
+const getEventTransportAllocationTargets =
+  httpsCallable(
+    functions,
+    "getEventTransportAllocationTargets"
+  );
+
+
 const getEventTransportWorkspace =
   httpsCallable(
     functions,
@@ -249,6 +263,15 @@ let transportVehicleAttempt = null;
 let transportSeatLayoutBusy = false;
 let transportSeatLayoutVehicleId = null;
 let transportSeatLayoutAttempt = null;
+
+let transportAllocationTargets = [];
+let transportAllocationTargetsEventId = null;
+let transportAllocationTargetsBusy = false;
+let transportAllocationTargetsError = "";
+
+let transportAllocationBusy = false;
+let transportAllocationVehicleId = null;
+let transportAllocationAttempt = null;
 
 
 let attendanceIdentitySearchBusy =
@@ -3365,7 +3388,415 @@ async function configureTransportStandard2x2(
 }
 
 
+// ======================================================
+// BUILD-118C-3B3E-3G-B4D2B
+// REPARTO DE CUPOS
+// ======================================================
+
+function transportAllocationRoleLabel(
+  role
+) {
+
+  const labels = {
+    lider_principal:
+      "Líder principal",
+
+    coordinador_municipal:
+      "Coordinador municipal",
+
+    jefe_estructura:
+      "Responsable de estructura",
+
+    integrante:
+      "Integrante",
+
+    participante:
+      "Participante"
+  };
+
+
+  return (
+    labels[role] ||
+    role ||
+    "Responsable"
+  );
+}
+
+
+function transportAllocationTargetLabel(
+  target
+) {
+
+  const parts = [
+    target?.name ||
+      "Sin nombre",
+
+    transportAllocationRoleLabel(
+      target?.role
+    )
+  ];
+
+
+  if (target?.structureName) {
+
+    parts.push(
+      target.structureName
+    );
+  }
+
+
+  return parts
+    .filter(Boolean)
+    .join(" · ");
+}
+
+
+async function loadTransportAllocationTargets(
+  eventId
+) {
+
+  if (
+    !eventId ||
+    transportAllocationTargetsBusy
+  ) {
+
+    return;
+  }
+
+
+  transportAllocationTargetsBusy =
+    true;
+
+  transportAllocationTargetsEventId =
+    eventId;
+
+  transportAllocationTargetsError =
+    "";
+
+
+  try {
+
+    const {
+      data
+    } =
+      await getEventTransportAllocationTargets({
+        eventId
+      });
+
+
+    if (
+      selectedTransportEventId !==
+        eventId
+    ) {
+
+      return;
+    }
+
+
+    transportAllocationTargets =
+      Array.isArray(
+        data?.targets
+      )
+        ? data.targets
+        : [];
+
+
+  } catch (error) {
+
+    console.error(
+      "getEventTransportAllocationTargets",
+      error
+    );
+
+
+    if (
+      selectedTransportEventId ===
+        eventId
+    ) {
+
+      transportAllocationTargets =
+        [];
+
+      transportAllocationTargetsError =
+        error?.message ||
+        "No fue posible cargar los responsables elegibles.";
+    }
+
+
+  } finally {
+
+    transportAllocationTargetsBusy =
+      false;
+
+
+    if (
+      selectedTransportEventId ===
+        eventId
+    ) {
+
+      renderTransportControl();
+    }
+  }
+}
+
+
+function ensureTransportAllocationTargets() {
+
+  const eventId =
+    selectedTransportEventId;
+
+
+  if (
+    !eventId ||
+    transportAllocationTargetsBusy ||
+    transportAllocationTargetsEventId ===
+      eventId
+  ) {
+
+    return;
+  }
+
+
+  transportAllocationTargets =
+    [];
+
+  transportAllocationTargetsError =
+    "";
+
+
+  loadTransportAllocationTargets(
+    eventId
+  );
+}
+
+
+async function submitTransportCapacityAllocation(
+  vehicle,
+  targetSelect,
+  capacityInput,
+  localStatus
+) {
+
+  if (
+    transportAllocationBusy ||
+    !vehicle ||
+    !targetSelect ||
+    !capacityInput
+  ) {
+
+    return;
+  }
+
+
+  if (
+    transportUsesPhysicalSeatMap(
+      vehicle
+    )
+  ) {
+
+    localStatus.textContent =
+      "En autobús/camión los cupos se asignarán seleccionando asientos concretos.";
+
+    return;
+  }
+
+
+  const allocatedToUserId =
+    String(
+      targetSelect.value ||
+      ""
+    ).trim();
+
+
+  const allocatedCapacity =
+    Number(
+      capacityInput.value
+    );
+
+
+  const available =
+    Number(
+      vehicle.availableSeatCount
+    ) || 0;
+
+
+  if (!allocatedToUserId) {
+
+    localStatus.textContent =
+      "Selecciona al responsable del cupo.";
+
+    return;
+  }
+
+
+  if (
+    !Number.isInteger(
+      allocatedCapacity
+    ) ||
+    allocatedCapacity < 1
+  ) {
+
+    localStatus.textContent =
+      "Indica una cantidad válida de lugares.";
+
+    return;
+  }
+
+
+  if (
+    allocatedCapacity >
+      available
+  ) {
+
+    localStatus.textContent =
+      `Solo existen ${available} lugares disponibles.`;
+
+    return;
+  }
+
+
+  const attemptKey =
+    [
+      vehicle.id,
+      allocatedToUserId,
+      allocatedCapacity
+    ].join("|");
+
+
+  if (
+    !transportAllocationAttempt ||
+    transportAllocationAttempt
+      .attemptKey !==
+        attemptKey
+  ) {
+
+    transportAllocationAttempt = {
+      attemptKey,
+
+      requestId:
+        transportOperationRequestId(
+          "allocation"
+        )
+    };
+  }
+
+
+  transportAllocationBusy =
+    true;
+
+  transportAllocationVehicleId =
+    vehicle.id;
+
+
+  renderTransportControl();
+
+
+  localStatus.textContent =
+    "Asignando cupos…";
+
+
+  let finalMessage =
+    "";
+
+
+  try {
+
+    const eventId =
+      selectedTransportEventId;
+
+
+    const {
+      data
+    } =
+      await createEventTransportAllocation({
+        vehicleId:
+          vehicle.id,
+
+        allocatedToUserId,
+
+        allocationType:
+          "capacity_block",
+
+        allocatedCapacity,
+
+        zone:
+          "none",
+
+        requestId:
+          transportAllocationAttempt
+            .requestId
+      });
+
+
+    transportAllocationAttempt =
+      null;
+
+
+    await refreshTransportWorkspace(
+      eventId
+    );
+
+
+    const assigned =
+      Number(
+        data?.allocation
+          ?.allocatedCapacity
+      ) ||
+      allocatedCapacity;
+
+
+    finalMessage =
+      `✓ ${assigned} lugar${
+        assigned === 1 ? "" : "es"
+      } asignado${
+        assigned === 1 ? "" : "s"
+      } correctamente.`;
+
+
+  } catch (error) {
+
+    console.error(
+      "createEventTransportAllocation",
+      error
+    );
+
+
+    finalMessage =
+      error?.message ||
+      "No fue posible asignar los cupos.";
+
+
+  } finally {
+
+    transportAllocationBusy =
+      false;
+
+    transportAllocationVehicleId =
+      null;
+
+
+    renderTransportControl();
+
+
+    const status =
+      document.querySelector(
+        `[data-transport-allocation-status="${vehicle.id}"]`
+      );
+
+
+    if (status) {
+
+      status.textContent =
+        finalMessage;
+    }
+  }
+}
+
+
 function renderTransportControl() {
+
+  ensureTransportAllocationTargets();
+
 
   const panel =
     $("transportControlPanel");
@@ -3818,6 +4249,374 @@ function renderTransportControl() {
       }
 
 
+      // ==============================================
+      // B4D2B · CUPOS YA REPARTIDOS
+      // ==============================================
+
+      const vehicleAllocations =
+        (
+          transportWorkspace
+            .allocations ||
+          []
+        ).filter(
+          allocation =>
+            allocation.vehicleId ===
+              vehicle.id &&
+            allocation.active !==
+              false
+        );
+
+
+      if (vehicleAllocations.length) {
+
+        const allocationsTitle =
+          node(
+            "p",
+            "Cupos repartidos"
+          );
+
+
+        allocationsTitle.className =
+          "event-meta";
+
+
+        card.append(
+          allocationsTitle
+        );
+
+
+        for (
+          const allocation of
+          vehicleAllocations
+        ) {
+
+          const amount =
+            Number(
+              allocation
+                .allocatedCapacity
+            ) || 0;
+
+
+          const allocationInfo =
+            node(
+              "p",
+              `${
+                allocation
+                  .allocatedToName ||
+                "Responsable"
+              } · ${
+                amount
+              } lugar${
+                amount === 1
+                  ? ""
+                  : "es"
+              } · ${
+                transportAllocationRoleLabel(
+                  allocation
+                    .allocatedToRole
+                )
+              }`
+            );
+
+
+          allocationInfo.className =
+            "event-meta";
+
+
+          card.append(
+            allocationInfo
+          );
+        }
+      }
+
+
+      // ==============================================
+      // B4D2B · REPARTIR NUEVOS CUPOS
+      // ==============================================
+
+      const availableForAllocation =
+        Number(
+          vehicle.availableSeatCount
+        ) || 0;
+
+
+      if (
+        availableForAllocation >
+          0
+      ) {
+
+        const allocationBox =
+          node(
+            "div",
+            ""
+          );
+
+
+        const allocationTitle =
+          node(
+            "strong",
+            "Repartir cupos"
+          );
+
+
+        allocationBox.append(
+          allocationTitle
+        );
+
+
+        const allocationStatus =
+          node(
+            "p",
+            ""
+          );
+
+
+        allocationStatus.className =
+          "message";
+
+        allocationStatus.dataset
+          .transportAllocationStatus =
+            vehicle.id;
+
+
+        if (
+          transportUsesPhysicalSeatMap(
+            vehicle
+          )
+        ) {
+
+          allocationStatus.textContent =
+            "Autobús/camión: el reparto se hará seleccionando asientos concretos.";
+
+
+          allocationBox.append(
+            allocationStatus
+          );
+
+
+        } else if (
+          transportAllocationTargetsBusy
+        ) {
+
+          allocationStatus.textContent =
+            "Cargando responsables elegibles…";
+
+
+          allocationBox.append(
+            allocationStatus
+          );
+
+
+        } else if (
+          transportAllocationTargetsError
+        ) {
+
+          allocationStatus.textContent =
+            transportAllocationTargetsError;
+
+
+          const retryButton =
+            node(
+              "button",
+              "Reintentar responsables"
+            );
+
+
+          retryButton.type =
+            "button";
+
+          retryButton.className =
+            "button button--secondary";
+
+
+          retryButton.onclick =
+            () => {
+
+              transportAllocationTargetsEventId =
+                null;
+
+              transportAllocationTargetsError =
+                "";
+
+              ensureTransportAllocationTargets();
+
+              renderTransportControl();
+            };
+
+
+          allocationBox.append(
+            allocationStatus,
+            retryButton
+          );
+
+
+        } else if (
+          !transportAllocationTargets.length
+        ) {
+
+          allocationStatus.textContent =
+            "No hay responsables elegibles para recibir cupos en este evento.";
+
+
+          allocationBox.append(
+            allocationStatus
+          );
+
+
+        } else {
+
+          const targetLabel =
+            document.createElement(
+              "label"
+            );
+
+
+          targetLabel.textContent =
+            "Responsable";
+
+
+          const targetSelect =
+            document.createElement(
+              "select"
+            );
+
+
+          const emptyOption =
+            document.createElement(
+              "option"
+            );
+
+
+          emptyOption.value =
+            "";
+
+          emptyOption.textContent =
+            "Selecciona responsable";
+
+
+          targetSelect.append(
+            emptyOption
+          );
+
+
+          for (
+            const target of
+            transportAllocationTargets
+          ) {
+
+            const option =
+              document.createElement(
+                "option"
+              );
+
+
+            option.value =
+              target.uid;
+
+            option.textContent =
+              transportAllocationTargetLabel(
+                target
+              );
+
+
+            targetSelect.append(
+              option
+            );
+          }
+
+
+          targetLabel.append(
+            targetSelect
+          );
+
+
+          const capacityLabel =
+            document.createElement(
+              "label"
+            );
+
+
+          capacityLabel.textContent =
+            "Cantidad de lugares";
+
+
+          const capacityInput =
+            document.createElement(
+              "input"
+            );
+
+
+          capacityInput.type =
+            "number";
+
+          capacityInput.min =
+            "1";
+
+          capacityInput.max =
+            String(
+              availableForAllocation
+            );
+
+          capacityInput.step =
+            "1";
+
+          capacityInput.placeholder =
+            `1 a ${availableForAllocation}`;
+
+
+          capacityLabel.append(
+            capacityInput
+          );
+
+
+          const submitButton =
+            node(
+              "button",
+              (
+                transportAllocationBusy &&
+                transportAllocationVehicleId ===
+                  vehicle.id
+              )
+                ? "Asignando cupos…"
+                : "Asignar cupos"
+            );
+
+
+          submitButton.type =
+            "button";
+
+          submitButton.className =
+            "button button--secondary";
+
+          submitButton.disabled =
+            transportAllocationBusy;
+
+
+          submitButton.onclick =
+            () =>
+              submitTransportCapacityAllocation(
+                vehicle,
+                targetSelect,
+                capacityInput,
+                allocationStatus
+              );
+
+
+          allocationBox.append(
+            targetLabel,
+            capacityLabel,
+            submitButton,
+            allocationStatus
+          );
+        }
+
+
+        card.append(
+          allocationBox
+        );
+      }
+
+
       details.append(
         card
       );
@@ -3969,6 +4768,27 @@ function closeTransportControl() {
     null;
 
   transportSeatLayoutAttempt =
+    null;
+
+  transportAllocationTargets =
+    [];
+
+  transportAllocationTargetsEventId =
+    null;
+
+  transportAllocationTargetsBusy =
+    false;
+
+  transportAllocationTargetsError =
+    "";
+
+  transportAllocationBusy =
+    false;
+
+  transportAllocationVehicleId =
+    null;
+
+  transportAllocationAttempt =
     null;
 
 
