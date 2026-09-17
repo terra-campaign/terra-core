@@ -3522,6 +3522,830 @@ exports.releaseEventTransportPassengerAssignment =
 
 
 // ======================================================
+// B3C1 — CONFIRMACION DEL PASAJERO
+//
+// ASIGNADO
+// confirmationStatus = pending
+// boardingStatus     = pending
+//
+//              ↓
+//
+// CONFIRMADO
+// confirmationStatus = confirmed
+// boardingStatus     = pending
+//
+// CONFIRMAR != ABORDAR != ASISTIR
+//
+// Autoridad:
+// A) la propia persona si tiene accountUid;
+// B) responsable del allocation;
+// C) transport manager.
+//
+// En B y C la confirmación queda marcada como
+// "assisted" y conserva al actor que la registró.
+// ======================================================
+
+function assignmentCanConfirm(
+  assignment
+) {
+
+  return Boolean(
+    assignment &&
+    assignment.active ===
+      true &&
+    assignment.status ===
+      'assigned' &&
+    assignment.confirmationStatus ===
+      'pending' &&
+    assignment.boardingStatus ===
+      'pending' &&
+    assignment.personId &&
+    assignment.seatId &&
+    Number.isInteger(
+      assignment.seatNumber
+    )
+  );
+}
+
+
+function confirmationModeFor({
+  profile,
+  event,
+  allocation,
+  assignment
+}) {
+
+  if (
+    !profile ||
+    !event ||
+    !allocation ||
+    !assignment ||
+    profile.active !==
+      true ||
+    profile.campaignId !==
+      assignment.campaignId ||
+    event.campaignId !==
+      assignment.campaignId ||
+    allocation.campaignId !==
+      assignment.campaignId ||
+    allocation.eventId !==
+      assignment.eventId ||
+    assignment.allocationId !==
+      allocation.id
+  ) {
+
+    return null;
+  }
+
+
+  // ------------------------------------------------------
+  // CONFIRMACION DIRECTA DEL PASAJERO DIGITAL
+  // ------------------------------------------------------
+
+  if (
+    assignment.accountUid &&
+    assignment.accountUid ===
+      profile.uid
+  ) {
+
+    return 'self';
+  }
+
+
+  // ------------------------------------------------------
+  // CONFIRMACION ASISTIDA
+  //
+  // Sirve también para persona accountless.
+  // ------------------------------------------------------
+
+  if (
+    canAssignPassengers(
+      profile,
+      event,
+      allocation
+    )
+  ) {
+
+    return 'assisted';
+  }
+
+
+  return null;
+}
+
+
+function confirmationIdFor(
+  assignmentId,
+  assignmentCycle,
+  requestId
+) {
+
+  return hash(
+    assignmentId,
+    assignmentCycle,
+    requestId,
+    'event-transport-passenger-confirmation-v1'
+  );
+}
+
+
+// ======================================================
+// CONFIRM EVENT TRANSPORT PASSENGER ASSIGNMENT
+// ======================================================
+
+exports.confirmEventTransportPassengerAssignment =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const input =
+        request.data ||
+        {};
+
+
+      const assignmentId =
+        validId(
+          input.assignmentId,
+          'Asignación'
+        );
+
+
+      const requestId =
+        validRequestId(
+          input.requestId
+        );
+
+
+      const db =
+        getFirestore();
+
+
+      return db.runTransaction(
+        async tx => {
+
+          // ==============================================
+          // ACTOR
+          // ==============================================
+
+          const profile =
+            await loadCaller(
+              tx,
+              db,
+              request
+            );
+
+
+          const assignmentRef =
+            db.collection(
+              'eventTransportAssignments'
+            ).doc(
+              assignmentId
+            );
+
+
+          const assignmentSnapshot =
+            await tx.get(
+              assignmentRef
+            );
+
+
+          if (
+            !assignmentSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'La asignación de pasajero no existe.'
+            );
+          }
+
+
+          const assignment = {
+            ...assignmentSnapshot.data(),
+
+            id:
+              assignmentSnapshot.id
+          };
+
+
+          if (
+            assignment.campaignId !==
+              profile.campaignId
+          ) {
+
+            fail(
+              'permission-denied',
+              'La asignación no pertenece a esta campaña.'
+            );
+          }
+
+
+          // ==============================================
+          // CICLO DE ASIGNACION
+          //
+          // 1 = asignación inicial
+          // 2 = primera reactivación
+          // 3 = segunda reactivación
+          // ...
+          //
+          // Evita que un requestId viejo de otro ciclo
+          // pueda confundirse con una confirmación nueva.
+          // ==============================================
+
+          const reactivationCount =
+            Math.max(
+              0,
+              Number(
+                assignment
+                  .reactivationCount
+              ) ||
+              0
+            );
+
+
+          const assignmentCycle =
+            reactivationCount +
+            1;
+
+
+          const confirmationId =
+            confirmationIdFor(
+              assignmentId,
+              assignmentCycle,
+              requestId
+            );
+
+
+          const confirmationRef =
+            db.collection(
+              'eventTransportAssignmentConfirmations'
+            ).doc(
+              confirmationId
+            );
+
+
+          const confirmationSnapshot =
+            await tx.get(
+              confirmationRef
+            );
+
+
+          // ==============================================
+          // IDEMPOTENCIA PRIMERO
+          //
+          // Después del primer éxito el assignment ya está
+          // confirmed, por eso el retry debe resolverse
+          // antes de assignmentCanConfirm().
+          // ==============================================
+
+          if (
+            confirmationSnapshot.exists
+          ) {
+
+            const saved =
+              confirmationSnapshot.data();
+
+
+            if (
+              saved.campaignId ===
+                profile.campaignId &&
+              saved.assignmentId ===
+                assignmentId &&
+              saved.assignmentCycle ===
+                assignmentCycle &&
+              saved.confirmedByUserId ===
+                profile.uid
+            ) {
+
+              return {
+
+                success:
+                  true,
+
+                idempotent:
+                  true,
+
+                confirmation: {
+
+                  id:
+                    confirmationId,
+
+                  assignmentId,
+
+                  assignmentCycle,
+
+                  personId:
+                    saved.personId,
+
+                  confirmationStatus:
+                    'confirmed',
+
+                  confirmationMode:
+                    saved.confirmationMode,
+
+                  confirmedByUserId:
+                    saved.confirmedByUserId
+                }
+              };
+            }
+
+
+            fail(
+              'already-exists',
+              'Este identificador de confirmación ya fue utilizado.'
+            );
+          }
+
+
+          // ==============================================
+          // ESTADO DEL ASSIGNMENT
+          // ==============================================
+
+          if (
+            !assignmentCanConfirm(
+              assignment
+            )
+          ) {
+
+            fail(
+              'failed-precondition',
+              'La asignación ya no puede confirmarse en esta etapa.'
+            );
+          }
+
+
+          const allocationId =
+            validId(
+              assignment.allocationId,
+              'Cupo'
+            );
+
+
+          const eventId =
+            validId(
+              assignment.eventId,
+              'Evento'
+            );
+
+
+          const seatId =
+            validId(
+              assignment.seatId,
+              'Asiento'
+            );
+
+
+          const allocationRef =
+            db.collection(
+              'eventTransportAllocations'
+            ).doc(
+              allocationId
+            );
+
+
+          const eventRef =
+            db.collection(
+              'events'
+            ).doc(
+              eventId
+            );
+
+
+          const seatRef =
+            db.collection(
+              'eventTransportSeats'
+            ).doc(
+              seatId
+            );
+
+
+          const [
+            allocationSnapshot,
+            eventSnapshot,
+            seatSnapshot
+          ] =
+            await Promise.all([
+
+              tx.get(
+                allocationRef
+              ),
+
+              tx.get(
+                eventRef
+              ),
+
+              tx.get(
+                seatRef
+              )
+            ]);
+
+
+          if (
+            !allocationSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El cupo de transporte no existe.'
+            );
+          }
+
+
+          if (
+            !eventSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El evento no existe.'
+            );
+          }
+
+
+          if (
+            !seatSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El asiento no existe.'
+            );
+          }
+
+
+          const allocation = {
+            ...allocationSnapshot.data(),
+
+            id:
+              allocationSnapshot.id
+          };
+
+
+          const event = {
+            ...eventSnapshot.data(),
+
+            id:
+              eventSnapshot.id
+          };
+
+
+          const seat = {
+            ...seatSnapshot.data(),
+
+            id:
+              seatSnapshot.id
+          };
+
+
+          // ==============================================
+          // INTEGRIDAD DEL CUPO / EVENTO
+          // ==============================================
+
+          if (
+            allocation.active !==
+              true ||
+            allocation.campaignId !==
+              profile.campaignId ||
+            allocation.eventId !==
+              assignment.eventId ||
+            allocation.vehicleId !==
+              assignment.vehicleId
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El cupo ya no corresponde a esta asignación.'
+            );
+          }
+
+
+          if (
+            event.campaignId !==
+              profile.campaignId ||
+            event.id !==
+              assignment.eventId
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El evento ya no corresponde a esta asignación.'
+            );
+          }
+
+
+          // ==============================================
+          // INTEGRIDAD DEL ASIENTO
+          // ==============================================
+
+          if (
+            seat.active !==
+              true ||
+            seat.status !==
+              'assigned' ||
+            seat.assignmentId !==
+              assignmentId ||
+            seat.personId !==
+              assignment.personId ||
+            seat.allocationId !==
+              assignment.allocationId ||
+            seat.vehicleId !==
+              assignment.vehicleId ||
+            seat.seatNumber !==
+              assignment.seatNumber
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El asiento físico no coincide con la asignación.'
+            );
+          }
+
+
+          // ==============================================
+          // AUTORIDAD DE CONFIRMACION
+          // ==============================================
+
+          const confirmationMode =
+            confirmationModeFor({
+              profile,
+              event,
+              allocation,
+              assignment
+            });
+
+
+          if (
+            !confirmationMode
+          ) {
+
+            fail(
+              'permission-denied',
+              'No tienes autorización para confirmar este transporte.'
+            );
+          }
+
+
+          // ==============================================
+          // TODAS LAS LECTURAS TERMINARON
+          // ==============================================
+
+          const serverNow =
+            FieldValue
+              .serverTimestamp();
+
+
+          // ==============================================
+          // ACTUALIZAR ASSIGNMENT
+          //
+          // NO modifica asiento.
+          // NO modifica contadores.
+          // NO modifica boardingStatus.
+          // ==============================================
+
+          tx.update(
+            assignmentRef,
+            {
+
+              confirmationStatus:
+                'confirmed',
+
+              confirmationId,
+
+              confirmationMode,
+
+              confirmedAt:
+                serverNow,
+
+              confirmedByUserId:
+                profile.uid,
+
+              confirmedByName:
+                profile.name ||
+                '',
+
+              confirmedByRole:
+                profile.role,
+
+              updatedAt:
+                serverNow,
+
+              version:
+                (
+                  Number(
+                    assignment.version
+                  ) ||
+                  0
+                ) +
+                1
+            }
+          );
+
+
+          // ==============================================
+          // HISTORIAL INMUTABLE DE CONFIRMACION
+          // ==============================================
+
+          tx.create(
+            confirmationRef,
+            {
+
+              id:
+                confirmationId,
+
+              campaignId:
+                profile.campaignId,
+
+              eventId:
+                assignment.eventId,
+
+              vehicleId:
+                assignment.vehicleId,
+
+              allocationId:
+                assignment.allocationId,
+
+              assignmentId,
+
+              assignmentCycle,
+
+              personId:
+                assignment.personId,
+
+              accountUid:
+                assignment.accountUid ||
+                null,
+
+              personName:
+                assignment.personName ||
+                '',
+
+              seatId:
+                assignment.seatId,
+
+              seatNumber:
+                assignment.seatNumber,
+
+              confirmationStatus:
+                'confirmed',
+
+              confirmationMode,
+
+              requestId,
+
+              confirmedByUserId:
+                profile.uid,
+
+              confirmedByName:
+                profile.name ||
+                '',
+
+              confirmedByRole:
+                profile.role,
+
+              createdAt:
+                serverNow,
+
+              version:
+                1
+            }
+          );
+
+
+          // ==============================================
+          // AUDITORIA
+          // ==============================================
+
+          tx.create(
+            db.collection(
+              'logs'
+            ).doc(),
+            {
+
+              action:
+                'EVENT_TRANSPORT_PASSENGER_CONFIRMED',
+
+              campaignId:
+                profile.campaignId,
+
+              eventId:
+                assignment.eventId,
+
+              vehicleId:
+                assignment.vehicleId,
+
+              allocationId:
+                assignment.allocationId,
+
+              assignmentId,
+
+              assignmentCycle,
+
+              confirmationId,
+
+              personId:
+                assignment.personId,
+
+              accountUid:
+                assignment.accountUid ||
+                null,
+
+              seatId:
+                assignment.seatId,
+
+              seatNumber:
+                assignment.seatNumber,
+
+              confirmationMode,
+
+              confirmedByUserId:
+                profile.uid,
+
+              confirmedByRole:
+                profile.role,
+
+              createdAt:
+                serverNow,
+
+              version:
+                1
+            }
+          );
+
+
+          // ==============================================
+          // RESPUESTA
+          // ==============================================
+
+          return {
+
+            success:
+              true,
+
+            idempotent:
+              false,
+
+            confirmation: {
+
+              id:
+                confirmationId,
+
+              assignmentId,
+
+              assignmentCycle,
+
+              personId:
+                assignment.personId,
+
+              seatId:
+                assignment.seatId,
+
+              seatNumber:
+                assignment.seatNumber,
+
+              confirmationStatus:
+                'confirmed',
+
+              confirmationMode,
+
+              confirmedByUserId:
+                profile.uid
+            },
+
+            assignment: {
+
+              id:
+                assignmentId,
+
+              personId:
+                assignment.personId,
+
+              seatId:
+                assignment.seatId,
+
+              seatNumber:
+                assignment.seatNumber,
+
+              status:
+                assignment.status,
+
+              confirmationStatus:
+                'confirmed',
+
+              boardingStatus:
+                assignment.boardingStatus,
+
+              active:
+                assignment.active
+            }
+          };
+        }
+      );
+    }
+  );
+
+
+// ======================================================
 // B3B1 — MANIFIESTO DEL CUPO
 //
 // Vista operacional de:
@@ -4146,6 +4970,9 @@ exports._test = {
   assignmentCanReactivate,
   assignmentCanRelease,
   releaseIdFor,
+  assignmentCanConfirm,
+  confirmationModeFor,
+  confirmationIdFor,
   assignmentCanMove,
   movementIdFor,
   buildAllocationManifest

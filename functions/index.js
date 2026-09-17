@@ -5314,3 +5314,13 @@ exports.moveEventTransportPassengerAssignment =
 exports.releaseEventTransportPassengerAssignment =
   require("./event-transport-passenger-assignments.cjs")
     .releaseEventTransportPassengerAssignment;
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B3C1
+// Confirmar lugar de transporte del pasajero.
+// ======================================================
+
+exports.confirmEventTransportPassengerAssignment =
+  require("./event-transport-passenger-assignments.cjs")
+    .confirmEventTransportPassengerAssignment;
