@@ -395,6 +395,84 @@ function seatCanReceivePassenger({
 
 
 // ======================================================
+// RESOLVER ASIENTO REAL
+//
+// IMPORTANTE:
+//
+// NO se relacionan seatNumbers[] y seatIds[] por índice.
+//
+// Una consulta Firestore no garantiza el mismo orden
+// utilizado por chosenNumbers al crear el allocation.
+//
+// La fuente de verdad es:
+//
+// vehicleId + seatNumber + allocationId
+// ======================================================
+
+function resolveAllocatedSeat({
+  seats,
+  allocation,
+  vehicleId,
+  seatNumber
+}) {
+
+  const allowedNumbers =
+    Array.isArray(
+      allocation?.seatNumbers
+    )
+      ? allocation.seatNumbers
+      : [];
+
+
+  if (
+    !allowedNumbers.includes(
+      seatNumber
+    )
+  ) {
+
+    fail(
+      'permission-denied',
+      'El asiento no pertenece a este cupo.'
+    );
+  }
+
+
+  const matches =
+    Array.isArray(
+      seats
+    )
+      ? seats.filter(
+          seat =>
+            seat &&
+            seat.active ===
+              true &&
+            seat.vehicleId ===
+              vehicleId &&
+            seat.seatNumber ===
+              seatNumber &&
+            seat.allocationId ===
+              allocation.id
+        )
+      : [];
+
+
+  if (
+    matches.length !==
+      1
+  ) {
+
+    fail(
+      'failed-precondition',
+      'No fue posible resolver de forma única el asiento dentro del cupo.'
+    );
+  }
+
+
+  return matches[0];
+}
+
+
+// ======================================================
 // IDENTIDAD DEL PASSENGER ASSIGNMENT
 //
 // UNA PERSONA -> MAXIMO UN ASIENTO POR EVENTO.
@@ -768,23 +846,10 @@ exports.createEventTransportPassengerAssignment =
               : [];
 
 
-          const seatIds =
-            Array.isArray(
-              allocation.seatIds
-            )
-              ? allocation.seatIds
-              : [];
-
-
-          const seatIndex =
-            seatNumbers.indexOf(
-              seatNumber
-            );
-
-
           if (
-            seatIndex < 0 ||
-            !seatIds[seatIndex]
+            !seatNumbers.includes(
+              seatNumber
+            )
           ) {
 
             fail(
@@ -794,19 +859,19 @@ exports.createEventTransportPassengerAssignment =
           }
 
 
-          const seatId =
-            validId(
-              seatIds[seatIndex],
-              'Asiento'
-            );
-
-
-          const seatRef =
+          // No usamos allocation.seatIds por posición.
+          //
+          // Buscamos los asientos físicos del vehículo
+          // y resolvemos por seatNumber + allocationId.
+          const vehicleSeatsQuery =
             db.collection(
               'eventTransportSeats'
-            ).doc(
-              seatId
-            );
+            )
+              .where(
+                'vehicleId',
+                '==',
+                vehicleId
+              );
 
 
           // ==============================================
@@ -853,14 +918,14 @@ exports.createEventTransportPassengerAssignment =
 
 
           const [
-            seatSnapshot,
+            vehicleSeatsSnapshot,
             personSnapshot,
             membershipsSnapshot,
             existingAssignmentSnapshot
           ] =
             await Promise.all([
               tx.get(
-                seatRef
+                vehicleSeatsQuery
               ),
 
               tx.get(
@@ -875,6 +940,42 @@ exports.createEventTransportPassengerAssignment =
                 assignmentRef
               )
             ]);
+
+
+          const vehicleSeats =
+            vehicleSeatsSnapshot.docs
+              .map(
+                doc => ({
+                  ...doc.data(),
+
+                  id:
+                    doc.id,
+
+                  ref:
+                    doc.ref
+                })
+              );
+
+
+          const seat =
+            resolveAllocatedSeat({
+              seats:
+                vehicleSeats,
+
+              allocation,
+
+              vehicleId,
+
+              seatNumber
+            });
+
+
+          const seatId =
+            seat.id;
+
+
+          const seatRef =
+            seat.ref;
 
 
           // ==============================================
@@ -1018,24 +1119,6 @@ exports.createEventTransportPassengerAssignment =
           // ==============================================
           // ASIENTO
           // ==============================================
-
-          if (
-            !seatSnapshot.exists
-          ) {
-
-            fail(
-              'not-found',
-              'El asiento no existe.'
-            );
-          }
-
-
-          const seat = {
-            ...seatSnapshot.data(),
-            id:
-              seatSnapshot.id
-          };
-
 
           if (
             !seatCanReceivePassenger({
@@ -1417,5 +1500,6 @@ exports._test = {
   canAssignPassengers,
   personBelongsToAllocationBranch,
   seatCanReceivePassenger,
+  resolveAllocatedSeat,
   assignmentIdFor
 };

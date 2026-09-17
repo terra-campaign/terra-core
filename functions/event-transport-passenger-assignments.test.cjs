@@ -11,6 +11,7 @@ const {
   canAssignPassengers,
   personBelongsToAllocationBranch,
   seatCanReceivePassenger,
+  resolveAllocatedSeat,
   assignmentIdFor
 } =
   require(
@@ -65,6 +66,12 @@ const allocation = {
 
   allocatedCapacity:
     6,
+
+  seatNumbers: [
+    1, 2,
+    5, 6,
+    9, 10
+  ],
 
   allocatedToUserId:
     'PART-001',
@@ -347,6 +354,174 @@ assert.equal(
 
   }),
   false
+);
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B3A1
+//
+// Firestore puede devolver los asientos en cualquier
+// orden. El sistema NO debe asociarlos por índice.
+// ======================================================
+
+const unorderedVehicleSeats = [
+
+  {
+    id:
+      'SEAT-10',
+    vehicleId:
+      'VEH-001',
+    seatNumber:
+      10,
+    active:
+      true,
+    allocationId:
+      'ALLOC-001',
+    status:
+      'allocated'
+  },
+
+  {
+    id:
+      'SEAT-5',
+    vehicleId:
+      'VEH-001',
+    seatNumber:
+      5,
+    active:
+      true,
+    allocationId:
+      'ALLOC-001',
+    status:
+      'allocated'
+  },
+
+  {
+    id:
+      'SEAT-1',
+    vehicleId:
+      'VEH-001',
+    seatNumber:
+      1,
+    active:
+      true,
+    allocationId:
+      'ALLOC-001',
+    status:
+      'allocated'
+  },
+
+  {
+    id:
+      'SEAT-6',
+    vehicleId:
+      'VEH-001',
+    seatNumber:
+      6,
+    active:
+      true,
+    allocationId:
+      'ALLOC-001',
+    status:
+      'allocated'
+  },
+
+  {
+    id:
+      'SEAT-2',
+    vehicleId:
+      'VEH-001',
+    seatNumber:
+      2,
+    active:
+      true,
+    allocationId:
+      'ALLOC-001',
+    status:
+      'allocated'
+  },
+
+  {
+    id:
+      'SEAT-9',
+    vehicleId:
+      'VEH-001',
+    seatNumber:
+      9,
+    active:
+      true,
+    allocationId:
+      'ALLOC-001',
+    status:
+      'allocated'
+  }
+];
+
+
+const resolvedSeat1 =
+  resolveAllocatedSeat({
+    seats:
+      unorderedVehicleSeats,
+
+    allocation,
+
+    vehicleId:
+      'VEH-001',
+
+    seatNumber:
+      1
+  });
+
+
+assert.equal(
+  resolvedSeat1.id,
+  'SEAT-1'
+);
+
+
+assert.equal(
+  resolvedSeat1.seatNumber,
+  1
+);
+
+
+// Aunque exista físicamente, un asiento que no
+// pertenece al listado del allocation debe rechazarse.
+assert.throws(
+  () =>
+    resolveAllocatedSeat({
+      seats: [
+        ...unorderedVehicleSeats,
+
+        {
+          id:
+            'SEAT-3',
+          vehicleId:
+            'VEH-001',
+          seatNumber:
+            3,
+          active:
+            true,
+          allocationId:
+            'ALLOC-OTHER',
+          status:
+            'allocated'
+        }
+      ],
+
+      allocation,
+
+      vehicleId:
+        'VEH-001',
+
+      seatNumber:
+        3
+    }),
+
+  error =>
+    error &&
+    error.code ===
+      'permission-denied'
 );
 
 
