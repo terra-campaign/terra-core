@@ -1065,6 +1065,12 @@ exports.createEventTransportPassengerAssignment =
 
           // ==============================================
           // IDEMPOTENCIA / UNA PERSONA POR EVENTO
+          //
+          // PERSONA + EVENTO conserva un único
+          // PassengerAssignment canónico.
+          //
+          // Si fue liberado, se reutiliza exactamente
+          // el mismo assignmentId.
           // ==============================================
 
           const fingerprint =
@@ -1075,44 +1081,95 @@ exports.createEventTransportPassengerAssignment =
             );
 
 
+          let existingAssignment =
+            null;
+
+
+          let isReactivation =
+            false;
+
+
           if (
             existingAssignmentSnapshot
               .exists
           ) {
 
-            const existing =
-              existingAssignmentSnapshot
-                .data();
+            existingAssignment = {
+              ...existingAssignmentSnapshot
+                .data(),
 
+              id:
+                assignmentId
+            };
+
+
+            // --------------------------------------------
+            // ASSIGNMENT ACTIVO
+            // --------------------------------------------
 
             if (
-              existing.active ===
-                true &&
-              existing.requestFingerprint ===
-                fingerprint
+              existingAssignment.active ===
+                true
             ) {
 
-              return {
-                success:
-                  true,
+              if (
+                existingAssignment
+                  .requestFingerprint ===
+                    fingerprint
+              ) {
 
-                idempotent:
-                  true,
+                return {
 
-                assignment:
-                  assignmentView({
-                    ...existing,
-                    id:
-                      assignmentId
-                  })
-              };
+                  success:
+                    true,
+
+                  idempotent:
+                    true,
+
+                  reactivated:
+                    (
+                      Number(
+                        existingAssignment
+                          .reactivationCount
+                      ) ||
+                      0
+                    ) > 0,
+
+                  assignment:
+                    assignmentView(
+                      existingAssignment
+                    )
+                };
+              }
+
+
+              fail(
+                'already-exists',
+                'La persona ya tiene un asiento asignado para este evento.'
+              );
             }
 
 
-            fail(
-              'already-exists',
-              'La persona ya tiene un asiento asignado para este evento.'
-            );
+            // --------------------------------------------
+            // ASSIGNMENT LIBERADO
+            // --------------------------------------------
+
+            if (
+              assignmentCanReactivate(
+                existingAssignment
+              )
+            ) {
+
+              isReactivation =
+                true;
+            }
+            else {
+
+              fail(
+                'failed-precondition',
+                'La asignación existente no puede reactivarse.'
+              );
+            }
           }
 
 
@@ -1290,11 +1347,56 @@ exports.createEventTransportPassengerAssignment =
             active:
               true,
 
+            reactivationCount:
+              isReactivation
+                ? (
+                    (
+                      Number(
+                        existingAssignment
+                          ?.reactivationCount
+                      ) ||
+                      0
+                    ) +
+                    1
+                  )
+                : 0,
+
+            reactivatedAt:
+              isReactivation
+                ? serverNow
+                : null,
+
+            reactivatedFromReleaseId:
+              isReactivation
+                ? (
+                    existingAssignment
+                      ?.lastReleaseId ||
+                    null
+                  )
+                : null,
+
             version:
-              1,
+              isReactivation
+                ? (
+                    (
+                      Number(
+                        existingAssignment
+                          ?.version
+                      ) ||
+                      0
+                    ) +
+                    1
+                  )
+                : 1,
 
             createdAt:
-              serverNow,
+              isReactivation
+                ? (
+                    existingAssignment
+                      ?.createdAt ||
+                    serverNow
+                  )
+                : serverNow,
 
             updatedAt:
               serverNow
@@ -1305,10 +1407,22 @@ exports.createEventTransportPassengerAssignment =
           // CREAR PASSENGER ASSIGNMENT
           // ==============================================
 
-          tx.create(
-            assignmentRef,
-            assignmentRecord
-          );
+          if (
+            isReactivation
+          ) {
+
+            tx.update(
+              assignmentRef,
+              assignmentRecord
+            );
+          }
+          else {
+
+            tx.create(
+              assignmentRef,
+              assignmentRecord
+            );
+          }
 
 
           // ==============================================
@@ -1413,7 +1527,9 @@ exports.createEventTransportPassengerAssignment =
             {
 
               action:
-                'EVENT_TRANSPORT_PASSENGER_ASSIGNED',
+                isReactivation
+                  ? 'EVENT_TRANSPORT_PASSENGER_REASSIGNED'
+                  : 'EVENT_TRANSPORT_PASSENGER_ASSIGNED',
 
               campaignId:
                 profile.campaignId,
@@ -1463,6 +1579,9 @@ exports.createEventTransportPassengerAssignment =
             idempotent:
               false,
 
+            reactivated:
+              isReactivation,
+
             assignment:
               assignmentView(
                 assignmentRecord
@@ -1489,6 +1608,42 @@ exports.createEventTransportPassengerAssignment =
       );
     }
   );
+
+
+// ======================================================
+// B3B3-A — REACTIVACION DE PASSENGER ASSIGNMENT
+//
+// Solo puede reactivarse una asignación:
+// - inactive
+// - released
+// - sin asiento actual
+// - no confirmada
+// - no abordada
+// ======================================================
+
+function assignmentCanReactivate(
+  assignment
+) {
+
+  return Boolean(
+    assignment &&
+    assignment.active ===
+      false &&
+    assignment.status ===
+      'released' &&
+    !assignment.seatId &&
+    (
+      assignment.seatNumber ===
+        null ||
+      assignment.seatNumber ===
+        undefined
+    ) &&
+    assignment.confirmationStatus ===
+      'pending' &&
+    assignment.boardingStatus ===
+      'pending'
+  );
+}
 
 
 // ======================================================
@@ -2400,6 +2555,973 @@ exports.moveEventTransportPassengerAssignment =
 
 
 // ======================================================
+// B3B3-B — LIBERAR PASAJERO DEL ASIENTO
+//
+// IMPORTANTE:
+//
+// liberar pasajero
+// != liberar cupo
+// != abordar
+// != asistir
+//
+// El asiento vuelve a estado "allocated" y continúa
+// reservado al allocation.
+//
+// El PassengerAssignment NO se borra:
+// queda released / inactive y B3A podrá reactivarlo.
+// ======================================================
+
+function assignmentCanRelease(
+  assignment
+) {
+
+  return Boolean(
+    assignment &&
+    assignment.active ===
+      true &&
+    assignment.status ===
+      'assigned' &&
+    assignment.confirmationStatus ===
+      'pending' &&
+    assignment.boardingStatus ===
+      'pending' &&
+    assignment.personId &&
+    assignment.seatId &&
+    Number.isInteger(
+      assignment.seatNumber
+    )
+  );
+}
+
+
+function releaseIdFor(
+  assignmentId,
+  requestId
+) {
+
+  return hash(
+    assignmentId,
+    requestId,
+    'event-transport-passenger-release-v1'
+  );
+}
+
+
+// ======================================================
+// RELEASE EVENT TRANSPORT PASSENGER ASSIGNMENT
+// ======================================================
+
+exports.releaseEventTransportPassengerAssignment =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const input =
+        request.data ||
+        {};
+
+
+      const assignmentId =
+        validId(
+          input.assignmentId,
+          'Asignación'
+        );
+
+
+      const requestId =
+        validRequestId(
+          input.requestId
+        );
+
+
+      const releaseId =
+        releaseIdFor(
+          assignmentId,
+          requestId
+        );
+
+
+      const db =
+        getFirestore();
+
+
+      return db.runTransaction(
+        async tx => {
+
+          // ==============================================
+          // ACTOR
+          // ==============================================
+
+          const profile =
+            await loadCaller(
+              tx,
+              db,
+              request
+            );
+
+
+          const assignmentRef =
+            db.collection(
+              'eventTransportAssignments'
+            ).doc(
+              assignmentId
+            );
+
+
+          const releaseRef =
+            db.collection(
+              'eventTransportAssignmentReleases'
+            ).doc(
+              releaseId
+            );
+
+
+          const [
+            assignmentSnapshot,
+            releaseSnapshot
+          ] =
+            await Promise.all([
+
+              tx.get(
+                assignmentRef
+              ),
+
+              tx.get(
+                releaseRef
+              )
+            ]);
+
+
+          // ==============================================
+          // IDEMPOTENCIA PRIMERO
+          //
+          // Un retry legítimo debe funcionar aunque
+          // el primer intento ya haya dejado:
+          //
+          // assignment.active = false
+          // status = released
+          // ==============================================
+
+          if (
+            releaseSnapshot.exists
+          ) {
+
+            const saved =
+              releaseSnapshot.data();
+
+
+            if (
+              saved.campaignId ===
+                profile.campaignId &&
+              saved.assignmentId ===
+                assignmentId &&
+              saved.releasedByUserId ===
+                profile.uid
+            ) {
+
+              return {
+
+                success:
+                  true,
+
+                idempotent:
+                  true,
+
+                release: {
+
+                  id:
+                    releaseId,
+
+                  assignmentId,
+
+                  personId:
+                    saved.personId,
+
+                  personName:
+                    saved.personName ||
+                    '',
+
+                  fromSeatId:
+                    saved.fromSeatId,
+
+                  fromSeatNumber:
+                    saved.fromSeatNumber
+                }
+              };
+            }
+
+
+            fail(
+              'already-exists',
+              'Este identificador de liberación ya fue utilizado.'
+            );
+          }
+
+
+          // ==============================================
+          // ASSIGNMENT
+          // ==============================================
+
+          if (
+            !assignmentSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'La asignación de pasajero no existe.'
+            );
+          }
+
+
+          const assignment = {
+            ...assignmentSnapshot.data(),
+
+            id:
+              assignmentSnapshot.id
+          };
+
+
+          if (
+            assignment.campaignId !==
+              profile.campaignId
+          ) {
+
+            fail(
+              'permission-denied',
+              'La asignación no pertenece a esta campaña.'
+            );
+          }
+
+
+          if (
+            !assignmentCanRelease(
+              assignment
+            )
+          ) {
+
+            fail(
+              'failed-precondition',
+              'La asignación ya no puede liberarse en esta etapa.'
+            );
+          }
+
+
+          // ==============================================
+          // IDS CANONICOS
+          // ==============================================
+
+          const allocationId =
+            validId(
+              assignment.allocationId,
+              'Cupo'
+            );
+
+
+          const vehicleId =
+            validId(
+              assignment.vehicleId,
+              'Vehículo'
+            );
+
+
+          const eventId =
+            validId(
+              assignment.eventId,
+              'Evento'
+            );
+
+
+          // ==============================================
+          // REFERENCES
+          // ==============================================
+
+          const allocationRef =
+            db.collection(
+              'eventTransportAllocations'
+            ).doc(
+              allocationId
+            );
+
+
+          const vehicleRef =
+            db.collection(
+              'eventTransportVehicles'
+            ).doc(
+              vehicleId
+            );
+
+
+          const eventRef =
+            db.collection(
+              'events'
+            ).doc(
+              eventId
+            );
+
+
+          // ==============================================
+          // LEER ALLOCATION / VEHICLE / EVENT
+          // ==============================================
+
+          const [
+            allocationSnapshot,
+            vehicleSnapshot,
+            eventSnapshot
+          ] =
+            await Promise.all([
+
+              tx.get(
+                allocationRef
+              ),
+
+              tx.get(
+                vehicleRef
+              ),
+
+              tx.get(
+                eventRef
+              )
+            ]);
+
+
+          if (
+            !allocationSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El cupo de transporte no existe.'
+            );
+          }
+
+
+          if (
+            !vehicleSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El vehículo no existe.'
+            );
+          }
+
+
+          if (
+            !eventSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El evento no existe.'
+            );
+          }
+
+
+          const allocation = {
+            ...allocationSnapshot.data(),
+
+            id:
+              allocationSnapshot.id
+          };
+
+
+          const vehicle = {
+            ...vehicleSnapshot.data(),
+
+            id:
+              vehicleSnapshot.id
+          };
+
+
+          const event = {
+            ...eventSnapshot.data(),
+
+            id:
+              eventSnapshot.id
+          };
+
+
+          // ==============================================
+          // CONSISTENCIA DE DOMINIO
+          // ==============================================
+
+          if (
+            allocation.active !==
+              true ||
+            allocation.campaignId !==
+              profile.campaignId ||
+            allocation.eventId !==
+              eventId ||
+            allocation.vehicleId !==
+              vehicleId
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El cupo ya no corresponde a esta asignación.'
+            );
+          }
+
+
+          if (
+            vehicle.active !==
+              true ||
+            vehicle.campaignId !==
+              profile.campaignId ||
+            vehicle.eventId !==
+              eventId
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El vehículo ya no corresponde a esta asignación.'
+            );
+          }
+
+
+          // ==============================================
+          // AUTORIDAD
+          // ==============================================
+
+          if (
+            !canAssignPassengers(
+              profile,
+              event,
+              allocation
+            )
+          ) {
+
+            fail(
+              'permission-denied',
+              'No tienes autorización para liberar pasajeros de este cupo.'
+            );
+          }
+
+
+          // ==============================================
+          // ASIENTOS DEL VEHICULO
+          // ==============================================
+
+          const seatsSnapshot =
+            await tx.get(
+              db.collection(
+                'eventTransportSeats'
+              )
+                .where(
+                  'vehicleId',
+                  '==',
+                  vehicleId
+                )
+            );
+
+
+          const seats =
+            seatsSnapshot.docs.map(
+              doc => ({
+                ...doc.data(),
+
+                id:
+                  doc.id,
+
+                ref:
+                  doc.ref
+              })
+            );
+
+
+          // ==============================================
+          // ASIENTO ACTUAL
+          // ==============================================
+
+          const currentSeat =
+            seats.find(
+              seat =>
+                seat.id ===
+                  assignment.seatId
+            );
+
+
+          if (
+            !currentSeat ||
+            currentSeat.active !==
+              true ||
+            currentSeat.vehicleId !==
+              vehicleId ||
+            currentSeat.allocationId !==
+              allocationId ||
+            currentSeat.status !==
+              'assigned' ||
+            currentSeat.assignmentId !==
+              assignmentId ||
+            currentSeat.personId !==
+              assignment.personId ||
+            currentSeat.seatNumber !==
+              assignment.seatNumber
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El asiento físico no coincide con la asignación.'
+            );
+          }
+
+
+          // ==============================================
+          // CONTADORES
+          // ==============================================
+
+          const allocatedCapacity =
+            Number(
+              allocation
+                .allocatedCapacity
+            );
+
+
+          const currentAssigned =
+            Number(
+              allocation
+                .assignedSeatCount
+            ) ||
+            0;
+
+
+          const currentVehicleAssigned =
+            Number(
+              vehicle
+                .assignedSeatCount
+            ) ||
+            0;
+
+
+          if (
+            !Number.isInteger(
+              allocatedCapacity
+            ) ||
+            allocatedCapacity < 1
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El cupo no tiene una capacidad válida.'
+            );
+          }
+
+
+          if (
+            currentAssigned < 1
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El contador assignedSeatCount del cupo es inconsistente.'
+            );
+          }
+
+
+          if (
+            currentVehicleAssigned < 1
+          ) {
+
+            fail(
+              'failed-precondition',
+              'El contador assignedSeatCount del vehículo es inconsistente.'
+            );
+          }
+
+
+          const assignedAfter =
+            currentAssigned -
+            1;
+
+
+          const remainingAfter =
+            allocatedCapacity -
+            assignedAfter;
+
+
+          const vehicleAssignedAfter =
+            currentVehicleAssigned -
+            1;
+
+
+          // ==============================================
+          // TODAS LAS LECTURAS TERMINARON
+          // ==============================================
+
+          const serverNow =
+            FieldValue
+              .serverTimestamp();
+
+
+          // ==============================================
+          // ASIENTO
+          //
+          // assigned -> allocated
+          //
+          // IMPORTANTE:
+          // allocationId NO se toca.
+          // ==============================================
+
+          tx.update(
+            currentSeat.ref,
+            {
+
+              status:
+                'allocated',
+
+              assignmentId:
+                null,
+
+              personId:
+                null,
+
+              accountUid:
+                null,
+
+              assignedByUserId:
+                FieldValue.delete(),
+
+              assignedAt:
+                FieldValue.delete(),
+
+              updatedAt:
+                serverNow,
+
+              version:
+                (
+                  Number(
+                    currentSeat.version
+                  ) ||
+                  0
+                ) +
+                1
+            }
+          );
+
+
+          // ==============================================
+          // PASSENGER ASSIGNMENT
+          //
+          // Se conserva el documento canónico.
+          // ==============================================
+
+          tx.update(
+            assignmentRef,
+            {
+
+              seatId:
+                null,
+
+              seatNumber:
+                null,
+
+              status:
+                'released',
+
+              active:
+                false,
+
+              lastReleaseId:
+                releaseId,
+
+              lastReleasedSeatId:
+                currentSeat.id,
+
+              lastReleasedSeatNumber:
+                currentSeat.seatNumber,
+
+              lastReleasedAt:
+                serverNow,
+
+              lastReleasedByUserId:
+                profile.uid,
+
+              lastReleasedByRole:
+                profile.role,
+
+              lastReleaseRequestId:
+                requestId,
+
+              updatedAt:
+                serverNow,
+
+              version:
+                (
+                  Number(
+                    assignment.version
+                  ) ||
+                  0
+                ) +
+                1
+            }
+          );
+
+
+          // ==============================================
+          // ALLOCATION
+          // ==============================================
+
+          tx.update(
+            allocationRef,
+            {
+
+              assignedSeatCount:
+                assignedAfter,
+
+              remainingAssignableSeatCount:
+                remainingAfter,
+
+              updatedAt:
+                serverNow,
+
+              version:
+                (
+                  Number(
+                    allocation.version
+                  ) ||
+                  0
+                ) +
+                1
+            }
+          );
+
+
+          // ==============================================
+          // VEHICULO
+          //
+          // NO se modifica:
+          // - allocatedSeatCount
+          // - availableSeatCount
+          // - occupiedCount
+          // ==============================================
+
+          tx.update(
+            vehicleRef,
+            {
+
+              assignedSeatCount:
+                vehicleAssignedAfter,
+
+              updatedAt:
+                serverNow,
+
+              version:
+                (
+                  Number(
+                    vehicle.version
+                  ) ||
+                  0
+                ) +
+                1
+            }
+          );
+
+
+          // ==============================================
+          // HISTORIAL INMUTABLE DE LIBERACION
+          // ==============================================
+
+          tx.create(
+            releaseRef,
+            {
+
+              id:
+                releaseId,
+
+              campaignId:
+                profile.campaignId,
+
+              eventId:
+                event.id,
+
+              vehicleId:
+                vehicle.id,
+
+              allocationId:
+                allocation.id,
+
+              assignmentId,
+
+              personId:
+                assignment.personId,
+
+              accountUid:
+                assignment.accountUid ||
+                null,
+
+              personName:
+                assignment.personName ||
+                '',
+
+              fromSeatId:
+                currentSeat.id,
+
+              fromSeatNumber:
+                currentSeat.seatNumber,
+
+              requestId,
+
+              releasedByUserId:
+                profile.uid,
+
+              releasedByName:
+                profile.name ||
+                '',
+
+              releasedByRole:
+                profile.role,
+
+              createdAt:
+                serverNow,
+
+              version:
+                1
+            }
+          );
+
+
+          // ==============================================
+          // AUDITORIA
+          // ==============================================
+
+          tx.create(
+            db.collection(
+              'logs'
+            ).doc(),
+            {
+
+              action:
+                'EVENT_TRANSPORT_PASSENGER_RELEASED',
+
+              campaignId:
+                profile.campaignId,
+
+              eventId:
+                event.id,
+
+              vehicleId:
+                vehicle.id,
+
+              allocationId:
+                allocation.id,
+
+              assignmentId,
+
+              releaseId,
+
+              personId:
+                assignment.personId,
+
+              fromSeatId:
+                currentSeat.id,
+
+              fromSeatNumber:
+                currentSeat.seatNumber,
+
+              actorUid:
+                profile.uid,
+
+              actorRole:
+                profile.role,
+
+              createdAt:
+                serverNow,
+
+              version:
+                1
+            }
+          );
+
+
+          // ==============================================
+          // RESPUESTA
+          // ==============================================
+
+          return {
+
+            success:
+              true,
+
+            idempotent:
+              false,
+
+            release: {
+
+              id:
+                releaseId,
+
+              assignmentId,
+
+              personId:
+                assignment.personId,
+
+              personName:
+                assignment.personName ||
+                '',
+
+              fromSeatId:
+                currentSeat.id,
+
+              fromSeatNumber:
+                currentSeat.seatNumber
+            },
+
+            assignment: {
+
+              id:
+                assignmentId,
+
+              personId:
+                assignment.personId,
+
+              status:
+                'released',
+
+              active:
+                false,
+
+              seatId:
+                null,
+
+              seatNumber:
+                null,
+
+              confirmationStatus:
+                assignment
+                  .confirmationStatus,
+
+              boardingStatus:
+                assignment
+                  .boardingStatus
+            },
+
+            counters: {
+
+              allocationAssignedSeatCount:
+                assignedAfter,
+
+              allocationRemainingSeatCount:
+                remainingAfter,
+
+              vehicleAssignedSeatCount:
+                vehicleAssignedAfter,
+
+              vehicleOccupiedCount:
+                Number(
+                  vehicle
+                    .occupiedCount
+                ) ||
+                0
+            }
+          };
+        }
+      );
+    }
+  );
+
+
+// ======================================================
 // B3B1 — MANIFIESTO DEL CUPO
 //
 // Vista operacional de:
@@ -3021,6 +4143,9 @@ exports._test = {
   seatCanReceivePassenger,
   resolveAllocatedSeat,
   assignmentIdFor,
+  assignmentCanReactivate,
+  assignmentCanRelease,
+  releaseIdFor,
   assignmentCanMove,
   movementIdFor,
   buildAllocationManifest
