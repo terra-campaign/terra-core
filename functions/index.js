@@ -5294,3 +5294,13 @@ exports.createEventTransportPassengerAssignment =
 exports.getEventTransportAllocationManifest =
   require("./event-transport-passenger-assignments.cjs")
     .getEventTransportAllocationManifest;
+
+
+// ======================================================
+// BUILD-118C-3B3E-3G-B3B2
+// Cambiar pasajero de asiento dentro del mismo cupo.
+// ======================================================
+
+exports.moveEventTransportPassengerAssignment =
+  require("./event-transport-passenger-assignments.cjs")
+    .moveEventTransportPassengerAssignment;
