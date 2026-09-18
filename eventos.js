@@ -120,6 +120,20 @@ const createEventTransportPassengerAssignment =
   );
 
 
+const confirmEventTransportPassengerAssignment =
+  httpsCallable(
+    functions,
+    "confirmEventTransportPassengerAssignment"
+  );
+
+
+const recordEventTransportPassengerBoarding =
+  httpsCallable(
+    functions,
+    "recordEventTransportPassengerBoarding"
+  );
+
+
 const getEventTransportWorkspace =
   httpsCallable(
     functions,
@@ -300,6 +314,22 @@ let transportPassengerAllocationId =
 
 let transportPassengerAttempt =
   null;
+
+
+let transportPassengerActionBusy =
+  false;
+
+let transportPassengerActionAssignmentId =
+  null;
+
+let transportPassengerActionType =
+  "";
+
+let transportPassengerActionAttempt =
+  null;
+
+let transportPassengerActionMessages =
+  new Map();
 
 
 
@@ -3989,7 +4019,8 @@ async function ensureTransportPassengerCandidates(
 
   if (
     state.loaded ||
-    state.busy
+    state.busy ||
+    state.error
   ) {
 
     return;
@@ -4291,6 +4322,296 @@ async function submitTransportPassengerAssignment(
     transportPassengerAllocationId =
       null;
 
+
+    renderTransportControl();
+  }
+}
+
+
+
+function transportPassengerActionMessage(
+  assignmentId
+) {
+
+  return (
+    transportPassengerActionMessages
+      .get(
+        assignmentId
+      ) ||
+    null
+  );
+}
+
+
+function transportPassengerOperationalStatus(
+  assignment
+) {
+
+  const confirmationStatus =
+    assignment
+      ?.confirmationStatus ||
+    "pending";
+
+  const boardingStatus =
+    assignment
+      ?.boardingStatus ||
+    "pending";
+
+
+  if (
+    boardingStatus ===
+      "boarded"
+  ) {
+
+    return {
+      state:
+        "boarded",
+
+      label:
+        "Abordó ✓"
+    };
+  }
+
+
+  if (
+    confirmationStatus ===
+      "confirmed"
+  ) {
+
+    return {
+      state:
+        "confirmed",
+
+      label:
+        "Confirmado · pendiente de abordaje"
+    };
+  }
+
+
+  return {
+    state:
+      "pending",
+
+    label:
+      "Pendiente de confirmación"
+  };
+}
+
+
+async function submitTransportPassengerAction(
+  assignment,
+  action
+) {
+
+  if (
+    transportPassengerActionBusy
+  ) {
+
+    return;
+  }
+
+
+  const eventId =
+    selectedTransportEventId;
+
+  const assignmentId =
+    String(
+      assignment?.id ||
+      ""
+    ).trim();
+
+
+  if (
+    !eventId ||
+    !assignmentId
+  ) {
+
+    return;
+  }
+
+
+  if (
+    action !==
+      "confirm" &&
+    action !==
+      "board"
+  ) {
+
+    return;
+  }
+
+
+  const status =
+    transportPassengerOperationalStatus(
+      assignment
+    );
+
+
+  if (
+    action ===
+      "confirm" &&
+    status.state !==
+      "pending"
+  ) {
+
+    return;
+  }
+
+
+  if (
+    action ===
+      "board" &&
+    status.state !==
+      "confirmed"
+  ) {
+
+    return;
+  }
+
+
+  const attemptKey =
+    `${action}:${assignmentId}`;
+
+
+  if (
+    !transportPassengerActionAttempt ||
+    transportPassengerActionAttempt
+      .key !==
+      attemptKey
+  ) {
+
+    transportPassengerActionAttempt = {
+      key:
+        attemptKey,
+
+      requestId:
+        transportOperationRequestId(
+          action === "confirm"
+            ? "passenger-confirm"
+            : "passenger-board"
+        )
+    };
+  }
+
+
+  const requestId =
+    transportPassengerActionAttempt
+      .requestId;
+
+
+  transportPassengerActionBusy =
+    true;
+
+  transportPassengerActionAssignmentId =
+    assignmentId;
+
+  transportPassengerActionType =
+    action;
+
+
+  transportPassengerActionMessages.set(
+    assignmentId,
+    {
+      type:
+        "info",
+
+      text:
+        action === "confirm"
+          ? "Registrando confirmación..."
+          : "Registrando abordaje..."
+    }
+  );
+
+
+  renderTransportControl();
+
+
+  try {
+
+    if (
+      action ===
+        "confirm"
+    ) {
+
+      await confirmEventTransportPassengerAssignment({
+        assignmentId,
+        requestId
+      });
+
+    } else {
+
+      await recordEventTransportPassengerBoarding({
+        assignmentId,
+        requestId
+      });
+    }
+
+
+    if (
+      selectedTransportEventId !==
+        eventId
+    ) {
+
+      return;
+    }
+
+
+    transportPassengerActionAttempt =
+      null;
+
+
+    transportPassengerActionMessages.set(
+      assignmentId,
+      {
+        type:
+          "success",
+
+        text:
+          action === "confirm"
+            ? "✓ Confirmación registrada."
+            : "✓ Abordaje registrado."
+      }
+    );
+
+
+    await refreshTransportWorkspace(
+      eventId
+    );
+
+  } catch (error) {
+
+    console.error(
+      "B4D4A transport passenger action",
+      error
+    );
+
+
+    transportPassengerActionMessages.set(
+      assignmentId,
+      {
+        type:
+          "error",
+
+        text:
+          error?.message ||
+          (
+            action === "confirm"
+              ? "No fue posible confirmar al pasajero."
+              : "No fue posible registrar el abordaje."
+          )
+      }
+    );
+
+  } finally {
+
+    transportPassengerActionBusy =
+      false;
+
+    transportPassengerActionAssignmentId =
+      null;
+
+    transportPassengerActionType =
+      "";
 
     renderTransportControl();
   }
@@ -4960,6 +5281,150 @@ function renderTransportControl() {
             card.append(
               passengerInfo
             );
+
+
+            const passengerStatus =
+              transportPassengerOperationalStatus(
+                assignment
+              );
+
+
+            const passengerStatusInfo =
+              node(
+                "p",
+                `Estado: ${
+                  passengerStatus.label
+                }`
+              );
+
+
+            passengerStatusInfo.className =
+              "event-meta";
+
+
+            card.append(
+              passengerStatusInfo
+            );
+
+
+            const passengerActionMessage =
+              transportPassengerActionMessage(
+                assignment.id
+              );
+
+
+            if (
+              passengerActionMessage
+            ) {
+
+              const message =
+                node(
+                  "p",
+                  passengerActionMessage
+                    .text
+                );
+
+
+              message.className =
+                "event-meta";
+
+
+              card.append(
+                message
+              );
+            }
+
+
+            const passengerActionIsBusy =
+              transportPassengerActionBusy &&
+              transportPassengerActionAssignmentId ===
+                assignment.id;
+
+
+            if (
+              passengerStatus.state ===
+                "pending"
+            ) {
+
+              const confirmButton =
+                node(
+                  "button",
+                  passengerActionIsBusy &&
+                  transportPassengerActionType ===
+                    "confirm"
+                    ? "Confirmando..."
+                    : "Confirmar pasajero"
+                );
+
+
+              confirmButton.type =
+                "button";
+
+              confirmButton.className =
+                "button button--small button--secondary";
+
+              confirmButton.disabled =
+                transportPassengerActionBusy;
+
+
+              confirmButton.addEventListener(
+                "click",
+                () => {
+
+                  void submitTransportPassengerAction(
+                    assignment,
+                    "confirm"
+                  );
+                }
+              );
+
+
+              card.append(
+                confirmButton
+              );
+
+            } else if (
+              passengerStatus.state ===
+                "confirmed"
+            ) {
+
+              const boardingButton =
+                node(
+                  "button",
+                  passengerActionIsBusy &&
+                  transportPassengerActionType ===
+                    "board"
+                    ? "Registrando..."
+                    : "Registrar abordaje"
+                );
+
+
+              boardingButton.type =
+                "button";
+
+              boardingButton.className =
+                "button button--small button--secondary";
+
+              boardingButton.disabled =
+                transportPassengerActionBusy;
+
+
+              boardingButton.addEventListener(
+                "click",
+                () => {
+
+                  void submitTransportPassengerAction(
+                    assignment,
+                    "board"
+                  );
+                }
+              );
+
+
+              card.append(
+                boardingButton
+              );
+            }
           }
 
 
@@ -5656,6 +6121,22 @@ async function openTransportControl(
   transportPassengerCandidatesByAllocation =
     new Map();
 
+
+  transportPassengerActionBusy =
+    false;
+
+  transportPassengerActionAssignmentId =
+    null;
+
+  transportPassengerActionType =
+    "";
+
+  transportPassengerActionAttempt =
+    null;
+
+  transportPassengerActionMessages =
+    new Map();
+
   transportPassengerBusy =
     false;
 
@@ -5808,6 +6289,22 @@ function closeTransportControl() {
 
 
   transportPassengerCandidatesByAllocation =
+    new Map();
+
+
+  transportPassengerActionBusy =
+    false;
+
+  transportPassengerActionAssignmentId =
+    null;
+
+  transportPassengerActionType =
+    "";
+
+  transportPassengerActionAttempt =
+    null;
+
+  transportPassengerActionMessages =
     new Map();
 
   transportPassengerBusy =
