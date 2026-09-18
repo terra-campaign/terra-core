@@ -5129,6 +5129,15 @@ exports.getPersonActivitySummary =
 exports.createEventInvitations =
   require("./event-delegation.cjs").createEventInvitations;
 
+
+// ======================================================
+// BUILD-118D1A
+// EVENTO GENERAL POR ALCANCE ORGANIZACIONAL
+// ======================================================
+
+exports.createGeneralEvent =
+  require("./event-general.cjs").createGeneralEvent;
+
 exports.getEventWorkspace =
   require("./event-delegation.cjs").getEventWorkspace;
 
