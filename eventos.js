@@ -2939,6 +2939,64 @@ function vehiclePayloadKey(
 }
 
 
+function clearTransportSuccessFeedback() {
+
+  const status =
+    $("transportStatus");
+
+  if (!status) {
+    return;
+  }
+
+  status.classList.remove(
+    "transport-status--success",
+    "transport-status--pulse"
+  );
+}
+
+
+function showTransportSuccess(
+  message
+) {
+
+  const status =
+    $("transportStatus");
+
+  if (!status) {
+    return;
+  }
+
+  clearTransportSuccessFeedback();
+
+  status.textContent =
+    message;
+
+  status.classList.add(
+    "transport-status--success"
+  );
+
+  void status.offsetWidth;
+
+  status.classList.add(
+    "transport-status--pulse"
+  );
+
+  status.setAttribute(
+    "tabindex",
+    "-1"
+  );
+
+  status.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+
+  status.focus({
+    preventScroll: true
+  });
+}
+
+
 async function refreshTransportWorkspace(
   eventId
 ) {
@@ -3172,8 +3230,9 @@ async function submitTransportVehicle(
     );
 
 
-    $("transportStatus").textContent =
-      "✓ Vehículo registrado correctamente.";
+    showTransportSuccess(
+      "✓ Vehículo registrado correctamente."
+    );
 
 
   } catch (error) {
@@ -6105,6 +6164,8 @@ function renderTransportControl() {
   }
 
 
+  clearTransportSuccessFeedback();
+
   $("transportStatus").textContent =
     "Información de transporte actualizada.";
 }
@@ -7868,6 +7929,117 @@ function closeAttendanceControl() {
 
 
 // ======================================================
+// BUILD-118D1E · EVENTOS QUE ORGANIZO
+// ======================================================
+
+function renderOrganizedEvents() {
+
+  const section =
+    $("organizedSection");
+
+  const list =
+    $("organizedEvents");
+
+  if (!section || !list) {
+    return;
+  }
+
+
+  const events =
+    Array.isArray(
+      workspace?.organizedEvents
+    )
+      ? workspace.organizedEvents
+      : [];
+
+
+  section.hidden =
+    events.length === 0;
+
+  list.replaceChildren();
+
+
+  for (const event of events) {
+
+    const card =
+      node("article");
+
+    card.className =
+      "attendance-event-option";
+
+
+    const title =
+      node(
+        "strong",
+        event.title ||
+        "Evento general"
+      );
+
+
+    const meta =
+      node(
+        "p",
+        `${formatDate(event.startsAt)} · ${
+          event.venue ||
+          "Lugar sin especificar"
+        }`
+      );
+
+    meta.className =
+      "event-meta";
+
+
+    const scope =
+      node(
+        "p",
+        `Alcance: ${
+          event.scopeMunicipalityName ||
+          workspace.viewer
+            .municipalityName ||
+          "Municipio"
+        } · Personas: ${
+          Number(
+            event.scopeMemberCount
+          ) || 0
+        }`
+      );
+
+    scope.className =
+      "event-meta";
+
+
+    const button =
+      node(
+        "button",
+        "Abrir transporte"
+      );
+
+    button.type =
+      "button";
+
+    button.className =
+      "button";
+
+    button.onclick =
+      () =>
+        openTransportControl(
+          event.id
+        );
+
+
+    card.append(
+      title,
+      meta,
+      scope,
+      button
+    );
+
+    list.append(card);
+  }
+}
+
+
+// ======================================================
 // RENDER GENERAL
 // ======================================================
 
@@ -7883,6 +8055,8 @@ function renderWorkspace() {
 
 
   mountEventShortcuts();
+
+  renderOrganizedEvents();
 
 
   const attendanceShortcut =

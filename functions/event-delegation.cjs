@@ -2053,6 +2053,44 @@ function eventView(snapshot) {
     createdByRole:
       d.createdByRole || '',
 
+    // ==================================================
+    // BUILD-118D1E
+    // EVENTO GENERAL / EVENT SCOPE
+    // ==================================================
+
+    scopeMode:
+      d.scopeMode || '',
+
+    scopeType:
+      d.scopeType || '',
+
+    scopeMunicipalityId:
+      d.scopeMunicipalityId || '',
+
+    scopeMunicipalityName:
+      d.scopeMunicipalityName || '',
+
+    operationalOwnerId:
+      d.operationalOwnerId || '',
+
+    scopeResolved:
+      d.scopeResolved === true,
+
+    scopeMemberCount:
+      Number(
+        d.scopeMemberCount
+      ) || 0,
+
+    scopeDigitalMemberCount:
+      Number(
+        d.scopeDigitalMemberCount
+      ) || 0,
+
+    scopeAccountlessMemberCount:
+      Number(
+        d.scopeAccountlessMemberCount
+      ) || 0,
+
     version:
       d.version || 1
   };
@@ -2818,10 +2856,71 @@ exports.getEventWorkspace =
       // EVENTOS MAESTROS RELACIONADOS
       // ==================================================
 
+      // ==================================================
+      // BUILD-118D1E
+      // EVENTOS GENERALES OPERADOS DIRECTAMENTE
+      // ==================================================
+
+      const organizedEventIds = [];
+
+
+      if (
+        profile.role ===
+          'coordinador_municipal'
+      ) {
+
+        const organizedSnapshot =
+          await db.collection(
+            'events'
+          )
+            .where(
+              'operationalOwnerId',
+              '==',
+              profile.uid
+            )
+            .limit(
+              200
+            )
+            .get();
+
+
+        for (
+          const snapshot of
+          organizedSnapshot.docs
+        ) {
+
+          const data =
+            snapshot.data();
+
+
+          if (
+            data.active ===
+              true &&
+            data.campaignId ===
+              profile.campaignId &&
+            data.scopeMode ===
+              'organizational' &&
+            data.scopeType ===
+              'municipality' &&
+            data.scopeMunicipalityId ===
+              (
+                profile.municipalityId ||
+                ''
+              )
+          ) {
+
+            organizedEventIds.push(
+              snapshot.id
+            );
+          }
+        }
+      }
+
+
       const eventIds =
         [
-          ...new Set(
-            [
+          ...new Set([
+            ...[
               ...receivedInvitations,
               ...createdInvitations
             ]
@@ -2829,9 +2928,12 @@ exports.getEventWorkspace =
                 invitation =>
                   invitation.eventId
               )
-              .filter(Boolean)
-          )
+              .filter(Boolean),
+
+            ...organizedEventIds
+          ])
         ];
+
 
       const events = [];
 
@@ -2941,6 +3043,14 @@ exports.getEventWorkspace =
         assignees,
 
         events,
+
+        organizedEvents:
+          events.filter(
+            event =>
+              organizedEventIds.includes(
+                event.id
+              )
+          ),
 
         receivedInvitations,
 
