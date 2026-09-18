@@ -5138,6 +5138,15 @@ exports.createEventInvitations =
 exports.createGeneralEvent =
   require("./event-general.cjs").createGeneralEvent;
 
+
+// ======================================================
+// BUILD-118D1B
+// RESOLUCION CANONICA DEL EVENT SCOPE
+// ======================================================
+
+exports.resolveGeneralEventScope =
+  require("./event-general-scope.cjs").resolveGeneralEventScope;
+
 exports.getEventWorkspace =
   require("./event-delegation.cjs").getEventWorkspace;
 
