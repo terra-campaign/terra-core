@@ -142,9 +142,30 @@ const event =
     startsAt:
       '2027-01-01T18:00:00.000Z',
 
+    endsAt:
+      '2027-01-01T20:00:00.000Z',
+
     confirmationLeadMinutes:
       60
   });
+
+
+assert.equal(
+  event.endsAt,
+  '2027-01-01T20:00:00.000Z'
+);
+
+assert.equal(
+  event.endsAtMillis,
+  Date.parse(
+    '2027-01-01T20:00:00.000Z'
+  )
+);
+
+assert.ok(
+  event.endsAtMillis >
+    event.startsAtMillis
+);
 
 
 assert.equal(
@@ -191,6 +212,49 @@ assert.equal(
       'assigneeIds'
     ),
   false
+);
+
+
+// ======================================================
+// COMPATIBILIDAD TEMPORAL CON FRONTEND D1E
+// ======================================================
+
+const legacyEvent =
+  buildGeneralMunicipalEvent({
+    profile:
+      coordinator,
+
+    eventId:
+      'EVENT-LEGACY-001',
+
+    title:
+      'Evento compatible D1E',
+
+    description:
+      'Sin hora de término',
+
+    venue:
+      'Plaza',
+
+    locality:
+      'Compostela',
+
+    startsAt:
+      '2027-01-02T18:00:00.000Z',
+
+    confirmationLeadMinutes:
+      60
+  });
+
+
+assert.equal(
+  legacyEvent.endsAt,
+  ''
+);
+
+assert.equal(
+  legacyEvent.endsAtMillis,
+  null
 );
 
 

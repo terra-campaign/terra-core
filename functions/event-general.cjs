@@ -238,6 +238,7 @@ function buildGeneralMunicipalEvent({
   venue,
   locality,
   startsAt,
+  endsAt,
   confirmationLeadMinutes:
     leadMinutes
 }) {
@@ -246,6 +247,13 @@ function buildGeneralMunicipalEvent({
     Date.parse(
       startsAt
     );
+
+  const endsAtMillis =
+    endsAt
+      ? Date.parse(
+          endsAt
+        )
+      : null;
 
   const confirmationClosesAtMillis =
     startsAtMillis -
@@ -272,6 +280,11 @@ function buildGeneralMunicipalEvent({
     startsAt,
 
     startsAtMillis,
+
+    endsAt:
+      endsAt || '',
+
+    endsAtMillis,
 
     confirmationLeadMinutes:
       leadMinutes,
@@ -458,6 +471,27 @@ exports.createGeneralEvent =
         );
 
 
+      const endsAt =
+        input.endsAt
+          ? eventDate(
+              input.endsAt
+            )
+          : '';
+
+
+      if (
+        endsAt &&
+        Date.parse(endsAt) <=
+        Date.parse(startsAt)
+      ) {
+
+        fail(
+          'invalid-argument',
+          'La hora de término debe ser posterior a la hora de inicio.'
+        );
+      }
+
+
       const leadMinutes =
         confirmationLeadMinutes(
           input.confirmationLeadMinutes ??
@@ -531,6 +565,7 @@ exports.createGeneralEvent =
           venue,
           locality,
           startsAt,
+          endsAt,
           leadMinutes
         );
 
@@ -544,6 +579,7 @@ exports.createGeneralEvent =
           venue,
           locality,
           startsAt,
+          endsAt,
           confirmationLeadMinutes:
             leadMinutes
         });

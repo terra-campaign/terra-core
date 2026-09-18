@@ -284,6 +284,7 @@ const ROLE_LABELS = {
 
 
 let workspace = null;
+let selectedEventFilter = "active";
 let generation = 0;
 let createAttempt = null;
 let delegateAttempt = null;
@@ -1753,33 +1754,269 @@ function eventState(
   }
 
 
-  const time =
+  const now =
+    Date.now();
+
+  const starts =
     Date.parse(
       event.startsAt
     );
 
+  const ends =
+    Date.parse(
+      event.endsAt
+    );
+
 
   if (
-    Number.isFinite(time) &&
-    time <= Date.now()
+    Number.isFinite(starts) &&
+    starts > now
   ) {
     return {
       code:
-        "past",
+        "future",
 
       label:
-        "Iniciado / concluido"
+        "Próximo"
+    };
+  }
+
+
+  if (
+    Number.isFinite(starts) &&
+    Number.isFinite(ends) &&
+    starts <= now &&
+    ends > now
+  ) {
+    return {
+      code:
+        "in-progress",
+
+      label:
+        "En curso"
+    };
+  }
+
+
+  if (
+    Number.isFinite(ends) &&
+    ends <= now
+  ) {
+    return {
+      code:
+        "completed",
+
+      label:
+        "Concluido"
+    };
+  }
+
+
+  if (
+    Number.isFinite(starts) &&
+    starts <= now
+  ) {
+    return {
+      code:
+        "legacy",
+
+      label:
+        "Inicio registrado · término no definido"
     };
   }
 
 
   return {
     code:
-      "future",
+      "unknown",
 
     label:
-      "Próximo"
+      "Fecha por revisar"
   };
+}
+
+
+function eventMatchesFilter(
+  event
+) {
+
+  if (
+    selectedEventFilter ===
+      "all"
+  ) {
+    return true;
+  }
+
+
+  const state =
+    eventState(
+      event
+    );
+
+
+  if (
+    selectedEventFilter ===
+      "active"
+  ) {
+    return (
+      state.code ===
+        "future" ||
+      state.code ===
+        "in-progress"
+    );
+  }
+
+
+  return (
+    state.code ===
+    selectedEventFilter
+  );
+}
+
+
+function renderEventFilters() {
+
+  const section =
+    $("eventFiltersSection");
+
+  const container =
+    $("eventFilters");
+
+  if (!section || !container) {
+    return;
+  }
+
+
+  section.hidden =
+    false;
+
+
+  const buttons =
+    container.querySelectorAll(
+      "[data-event-filter]"
+    );
+
+
+  const events =
+    Array.isArray(
+      workspace?.events
+    )
+      ? workspace.events
+      : [];
+
+
+  const counts = {
+    all:
+      events.length,
+
+    active:
+      events.filter(
+        event => {
+          const state =
+            eventState(event);
+
+          return (
+            state.code ===
+              "future" ||
+            state.code ===
+              "in-progress"
+          );
+        }
+      ).length,
+
+    future:
+      events.filter(
+        event =>
+          eventState(event).code ===
+            "future"
+      ).length,
+
+    "in-progress":
+      events.filter(
+        event =>
+          eventState(event).code ===
+            "in-progress"
+      ).length,
+
+    completed:
+      events.filter(
+        event =>
+          eventState(event).code ===
+            "completed"
+      ).length,
+
+    legacy:
+      events.filter(
+        event =>
+          eventState(event).code ===
+            "legacy"
+      ).length
+  };
+
+
+  const labels = {
+    active:
+      "Activos",
+
+    all:
+      "Todos",
+
+    future:
+      "Próximos",
+
+    "in-progress":
+      "En curso",
+
+    completed:
+      "Concluidos",
+
+    legacy:
+      "Anteriores"
+  };
+
+
+  for (const button of buttons) {
+
+    const filter =
+      button.dataset.eventFilter ||
+      "active";
+
+
+    const selected =
+      filter ===
+      selectedEventFilter;
+
+
+    button.textContent =
+      `${labels[filter] || filter} (${
+        Number(counts[filter]) || 0
+      })`;
+
+
+    button.classList.toggle(
+      "button--secondary",
+      !selected
+    );
+
+
+    button.onclick =
+      () => {
+
+        if (
+          selectedEventFilter ===
+          filter
+        ) {
+          return;
+        }
+
+
+        selectedEventFilter =
+          filter;
+
+
+        renderWorkspace();
+      };
+  }
 }
 
 
@@ -2248,10 +2485,10 @@ function createEventCard(
     "event-meta";
 
 
-  const date =
+  const startDate =
     node(
       "p",
-      `Fecha y hora: ${
+      `Inicio: ${
         formatDate(
           event.startsAt
         )
@@ -2259,7 +2496,24 @@ function createEventCard(
     );
 
 
-  date.className =
+  startDate.className =
+    "event-meta";
+
+
+  const endDate =
+    node(
+      "p",
+      event.endsAt
+        ? `Término: ${
+            formatDate(
+              event.endsAt
+            )
+          }`
+        : "Término: no definido · registro anterior"
+    );
+
+
+  endDate.className =
     "event-meta";
 
 
@@ -2303,7 +2557,8 @@ function createEventCard(
     description,
     venue,
     locality,
-    date,
+    startDate,
+    endDate,
     confirmationDeadline,
     status
   );
@@ -2653,6 +2908,12 @@ function transportEventIds() {
         workspace?.events ||
         []
       )
+        .filter(
+          event =>
+            eventMatchesFilter(
+              event
+            )
+        )
         .map(
           event =>
             event?.id
@@ -6430,6 +6691,14 @@ function attendanceEventIds() {
           ?.createdInvitations ||
         []
       )
+        .filter(
+          invitation =>
+            eventMatchesFilter(
+              eventById(
+                invitation.eventId
+              )
+            )
+        )
         .map(
           invitation =>
             invitation.eventId
@@ -7950,6 +8219,12 @@ function renderOrganizedEvents() {
       workspace?.organizedEvents
     )
       ? workspace.organizedEvents
+          .filter(
+            event =>
+              eventMatchesFilter(
+                event
+              )
+          )
       : [];
 
 
@@ -7976,17 +8251,53 @@ function renderOrganizedEvents() {
       );
 
 
-    const meta =
+    const startMeta =
       node(
         "p",
-        `${formatDate(event.startsAt)} · ${
+        `Inicio: ${
+          formatDate(
+            event.startsAt
+          )
+        } · ${
           event.venue ||
           "Lugar sin especificar"
         }`
       );
 
-    meta.className =
+    startMeta.className =
       "event-meta";
+
+
+    const endMeta =
+      node(
+        "p",
+        event.endsAt
+          ? `Término: ${
+              formatDate(
+                event.endsAt
+              )
+            }`
+          : "Término: no definido · registro anterior"
+      );
+
+    endMeta.className =
+      "event-meta";
+
+
+    const state =
+      eventState(
+        event
+      );
+
+
+    const stateMeta =
+      node(
+        "p",
+        `Estado: ${state.label}`
+      );
+
+    stateMeta.className =
+      `event-status event-status--${state.code}`;
 
 
     const scope =
@@ -8029,7 +8340,9 @@ function renderOrganizedEvents() {
 
     card.append(
       title,
-      meta,
+      startMeta,
+      endMeta,
+      stateMeta,
       scope,
       button
     );
@@ -8053,6 +8366,8 @@ function renderWorkspace() {
     workspace.viewer.role ===
     "colaborador_base";
 
+
+  renderEventFilters();
 
   mountEventShortcuts();
 
@@ -8160,9 +8475,21 @@ function renderWorkspace() {
   received.replaceChildren();
 
 
+  const filteredReceived =
+    workspace.receivedInvitations
+      .filter(
+        invitation =>
+          eventMatchesFilter(
+            eventById(
+              invitation.eventId
+            )
+          )
+      );
+
+
   for (
     const invitation of
-    workspace.receivedInvitations
+    filteredReceived
   ) {
 
     received.append(
@@ -8175,14 +8502,13 @@ function renderWorkspace() {
 
 
   if (
-    !workspace.receivedInvitations
-      .length
+    !filteredReceived.length
   ) {
 
     received.append(
       node(
         "p",
-        "No tienes eventos asignados."
+        "No hay eventos asignados en esta vista."
       )
     );
   }
@@ -8195,9 +8521,21 @@ function renderWorkspace() {
   created.replaceChildren();
 
 
+  const filteredCreated =
+    workspace.createdInvitations
+      .filter(
+        invitation =>
+          eventMatchesFilter(
+            eventById(
+              invitation.eventId
+            )
+          )
+      );
+
+
   for (
     const invitation of
-    workspace.createdInvitations
+    filteredCreated
   ) {
 
     created.append(
@@ -8210,14 +8548,13 @@ function renderWorkspace() {
 
 
   if (
-    !workspace.createdInvitations
-      .length
+    !filteredCreated.length
   ) {
 
     created.append(
       node(
         "p",
-        "Todavía no has creado invitaciones de eventos."
+        "No hay invitaciones creadas en esta vista."
       )
     );
   }
@@ -8444,6 +8781,12 @@ $("newEventForm")
         );
 
 
+      const ends =
+        new Date(
+          $("eventEndsAt").value
+        );
+
+
       if (
         !Number.isFinite(
           starts.getTime()
@@ -8454,7 +8797,23 @@ $("newEventForm")
 
         $("newEventStatus")
           .textContent =
-          "Selecciona una fecha y hora futura.";
+          "Selecciona una fecha y hora de inicio futura.";
+
+        return;
+      }
+
+
+      if (
+        !Number.isFinite(
+          ends.getTime()
+        ) ||
+        ends.getTime() <=
+          starts.getTime()
+      ) {
+
+        $("newEventStatus")
+          .textContent =
+          "La fecha y hora de término debe ser posterior al inicio.";
 
         return;
       }
@@ -8484,6 +8843,9 @@ $("newEventForm")
 
         startsAt:
           starts.toISOString(),
+
+        endsAt:
+          ends.toISOString(),
 
         confirmationLeadMinutes:
           Number(

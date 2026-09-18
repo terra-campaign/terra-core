@@ -2014,6 +2014,19 @@ function eventView(snapshot) {
         ? d.startsAtMillis
         : null,
 
+    endsAt:
+      typeof d.endsAt ===
+        'string'
+        ? d.endsAt
+        : '',
+
+    endsAtMillis:
+      Number.isFinite(
+        d.endsAtMillis
+      )
+        ? d.endsAtMillis
+        : null,
+
     confirmationLeadMinutes:
       Number.isFinite(
         d.confirmationLeadMinutes

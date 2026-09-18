@@ -166,7 +166,7 @@ assert.match(
 
 assert.match(
   html,
-  /build-118d1e-transport-feedback-focus/
+  /build-118d1f0-event-lifecycle-card/
 );
 
 

@@ -115,6 +115,22 @@
       color: #92400e;
     }
 
+    .event-status--in-progress {
+      color: #1d4ed8;
+    }
+
+    .event-status--completed {
+      color: #475569;
+    }
+
+    .event-status--legacy {
+      color: #92400e;
+    }
+
+    .event-status--unknown {
+      color: #6b7280;
+    }
+
     .event-status--inactive {
       color: #991b1b;
     }
@@ -466,6 +482,70 @@
 
 
     <section
+      id="eventFiltersSection"
+      class="card"
+      hidden
+    >
+      <p class="eyebrow">
+        VISTA DE EVENTOS
+      </p>
+
+      <div
+        id="eventFilters"
+        class="event-actions"
+      >
+        <button
+          type="button"
+          class="button"
+          data-event-filter="active"
+        >
+          Activos
+        </button>
+
+        <button
+          type="button"
+          class="button button--secondary"
+          data-event-filter="all"
+        >
+          Todos
+        </button>
+
+        <button
+          type="button"
+          class="button button--secondary"
+          data-event-filter="future"
+        >
+          Próximos
+        </button>
+
+        <button
+          type="button"
+          class="button button--secondary"
+          data-event-filter="in-progress"
+        >
+          En curso
+        </button>
+
+        <button
+          type="button"
+          class="button button--secondary"
+          data-event-filter="completed"
+        >
+          Concluidos
+        </button>
+
+        <button
+          type="button"
+          class="button button--secondary"
+          data-event-filter="legacy"
+        >
+          Anteriores
+        </button>
+      </div>
+    </section>
+
+
+    <section
       id="newEventSection"
       class="card event-form-card"
       hidden
@@ -529,9 +609,18 @@
         </label>
 
         <label>
-          Fecha y hora *
+          Fecha y hora de inicio *
           <input
             id="eventStartsAt"
+            type="datetime-local"
+            required
+          >
+        </label>
+
+        <label>
+          Fecha y hora de término *
+          <input
+            id="eventEndsAt"
             type="datetime-local"
             required
           >
@@ -1281,7 +1370,7 @@
 
   <script
     type="module"
-    src="./eventos.js?v=build-118d1e-transport-feedback-focus"
+    src="./eventos.js?v=build-118d1f0-event-lifecycle-card"
   ></script>
 
 </body>
