@@ -47,6 +47,20 @@ const createEventInvitations =
   );
 
 
+const createGeneralEvent =
+  httpsCallable(
+    functions,
+    "createGeneralEvent"
+  );
+
+
+const resolveGeneralEventScope =
+  httpsCallable(
+    functions,
+    "resolveGeneralEventScope"
+  );
+
+
 
 
 const respondToEventInvitation =
@@ -7924,8 +7938,11 @@ function renderWorkspace() {
 
 
   $("newEventSection").hidden =
-    isBaseCollaborator ||
-    !workspace.canCreateEvent;
+    !(
+      workspace.viewer.role ===
+        "coordinador_municipal" &&
+      workspace.canCreateEvent
+    );
 
 
   $("totalEvents").textContent =
@@ -8229,32 +8246,19 @@ $("newEventForm")
         busy ||
         !workspace
       ) {
+
         return;
       }
 
 
-      const assigneeIds =
-        [
-          ...document
-            .querySelectorAll(
-              ".event-assignee-checkbox:checked"
-            )
-        ]
-          .map(
-            input =>
-              input.value
-          )
-          .sort();
-
-
       if (
-        !assigneeIds.length ||
-        assigneeIds.length > 50
+        workspace.viewer.role !==
+          "coordinador_municipal"
       ) {
 
         $("newEventStatus")
           .textContent =
-          "Selecciona entre 1 y 50 personas.";
+          "Tu perfil no puede crear eventos generales.";
 
         return;
       }
@@ -8283,7 +8287,6 @@ $("newEventForm")
 
 
       const payload = {
-        assigneeIds,
 
         title:
           $("eventTitle")
@@ -8348,21 +8351,83 @@ $("newEventForm")
 
       $("newEventStatus")
         .textContent =
-        "Guardando evento…";
+        "Creando evento y resolviendo alcance…";
 
 
       try {
 
-        const {
-          data
-        } =
-          await createEventInvitations({
+        // ==============================================
+        // 1. CREAR EVENTO GENERAL
+        // ==============================================
+
+        const creationResult =
+          await createGeneralEvent({
             ...payload,
 
             requestId:
               createAttempt.requestId
           });
 
+
+        const eventId =
+          creationResult
+            ?.data
+            ?.eventId;
+
+
+        if (!eventId) {
+
+          throw new Error(
+            "TERRA creó una respuesta incompleta para el evento."
+          );
+        }
+
+
+        $("newEventStatus")
+          .textContent =
+          "Evento creado. Identificando personas dentro del alcance…";
+
+
+        // ==============================================
+        // 2. RESOLVER EVENT SCOPE AUTOMATICAMENTE
+        // ==============================================
+
+        const scopeResult =
+          await resolveGeneralEventScope({
+
+            eventId,
+
+            requestId:
+              `${createAttempt.requestId}-scope`
+          });
+
+
+        const scope =
+          scopeResult?.data ||
+          {};
+
+
+        const memberCount =
+          Number(
+            scope.memberCount
+          ) || 0;
+
+
+        const digitalCount =
+          Number(
+            scope.digitalMemberCount
+          ) || 0;
+
+
+        const accountlessCount =
+          Number(
+            scope.accountlessMemberCount
+          ) || 0;
+
+
+        // ==============================================
+        // 3. EXITO
+        // ==============================================
 
         createAttempt =
           null;
@@ -8374,14 +8439,37 @@ $("newEventForm")
 
         $("newEventStatus")
           .textContent =
-          `Evento guardado. Invitaciones nuevas: ${
-            data.created
-          }. Ya existentes: ${
-            data.alreadyAssigned
-          }.`;
+          `✓ Evento general creado. ` +
+          `Personas dentro del alcance: ${memberCount}. ` +
+          `Con cuenta digital: ${digitalCount}. ` +
+          `Sin cuenta digital: ${accountlessCount}.`;
 
 
         await reload();
+
+
+        // ==============================================
+        // 4. CONTINUIDAD UX
+        // ==============================================
+
+        const transportSection =
+          $("transportSection");
+
+
+        if (
+          transportSection &&
+          !transportSection.hidden
+        ) {
+
+          transportSection
+            .scrollIntoView({
+              behavior:
+                "smooth",
+
+              block:
+                "start"
+            });
+        }
 
       } catch (error) {
 
@@ -8389,7 +8477,7 @@ $("newEventForm")
           .textContent =
           `${
             error.message ||
-            "No se pudo guardar el evento."
+            "No se pudo completar la creación del evento."
           } Puedes reintentar sin cambiar los datos.`;
 
       } finally {
