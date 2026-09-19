@@ -35,6 +35,112 @@ service firebase.storage {
              profile().role == roleName;
     }
 
+    // =====================================================
+    // BUILD-119A5A — AUTORIZACIÓN TERRITORIAL PARA STORAGE
+    // =====================================================
+
+    function territorialGrantPath() {
+      return /databases/(default)/documents/territorialAccessGrants/$(request.auth.uid);
+    }
+
+    function territorialGrantExists() {
+      return signedIn() &&
+             firestore.exists(territorialGrantPath());
+    }
+
+    function territorialGrant() {
+      return firestore.get(territorialGrantPath()).data;
+    }
+
+    function territorialGrantValid() {
+      return active() &&
+             territorialGrantExists() &&
+             territorialGrant().active == true &&
+             territorialGrant().uid == request.auth.uid &&
+             territorialGrant().personId == profile().personId &&
+             territorialGrant().campaignId == profile().campaignId &&
+             (
+               territorialGrant().mode == "demo" ||
+               territorialGrant().mode == "operational"
+             ) &&
+             territorialGrant().startsAt <= request.time &&
+             request.time < territorialGrant().expiresAt &&
+             territorialGrant().revokedAt == null;
+    }
+
+    function territorialPermission(permissionName) {
+      return territorialGrantValid() &&
+             territorialGrant().permissions is list &&
+             permissionName in territorialGrant().permissions;
+    }
+
+    function storageRecordModeMatches(metadata) {
+      return
+        (
+          territorialGrant().mode == "demo" &&
+          metadata.get("recordMode", "") == "demo" &&
+          metadata.get("productionEligible", "") == "false"
+        )
+        ||
+        (
+          territorialGrant().mode == "operational" &&
+          metadata.get("recordMode", "") == "production" &&
+          metadata.get("productionEligible", "") == "true"
+        );
+    }
+
+    function storageScopeMatches(metadata) {
+      return
+        territorialGrant().scopeType == "campaign"
+        ||
+        (
+          territorialGrant().scopeType == "municipality" &&
+          metadata.get("municipalityId", "") ==
+          territorialGrant().municipalityId
+        )
+        ||
+        (
+          territorialGrant().scopeType == "structure" &&
+          metadata.get("municipalityId", "") ==
+          territorialGrant().municipalityId &&
+          metadata.get("structureId", "") ==
+          territorialGrant().structureId
+        )
+        ||
+        (
+          territorialGrant().scopeType == "brigade" &&
+          metadata.get("brigadeId", "") ==
+          territorialGrant().brigadeId
+        );
+    }
+
+    function territorialStorageReadAllowed(campaignId, metadata) {
+      return territorialPermission("read") &&
+             campaignId == profile().campaignId &&
+             campaignId == territorialGrant().campaignId &&
+             storageRecordModeMatches(metadata) &&
+             storageScopeMatches(metadata);
+    }
+
+    function territorialStorageCreateAllowed(campaignId, metadata) {
+      return territorialPermission("write") &&
+             campaignId == profile().campaignId &&
+             campaignId == territorialGrant().campaignId &&
+             metadata.get("uploaderUid", "") ==
+             request.auth.uid &&
+             metadata.get("territorialGrantId", "") ==
+             territorialGrant().grantId &&
+             metadata.get("territorialPersonId", "") ==
+             territorialGrant().personId &&
+             metadata.get("territorialGrantMode", "") ==
+             territorialGrant().mode &&
+             metadata.get("territorialScopeType", "") ==
+             territorialGrant().scopeType &&
+             storageRecordModeMatches(metadata) &&
+             storageScopeMatches(metadata);
+    }
+
+
     function missionPath(missionId) {
       return /databases/(default)/documents/misiones/$(missionId);
     }
@@ -54,36 +160,31 @@ service firebase.storage {
 
     // =====================================================
     // EVIDENCIAS FOTOGRÁFICAS DE VISITAS
-    // MODELO OPERATIVO ACTUAL / ANTERIOR
+    // BUILD-119A5A
     //
     // Ruta:
     // visitas/{campaignId}/{visitId}/{fileName}
+    //
+    // Jerarquía NO concede acceso territorial.
+    // Se requiere grant territorial activo.
     // =====================================================
 
     match /visitas/{campaignId}/{visitId}/{fileName} {
 
-      // Lectura para usuarios activos
-      // pertenecientes a la misma campaña.
-      allow read: if active() &&
-                  profile().campaignId ==
-                  campaignId;
+      allow read: if
+        territorialStorageReadAllowed(
+          campaignId,
+          resource.metadata
+        );
 
-      // Escritura del modelo territorial existente.
-      allow create: if active() &&
-                    (
-                      roleIs("admin") ||
-                      roleIs("coordinador") ||
-                      roleIs("brigadista")
-                    ) &&
-                    profile().campaignId ==
-                    campaignId &&
-                    request.resource.size <
-                    5 * 1024 * 1024 &&
-                    request.resource.contentType
-                    .matches("image/.*");
+      allow create: if
+        territorialStorageCreateAllowed(
+          campaignId,
+          request.resource.metadata
+        ) &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        request.resource.contentType.matches("image/.*");
 
-      // Las evidencias no se reemplazan
-      // ni eliminan desde el navegador.
       allow update, delete: if false;
     }
 

@@ -35,6 +35,112 @@ service cloud.firestore {
              profile().role == roleName;
     }
 
+
+    // =====================================================
+    // BUILD-119A4 — AUTORIZACIÓN TERRITORIAL EXPLÍCITA
+    // =====================================================
+
+    function territorialGrantPath() {
+      return /databases/$(database)/documents/territorialAccessGrants/$(request.auth.uid);
+    }
+
+    function territorialGrantExists() {
+      return signedIn() &&
+             exists(territorialGrantPath());
+    }
+
+    function territorialGrant() {
+      return get(territorialGrantPath()).data;
+    }
+
+    function territorialGrantValid() {
+      return active() &&
+             territorialGrantExists() &&
+             territorialGrant().active == true &&
+             territorialGrant().uid == request.auth.uid &&
+             territorialGrant().personId == profile().personId &&
+             territorialGrant().campaignId == profile().campaignId &&
+             (
+               territorialGrant().mode == "demo" ||
+               territorialGrant().mode == "operational"
+             ) &&
+             territorialGrant().startsAt <= request.time &&
+             request.time < territorialGrant().expiresAt &&
+             territorialGrant().revokedAt == null;
+    }
+
+    function territorialPermission(permissionName) {
+      return territorialGrantValid() &&
+             territorialGrant().permissions is list &&
+             permissionName in territorialGrant().permissions;
+    }
+
+    function territorialRecordModeMatches(data) {
+      return
+        (
+          territorialGrant().mode == "demo" &&
+          data.recordMode == "demo"
+        )
+        ||
+        (
+          territorialGrant().mode == "operational" &&
+          data.recordMode == "production"
+        );
+    }
+
+    function territorialScopeMatches(data) {
+      return
+        territorialGrant().scopeType == "campaign"
+        ||
+        (
+          territorialGrant().scopeType == "municipality" &&
+          data.municipalityId == territorialGrant().municipalityId
+        )
+        ||
+        (
+          territorialGrant().scopeType == "structure" &&
+          data.municipalityId == territorialGrant().municipalityId &&
+          data.structureId == territorialGrant().structureId
+        )
+        ||
+        (
+          territorialGrant().scopeType == "brigade" &&
+          data.brigadeId == territorialGrant().brigadeId
+        );
+    }
+
+    function territorialReadAllowed(data) {
+      return territorialPermission("read") &&
+             data.campaignId == profile().campaignId &&
+             data.campaignId == territorialGrant().campaignId &&
+             territorialRecordModeMatches(data) &&
+             territorialScopeMatches(data);
+    }
+
+    function territorialCreateAllowed(data) {
+      return territorialPermission("write") &&
+             data.interviewerId == request.auth.uid &&
+             data.campaignId == profile().campaignId &&
+             data.campaignId == territorialGrant().campaignId &&
+             data.territorialGrantId == territorialGrant().grantId &&
+             data.territorialPersonId == territorialGrant().personId &&
+             data.territorialGrantMode == territorialGrant().mode &&
+             data.territorialScopeType == territorialGrant().scopeType &&
+             territorialRecordModeMatches(data) &&
+             territorialScopeMatches(data) &&
+             (
+               (
+                 territorialGrant().mode == "demo" &&
+                 data.productionEligible == false
+               )
+               ||
+               (
+                 territorialGrant().mode == "operational" &&
+                 data.productionEligible == true
+               )
+             );
+    }
+
     // -----------------------------------------------------
     // USUARIOS AUXILIARES
     // BUILD-116
@@ -234,43 +340,17 @@ match /usuarios/{userId} {
 
     match /visitas/{visitaId} {
 
-      // Crear visita.
-      allow create: if active() &&
-                    (
-                      roleIs("admin") ||
-                      roleIs("coordinador") ||
-                      roleIs("brigadista")
-                    ) &&
-                    request.resource.data.interviewerId ==
-                    request.auth.uid &&
-                    request.resource.data.campaignId ==
-                    profile().campaignId;
+      // BUILD-119A4
+      //
+      // La jerarquía NO concede acceso territorial.
+      // Toda lectura y toda escritura requieren
+      // territorialAccessGrant explícito, vigente y acotado.
 
-      // Administrador:
-      // todas las visitas de su campaña.
-      allow read: if roleIs("admin") &&
-                  resource.data.campaignId ==
-                  profile().campaignId;
+      allow create: if
+        territorialCreateAllowed(request.resource.data);
 
-      // Brigadista:
-      // únicamente sus propias visitas.
-      allow read: if roleIs("brigadista") &&
-                  resource.data.interviewerId ==
-                  request.auth.uid;
-
-      // Coordinador:
-      // visitas de sus brigadas.
-      allow read: if roleIs("coordinador") &&
-                  resource.data.campaignId ==
-                  profile().campaignId &&
-                  resource.data.brigadeId
-                  in profile().brigadeIds;
-
-      // Consulta:
-      // solo lectura de su campaña.
-      allow read: if roleIs("consulta") &&
-                  resource.data.campaignId ==
-                  profile().campaignId;
+      allow get, list: if
+        territorialReadAllowed(resource.data);
 
       allow update, delete: if false;
     }

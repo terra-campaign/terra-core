@@ -1,0 +1,18 @@
+[
+  {
+    "origin": [
+      "https://terra-campaign.github.io",
+      "https://terra-campaign--d1c-test-r1du98el.web.app",
+      "https://terra-campaign.web.app"
+    ],
+    "method": [
+      "GET",
+      "HEAD"
+    ],
+    "responseHeader": [
+      "Authorization",
+      "Content-Type"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

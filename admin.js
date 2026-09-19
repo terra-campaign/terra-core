@@ -35,9 +35,23 @@ import {
 
 import {
   ref,
-  uploadBytes,
-  getDownloadURL
+  uploadBytes
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
+
+
+import {
+  getFunctions,
+  httpsCallable
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
+
+const terraFunctions =
+  getFunctions(auth.app, "us-central1");
+
+const getMyTerritorialAccessCall =
+  httpsCallable(
+    terraFunctions,
+    "getMyTerritorialAccess"
+  );
 
 
 
@@ -48,6 +62,11 @@ import {
   showCurrentLocation,
   centerTerritoryMap
 } from "./js/maps.js";
+
+import {
+  loadTerritorialEvidenceImage,
+  releaseTerritorialEvidence
+} from "./js/territorial-evidence.js";
 
 // ======================================================
 // ELEMENTOS DE PANTALLA
@@ -273,6 +292,11 @@ let filteredVisits = [];
 let activeFilter = "all";
 let mapReady = false;
 
+let currentTerritorialAccess = null;
+let territorialAccessTimer = null;
+let visitsUnsubscribe = null;
+
+
 
 
 let selectedPhoto = null;
@@ -423,22 +447,10 @@ function applyRoleInterface() {
     eventsButton.hidden = !canAccessEvents;
   }
 
-  if (visitForm) {
-    visitForm.hidden = [
-      "consulta",
-      "colaborador_base"
-    ].includes(role);
-  }
-
-  if (role === "consulta" && visitMessage) {
-    visitMessage.textContent =
-      "Acceso de consulta: solo lectura.";
-  }
-
-  if (role === "colaborador_base" && visitMessage) {
-    visitMessage.textContent =
-      "Cuenta activa de Colaborador de base.";
-  }
+  // BUILD-119A3:
+  // La jerarquía controla navegación y organización.
+  // El acceso territorial se decide exclusivamente
+  // mediante territorialAccessGrant.
 }
 
 // ======================================================
@@ -575,6 +587,286 @@ organizationButton?.addEventListener("click", async (event) => {
 
 
 // ======================================================
+// BUILD-119A3 — GATE TERRITORIAL SEGURO
+// ======================================================
+
+function territorialMainWorkspace() {
+  return document.querySelector("main");
+}
+
+function ensureTerritorialAccessPanel() {
+  let panel =
+    document.querySelector("#territorialAccessPanel");
+
+  if (panel) {
+    return panel;
+  }
+
+  panel = document.createElement("section");
+  panel.id = "territorialAccessPanel";
+  panel.className = "card shell";
+  panel.hidden = true;
+  panel.setAttribute("role", "status");
+  panel.setAttribute("aria-live", "polite");
+
+  const main =
+    territorialMainWorkspace();
+
+  if (main) {
+    main.before(panel);
+  }
+
+  return panel;
+}
+
+function stopTerritorialVisitListener() {
+  if (typeof visitsUnsubscribe === "function") {
+    visitsUnsubscribe();
+  }
+
+  visitsUnsubscribe = null;
+}
+
+function clearTerritorialAccessTimer() {
+  if (territorialAccessTimer) {
+    clearTimeout(territorialAccessTimer);
+    territorialAccessTimer = null;
+  }
+}
+
+function formatTerritorialExpiration(value) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+
+  return new Date(value).toLocaleString(
+    "es-MX"
+  );
+}
+
+function blockTerritorialWorkspace(message) {
+
+  releaseTerritorialEvidence();
+  currentTerritorialAccess = null;
+
+  clearTerritorialAccessTimer();
+  stopTerritorialVisitListener();
+
+  latestVisits = [];
+
+  const main =
+    territorialMainWorkspace();
+
+  if (main) {
+    main.hidden = true;
+  }
+
+  if (visitForm) {
+    visitForm.hidden = true;
+  }
+
+  if (saveVisitButton) {
+    saveVisitButton.disabled = true;
+  }
+
+  const panel =
+    ensureTerritorialAccessPanel();
+
+  panel.hidden = false;
+  panel.innerHTML = "";
+
+  const title =
+    document.createElement("h2");
+
+  title.textContent =
+    "Acceso territorial no autorizado";
+
+  const detail =
+    document.createElement("p");
+
+  detail.textContent =
+    message ||
+    "No tienes una autorización territorial vigente.";
+
+  panel.append(
+    title,
+    detail
+  );
+}
+
+function applyTerritorialWorkspaceAccess(access) {
+  currentTerritorialAccess = access;
+
+  const main =
+    territorialMainWorkspace();
+
+  if (main) {
+    main.hidden = false;
+  }
+
+  const panel =
+    ensureTerritorialAccessPanel();
+
+  const grant =
+    access?.grant || {};
+
+  const canWrite =
+    access?.write === true;
+
+  if (visitForm) {
+    visitForm.hidden = !canWrite;
+  }
+
+  if (saveVisitButton) {
+    saveVisitButton.disabled = !canWrite;
+  }
+
+  if (
+    grant.mode === "demo"
+  ) {
+    panel.hidden = false;
+    panel.innerHTML = "";
+
+    const title =
+      document.createElement("h2");
+
+    title.textContent =
+      "MODO DEMOSTRACIÓN";
+
+    const detail =
+      document.createElement("p");
+
+    detail.textContent =
+      `Acceso territorial temporal. ${
+        canWrite
+          ? "Consulta y registro habilitados."
+          : "Solo consulta."
+      } Vence: ${
+        formatTerritorialExpiration(
+          grant.expiresAt
+        )
+      }.`;
+
+    panel.append(
+      title,
+      detail
+    );
+
+  } else if (!canWrite) {
+    panel.hidden = false;
+    panel.innerHTML = "";
+
+    const title =
+      document.createElement("h2");
+
+    title.textContent =
+      "Acceso territorial de consulta";
+
+    const detail =
+      document.createElement("p");
+
+    detail.textContent =
+      "Puedes consultar el territorio autorizado, pero no registrar visitas.";
+
+    panel.append(
+      title,
+      detail
+    );
+
+  } else {
+    panel.hidden = true;
+    panel.innerHTML = "";
+  }
+}
+
+function scheduleTerritorialAccessValidation(access) {
+  clearTerritorialAccessTimer();
+
+  const expiresAt =
+    Number(access?.grant?.expiresAt || 0);
+
+  const untilExpiration =
+    expiresAt > Date.now()
+      ? expiresAt - Date.now() + 250
+      : 500;
+
+  const delay =
+    Math.max(
+      500,
+      Math.min(
+        30000,
+        untilExpiration
+      )
+    );
+
+  territorialAccessTimer =
+    setTimeout(
+      async () => {
+        const wasAuthorized =
+          currentTerritorialAccess?.read === true;
+
+        const accessNow =
+          await validateTerritorialAccess();
+
+        if (
+          accessNow &&
+          wasAuthorized &&
+          mapReady
+        ) {
+          stopTerritorialVisitListener();
+          listenVisits();
+        }
+      },
+      delay
+    );
+}
+
+async function validateTerritorialAccess() {
+  try {
+    const response =
+      await getMyTerritorialAccessCall({});
+
+    const access =
+      response?.data || null;
+
+    if (
+      !access ||
+      access.authorized !== true ||
+      access.read !== true
+    ) {
+      blockTerritorialWorkspace(
+        "No existe una autorización territorial vigente con permiso de consulta."
+      );
+
+      return null;
+    }
+
+    applyTerritorialWorkspaceAccess(
+      access
+    );
+
+    scheduleTerritorialAccessValidation(
+      access
+    );
+
+    return access;
+
+  } catch (error) {
+    console.error(
+      "Error al validar acceso territorial:",
+      error
+    );
+
+    blockTerritorialWorkspace(
+      "No fue posible validar una autorización territorial vigente."
+    );
+
+    return null;
+  }
+}
+
+
+// ======================================================
 // INICIO DE SESIÓN Y MAPA
 // ======================================================
 
@@ -609,6 +901,13 @@ onAuthStateChanged(auth, async (user) => {
       "Perfil autorizado:",
       currentUserProfile
     );
+
+    const territorialAccess =
+      await validateTerritorialAccess();
+
+    if (!territorialAccess) {
+      return;
+    }
 
     mapReady =
       await initializeTerritoryMap();
@@ -915,20 +1214,161 @@ function normalizeAddress(
 // BUILD-101 — BUSCAR HISTORIAL DEL DOMICILIO
 // ======================================================
 
+function requireTerritorialReadAccess() {
+  const access =
+    currentTerritorialAccess;
+
+  const grant =
+    access?.grant;
+
+  if (
+    access?.read !== true ||
+    !grant ||
+    !currentUserProfile?.campaignId
+  ) {
+    throw new Error(
+      "No existe autorización territorial vigente para consultar información."
+    );
+  }
+
+  return grant;
+}
+
+async function requireTerritorialWriteAccess() {
+  const access =
+    await validateTerritorialAccess();
+
+  const grant =
+    access?.grant;
+
+  const metadata =
+    grant?.recordMetadata;
+
+  if (
+    access?.write !== true ||
+    !grant ||
+    !metadata ||
+    !metadata.territorialGrantId ||
+    !metadata.territorialPersonId
+  ) {
+    throw new Error(
+      "No existe autorización territorial vigente para registrar visitas."
+    );
+  }
+
+  return {
+    access,
+    grant,
+    metadata
+  };
+}
+
+
+function territorialVisitConstraints() {
+  const grant =
+    requireTerritorialReadAccess();
+
+  const constraints = [
+    where(
+      "campaignId",
+      "==",
+      currentUserProfile.campaignId
+    ),
+
+    where(
+      "recordMode",
+      "==",
+      grant.mode === "demo"
+        ? "demo"
+        : "production"
+    )
+  ];
+
+  switch (grant.scopeType) {
+
+    case "campaign":
+      break;
+
+    case "municipality":
+      if (!grant.municipalityId) {
+        throw new Error(
+          "La autorización territorial no tiene municipio."
+        );
+      }
+
+      constraints.push(
+        where(
+          "municipalityId",
+          "==",
+          grant.municipalityId
+        )
+      );
+
+      break;
+
+    case "structure":
+      if (
+        !grant.municipalityId ||
+        !grant.structureId
+      ) {
+        throw new Error(
+          "La autorización territorial no tiene estructura válida."
+        );
+      }
+
+      constraints.push(
+        where(
+          "municipalityId",
+          "==",
+          grant.municipalityId
+        ),
+
+        where(
+          "structureId",
+          "==",
+          grant.structureId
+        )
+      );
+
+      break;
+
+    case "brigade":
+      if (!grant.brigadeId) {
+        throw new Error(
+          "La autorización territorial no tiene brigada."
+        );
+      }
+
+      constraints.push(
+        where(
+          "brigadeId",
+          "==",
+          grant.brigadeId
+        )
+      );
+
+      break;
+
+    default:
+      throw new Error(
+        "Alcance territorial no autorizado."
+      );
+  }
+
+  return constraints;
+}
+
+
 async function findVisitHistory(normalizedAddress) {
 
   if (!normalizedAddress) {
     return [];
   }
 
-  let visitsQuery;
-
-if (
-  currentUserProfile.role === "brigadista"
-) {
-
-  visitsQuery = query(
+  const visitsQuery = query(
     collection(db, "visitas"),
+
+    ...territorialVisitConstraints(),
 
     where(
       "normalizedAddress",
@@ -936,66 +1376,8 @@ if (
       normalizedAddress
     ),
 
-    where(
-      "interviewerId",
-      "==",
-      currentUser.uid
-    )
+    limit(50)
   );
-
-} else if (
-  currentUserProfile.role === "coordinador"
-) {
-
-  const assignedBrigades =
-    currentUserProfile.brigadeIds || [];
-
-  if (!assignedBrigades.length) {
-    return [];
-  }
-
-  visitsQuery = query(
-    collection(db, "visitas"),
-
-    where(
-      "campaignId",
-      "==",
-      currentUserProfile.campaignId
-    ),
-
-    where(
-      "normalizedAddress",
-      "==",
-      normalizedAddress
-    ),
-
-    where(
-      "brigadeId",
-      "in",
-      assignedBrigades
-    )
-  );
-
-} else {
-
-  visitsQuery = query(
-    collection(db, "visitas"),
-
-    where(
-      "campaignId",
-      "==",
-      currentUserProfile.campaignId
-    ),
-
-    where(
-      "normalizedAddress",
-      "==",
-      normalizedAddress
-    )
-  );
-
-}
-
 
 
   const snapshot =
@@ -1265,26 +1647,43 @@ async function confirmDuplicateVisit(visitHistory) {
       </div>
     `;
 
-    if (latestVisit?.photoURL) {
+    releaseTerritorialEvidence(
+      duplicateVisitPhoto
+    );
 
-      duplicateVisitPhoto.src =
-        latestVisit.photoURL;
+    duplicateVisitPhoto.removeAttribute(
+      "src"
+    );
 
-      duplicateVisitPhoto.style.display =
-        "block";
+    duplicateVisitPhoto.style.display =
+      "none";
 
-    } else {
+    if (latestVisit?.photoPath) {
 
-      duplicateVisitPhoto.removeAttribute("src");
+      loadTerritorialEvidenceImage(
+        duplicateVisitPhoto,
+        latestVisit.photoPath
+      ).then((loaded) => {
 
-      duplicateVisitPhoto.style.display =
-        "none";
+        if (
+          loaded &&
+          !duplicateVisitModal.hidden
+        ) {
+          duplicateVisitPhoto.style.display =
+            "block";
+        }
+
+      });
 
     }
 
     duplicateVisitModal.hidden = false;
 
     confirmDuplicateVisitButton.onclick = () => {
+
+      releaseTerritorialEvidence(
+        duplicateVisitPhoto
+      );
 
       duplicateVisitModal.hidden = true;
 
@@ -1293,6 +1692,10 @@ async function confirmDuplicateVisit(visitHistory) {
     };
 
     cancelDuplicateVisitButton.onclick = () => {
+
+      releaseTerritorialEvidence(
+        duplicateVisitPhoto
+      );
 
       duplicateVisitModal.hidden = true;
 
@@ -1408,6 +1811,11 @@ if (!selectedPhoto) {
 
 
   try {
+const {
+  grant: territorialGrant,
+  metadata: territorialMetadata
+} = await requireTerritorialWriteAccess();
+
 const visitHistory =
   await findVisitHistory(normalizedAddress);
 
@@ -1440,8 +1848,18 @@ saveVisitButton.textContent =
 const compressedPhoto =
   await compressPhoto(selectedPhoto);
 
+const visitCampaignId =
+  currentUserProfile.campaignId ||
+  territorialGrant.campaignId;
+
+if (!visitCampaignId) {
+  throw new Error(
+    "No fue posible determinar la campaña territorial."
+  );
+}
+
 const photoPath =
-  `visitas/CAM-001/${visitId}/evidencia.jpg`;
+  `visitas/${visitCampaignId}/${visitId}/evidencia.jpg`;
 
 const photoReference =
   ref(storage, photoPath);
@@ -1453,12 +1871,66 @@ await uploadBytes(
   photoReference,
   compressedPhoto,
   {
-    contentType: "image/jpeg"
+    contentType: "image/jpeg",
+    customMetadata: {
+      uploaderUid:
+        String(currentUser.uid || ""),
+
+      territorialGrantId:
+        String(
+          territorialMetadata.territorialGrantId ||
+          ""
+        ),
+
+      territorialPersonId:
+        String(
+          territorialMetadata.territorialPersonId ||
+          ""
+        ),
+
+      territorialGrantMode:
+        String(
+          territorialMetadata.territorialGrantMode ||
+          ""
+        ),
+
+      territorialScopeType:
+        String(
+          territorialGrant.scopeType ||
+          ""
+        ),
+
+      recordMode:
+        String(
+          territorialMetadata.recordMode ||
+          ""
+        ),
+
+      productionEligible:
+        territorialMetadata.productionEligible
+          ? "true"
+          : "false",
+
+      municipalityId:
+        String(
+          territorialMetadata.municipalityId ||
+          ""
+        ),
+
+      structureId:
+        String(
+          territorialMetadata.structureId ||
+          ""
+        ),
+
+      brigadeId:
+        String(
+          territorialMetadata.brigadeId ||
+          ""
+        )
+    }
   }
 );
-
-const photoURL =
-  await getDownloadURL(photoReference);
 
 saveVisitButton.textContent =
   "Guardando visita...";
@@ -1489,10 +1961,32 @@ interviewerName:
 interviewerRole:
   currentUserProfile.role,
 
+territorialGrantId:
+  territorialMetadata.territorialGrantId,
+
+territorialPersonId:
+  territorialMetadata.territorialPersonId,
+
+territorialGrantMode:
+  territorialMetadata.territorialGrantMode,
+
+recordMode:
+  territorialMetadata.recordMode,
+
+productionEligible:
+  territorialMetadata.productionEligible,
+
+municipalityId:
+  territorialMetadata.municipalityId,
+
+structureId:
+  territorialMetadata.structureId,
+
 brigadeId:
-  currentUserProfile.brigadeId ||
-  currentUserProfile.brigadeIds?.[0] ||
-  null,
+  territorialMetadata.brigadeId,
+
+territorialScopeType:
+  territorialGrant.scopeType,
 
 
 
@@ -1528,8 +2022,7 @@ visitResult,
       longitude,
       hasLocation: true,
 
-      photoURL,
-photoPath,
+      photoPath,
 hasPhoto: true,
 
 adults:
@@ -1606,34 +2099,12 @@ photoStatus.textContent =
 // ======================================================
 
 function listenVisits() {
-  let visitsQuery;
+  stopTerritorialVisitListener();
 
-switch (currentUserProfile.role) {
-
-  case "admin":
-
-    visitsQuery = query(
-      collection(db, "visitas"),
-      where(
-        "campaignId",
-        "==",
-        currentUserProfile.campaignId
-      ),
-      orderBy("createdAt", "desc"),
-      limit(200)
-    );
-
-    break;
-case "brigadista":
-
-  visitsQuery = query(
+  const visitsQuery = query(
     collection(db, "visitas"),
 
-    where(
-      "interviewerId",
-      "==",
-      currentUser.uid
-    ),
+    ...territorialVisitConstraints(),
 
     orderBy(
       "createdAt",
@@ -1643,70 +2114,8 @@ case "brigadista":
     limit(200)
   );
 
-  break;
 
-
-
-  case "coordinador":
-
-    visitsQuery = query(
-      collection(db, "visitas"),
-      where(
-        "campaignId",
-        "==",
-        currentUserProfile.campaignId
-      ),
-      where(
-        "brigadeId",
-        "in",
-        currentUserProfile.brigadeIds || []
-      ),
-      orderBy("createdAt", "desc"),
-      limit(200)
-    );
-
-    break;
-case "coordinador_municipal":
-case "jefe_estructura":
-case "integrante":
-case "participante":
-case "colaborador_base":
-
-  latestVisits = [];
-
-  applyTerritoryFilter();
-
-  visitsList.innerHTML =
-    "<p>El módulo de visitas históricas todavía no está habilitado para esta estructura.</p>";
-
-  return;
-    
-  case "consulta":
-
-    visitsQuery = query(
-      collection(db, "visitas"),
-      where(
-        "campaignId",
-        "==",
-        currentUserProfile.campaignId
-      ),
-      orderBy("createdAt", "desc"),
-      limit(200)
-    );
-
-    break;
-
-  default:
-
-    throw new Error(
-      "Rol sin alcance de lectura."
-    );
-}
-
-
-
-
-  onSnapshot(
+  visitsUnsubscribe = onSnapshot(
     visitsQuery,
 
     async (snapshot) => {

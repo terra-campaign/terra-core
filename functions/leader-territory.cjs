@@ -1,5 +1,8 @@
 const {onCall,HttpsError}=require('firebase-functions/v2/https');
 const {getFirestore}=require('firebase-admin/firestore');
+const {
+  evaluateTerritorialGrant
+}=require('./territorial-access.cjs');
 const TZ='America/Mazatlan';
 const text=v=>typeof v==='string'?v.trim():'';
 const key=v=>text(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ');
@@ -17,16 +20,247 @@ function summarize(rows,f){
  }
  return {points,withoutLocation:selected.length-points.length,visits:selected.length,identifiedHomes:homes.size,unknownAddress,unknownDate,flyerVisits:flyers,activeReporters:workers.size,localities,zones:[...zones].map(([name,visits])=>({name,visits})).sort((a,b)=>b.visits-a.visits),daily:[...days].sort(([a],[b])=>a.localeCompare(b)).map(([date,visits])=>({date,visits})),undatedTotal:rows.filter(v=>!day(v.createdAt)).length};
 }
-exports.getPrincipalLeaderTerritory=onCall({region:'us-central1',timeoutSeconds:60},async request=>{
- if(!request.auth)throw new HttpsError('unauthenticated','Inicie sesión.');
- const db=getFirestore(),f=filters(request.data);
- return db.runTransaction(async tx=>{
- const p=(await tx.get(db.doc('usuarios/'+request.auth.uid))).data();
- if(!p||p.active!==true||!['admin','lider_principal'].includes(p.role)||typeof p.campaignId!=='string'||!text(p.campaignId)||p.campaignId.includes('/'))throw new HttpsError('permission-denied','Acceso no autorizado.');
- if(p.role==='lider_principal'&&(await tx.get(db.doc('principalLeaders/'+p.campaignId))).data()?.uid!==request.auth.uid)throw new HttpsError('permission-denied','Líder no registrado.');
- const snapshot=await tx.get(db.collection('visitas').where('campaignId','==',p.campaignId).limit(10001));
- if(snapshot.size>10000)throw new HttpsError('resource-exhausted','El volumen requiere un resumen precalculado. No se muestran totales parciales.');
- return {name:text(p.name)||'Dirección',calculatedAt:Date.now(),timeZone:TZ,...summarize(snapshot.docs.map(d=>d.data()),f)};
- });
-});
-exports._summarize=summarize;exports._filters=filters;
+
+function recordModeForGrant(grant){
+  return grant.mode==='demo'
+    ? 'demo'
+    : 'production';
+}
+
+function territoryQuery(db,campaignId,grant){
+  let q=db
+    .collection('visitas')
+    .where('campaignId','==',campaignId)
+    .where(
+      'recordMode',
+      '==',
+      recordModeForGrant(grant)
+    );
+
+  if(grant.scopeType==='campaign'){
+    return q;
+  }
+
+  if(grant.scopeType==='municipality'){
+    return q.where(
+      'municipalityId',
+      '==',
+      grant.municipalityId
+    );
+  }
+
+  if(grant.scopeType==='structure'){
+    return q
+      .where(
+        'municipalityId',
+        '==',
+        grant.municipalityId
+      )
+      .where(
+        'structureId',
+        '==',
+        grant.structureId
+      );
+  }
+
+  if(grant.scopeType==='brigade'){
+    return q.where(
+      'brigadeId',
+      '==',
+      grant.brigadeId
+    );
+  }
+
+  throw new HttpsError(
+    'permission-denied',
+    'Alcance territorial no autorizado.'
+  );
+}
+
+function visitAllowedByGrant(
+  grant,
+  uid,
+  campaignId,
+  visit,
+  nowMs
+){
+  return evaluateTerritorialGrant({
+    grant,
+    uid,
+    campaignId,
+    permission:'read',
+    nowMs,
+    resource:{
+      municipalityId:text(
+        visit.municipalityId
+      ),
+      structureId:text(
+        visit.structureId
+      ),
+      brigadeId:text(
+        visit.brigadeId
+      )
+    }
+  }).allowed;
+}
+
+exports.getPrincipalLeaderTerritory=onCall(
+  {
+    region:'us-central1',
+    timeoutSeconds:60
+  },
+  async request=>{
+
+    if(!request.auth){
+      throw new HttpsError(
+        'unauthenticated',
+        'Inicie sesión.'
+      );
+    }
+
+    const db=getFirestore();
+    const f=filters(request.data);
+
+    return db.runTransaction(
+      async tx=>{
+
+        const uid=request.auth.uid;
+
+        const profileSnap=
+          await tx.get(
+            db.doc(`usuarios/${uid}`)
+          );
+
+        const p=profileSnap.data();
+
+        if(
+          !p ||
+          p.active!==true ||
+          typeof p.campaignId!=='string' ||
+          !text(p.campaignId) ||
+          p.campaignId.includes('/')
+        ){
+          throw new HttpsError(
+            'permission-denied',
+            'Cuenta territorial no habilitada.'
+          );
+        }
+
+        const grantSnap=
+          await tx.get(
+            db.doc(
+              `territorialAccessGrants/${uid}`
+            )
+          );
+
+        if(!grantSnap.exists){
+          throw new HttpsError(
+            'permission-denied',
+            'No existe autorización territorial vigente.',
+            {reason:'missing-grant'}
+          );
+        }
+
+        const grant=grantSnap.data();
+        const nowMs=Date.now();
+
+        const access=
+          evaluateTerritorialGrant({
+            grant,
+            uid,
+            campaignId:p.campaignId,
+            permission:'read',
+            nowMs
+          });
+
+        if(!access.allowed){
+          throw new HttpsError(
+            'permission-denied',
+            'Autorización territorial no vigente.',
+            {reason:access.reason}
+          );
+        }
+
+        const query=
+          territoryQuery(
+            db,
+            p.campaignId,
+            access.grant
+          )
+          .limit(10001);
+
+        const snapshot=
+          await tx.get(query);
+
+        if(snapshot.size>10000){
+          throw new HttpsError(
+            'resource-exhausted',
+            'El volumen requiere un resumen precalculado. No se muestran totales parciales.'
+          );
+        }
+
+        const rows=
+          snapshot.docs
+            .map(doc=>doc.data())
+            .filter(visit=>
+              visitAllowedByGrant(
+                grant,
+                uid,
+                p.campaignId,
+                visit,
+                nowMs
+              )
+            );
+
+        return {
+          name:
+            text(p.name) ||
+            'Territorio',
+
+          calculatedAt:
+            Date.now(),
+
+          timeZone:
+            TZ,
+
+          territorialAccess:{
+            mode:
+              access.grant.mode,
+
+            scopeType:
+              access.grant.scopeType,
+
+            municipalityId:
+              access.grant.municipalityId ||
+              '',
+
+            structureId:
+              access.grant.structureId ||
+              '',
+
+            brigadeId:
+              access.grant.brigadeId ||
+              '',
+
+            expiresAt:
+              access.grant.expiresAtMs
+          },
+
+          ...summarize(
+            rows,
+            f
+          )
+        };
+      }
+    );
+  }
+);
+
+exports._summarize=summarize;
+exports._filters=filters;
+
+exports._test={
+  recordModeForGrant,
+  territoryQuery,
+  visitAllowedByGrant
+};

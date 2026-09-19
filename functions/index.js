@@ -5201,6 +5201,20 @@ exports.getPrincipalLeaderMissions = require('./leader-missions.cjs').getPrincip
 
 exports.getPrincipalLeaderTerritory = require('./leader-territory.cjs').getPrincipalLeaderTerritory;
 
+// ======================================================
+// BUILD-119A1 — AUTORIZACIÓN TERRITORIAL SEGURA
+// ======================================================
+
+exports.getMyTerritorialAccess =
+  require('./territorial-access-admin.cjs').getMyTerritorialAccess;
+
+exports.grantTerritorialAccess =
+  require('./territorial-access-admin.cjs').grantTerritorialAccess;
+
+exports.revokeTerritorialAccess =
+  require('./territorial-access-admin.cjs').revokeTerritorialAccess;
+
+
 exports.searchPersonCandidates =
   require("./person-identity.cjs").searchPersonCandidates;
 

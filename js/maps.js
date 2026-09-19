@@ -5,6 +5,11 @@
 
 import { PROJECT_CONFIG } from "../project-config.js";
 
+import {
+  loadTerritorialEvidenceImage,
+  releaseTerritorialEvidence
+} from "./territorial-evidence.js";
+
 let map = null;
 let infoWindow = null;
 let currentLocationMarker = null;
@@ -219,6 +224,10 @@ export async function renderVisitMarkers(visits = []) {
     anchor: marker
   });
 
+  hydrateTerritorialEvidence(
+    infoContent
+  );
+
 });
 
 
@@ -380,6 +389,72 @@ function buildMarkerTitle(visit) {
 // ------------------------------------------------------
 
 // ------------------------------------------------------
+// BUILD-119A5B — CARGAR EVIDENCIA AUTORIZADA
+// ------------------------------------------------------
+
+async function hydrateTerritorialEvidence(
+  root
+) {
+
+  if (!root) {
+    return;
+  }
+
+  const images = [
+    ...root.querySelectorAll(
+      "img[data-terra-evidence-path]"
+    )
+  ];
+
+  for (const image of images) {
+
+    const photoPath =
+      image.dataset
+        .terraEvidencePath ||
+      "";
+
+    const container =
+      image.parentElement;
+
+    const status =
+      container?.querySelector(
+        "[data-terra-evidence-status]"
+      );
+
+    const loaded =
+      await loadTerritorialEvidenceImage(
+        image,
+        photoPath
+      );
+
+    if (!image.isConnected) {
+      continue;
+    }
+
+    if (loaded) {
+
+      image.style.display =
+        "block";
+
+      if (status) {
+        status.remove();
+      }
+
+    } else {
+
+      image.style.display =
+        "none";
+
+      if (status) {
+        status.textContent =
+          "Evidencia no disponible con la autorización actual.";
+      }
+    }
+  }
+}
+
+
+// ------------------------------------------------------
 // BUILD-102A — VENTANA PROFESIONAL DE INFORMACIÓN
 // ------------------------------------------------------
 
@@ -427,26 +502,39 @@ function buildInfoWindow(
       ? `Seguimiento #${followUpNumber}`
       : "Primera visita";
 
-  const photoHtml = visit.photoURL
+  const photoHtml = visit.photoPath
     ? `
         <div style="margin-top:12px;">
           <p style="margin:0 0 6px;">
             <b>Fotografía</b>
           </p>
 
-          <img
-            src="${escapeHtml(visit.photoURL)}"
-            alt="Evidencia fotográfica"
-            style="
-              display:block;
-              width:100%;
-              max-width:280px;
-              max-height:220px;
-              object-fit:cover;
-              border-radius:10px;
-              border:1px solid #d1d5db;
-            "
-          >
+          <div>
+            <img
+              data-terra-evidence-path="${escapeHtml(visit.photoPath)}"
+              alt="Evidencia fotográfica"
+              style="
+                display:none;
+                width:100%;
+                max-width:280px;
+                max-height:220px;
+                object-fit:cover;
+                border-radius:10px;
+                border:1px solid #d1d5db;
+              "
+            >
+
+            <p
+              data-terra-evidence-status
+              style="
+                margin:6px 0 0;
+                font-size:13px;
+                color:#64748b;
+              "
+            >
+              Cargando evidencia…
+            </p>
+          </div>
         </div>
       `
     : `
@@ -869,6 +957,10 @@ ${historyHtml}
     visitHistoryModal
   );
 
+  hydrateTerritorialEvidence(
+    visitHistoryModal
+  );
+
   const closeButton =
     visitHistoryModal.querySelector(
       "[data-close-history]"
@@ -924,22 +1016,35 @@ function buildHistoryItem(
     );
 
   const photoHtml =
-    visit.photoURL
+    visit.photoPath
       ? `
-          <img
-            src="${escapeHtml(visit.photoURL)}"
-            alt="Evidencia de la visita"
-            loading="lazy"
-            style="
-              display:block;
-              width:100%;
-              max-height:240px;
-              object-fit:cover;
-              margin-top:12px;
-              border-radius:9px;
-              border:1px solid #d1d5db;
-            "
-          >
+          <div>
+            <img
+              data-terra-evidence-path="${escapeHtml(visit.photoPath)}"
+              alt="Evidencia de la visita"
+              loading="lazy"
+              style="
+                display:none;
+                width:100%;
+                max-height:240px;
+                object-fit:cover;
+                margin-top:12px;
+                border-radius:9px;
+                border:1px solid #d1d5db;
+              "
+            >
+
+            <p
+              data-terra-evidence-status
+              style="
+                margin:8px 0 0;
+                font-size:13px;
+                color:#64748b;
+              "
+            >
+              Cargando evidencia…
+            </p>
+          </div>
         `
       : "";
 
@@ -1074,6 +1179,12 @@ background:#ffffff;
 // ------------------------------------------------------
 
 function closeVisitHistoryModal() {
+
+  if (visitHistoryModal) {
+    releaseTerritorialEvidence(
+      visitHistoryModal
+    );
+  }
 
   if (visitHistoryModal) {
     visitHistoryModal.remove();
