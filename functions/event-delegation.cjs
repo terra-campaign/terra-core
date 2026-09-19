@@ -479,6 +479,69 @@ function eventCheckInMethod(value) {
 }
 
 
+function eventScopeMemberDocumentId(
+  eventId,
+  personId
+) {
+
+  return hash(
+    eventId,
+    personId,
+    'event-scope-member'
+  );
+}
+
+
+function eventAttendanceRequestMode(
+  data
+) {
+
+  const hasInvitationId =
+    typeof data?.invitationId ===
+      'string' &&
+    Boolean(
+      data.invitationId
+    );
+
+
+  const hasEventId =
+    typeof data?.eventId ===
+      'string' &&
+    Boolean(
+      data.eventId
+    );
+
+
+  const hasPersonId =
+    typeof data?.personId ===
+      'string' &&
+    Boolean(
+      data.personId
+    );
+
+
+  if (
+    hasInvitationId &&
+    !hasEventId &&
+    !hasPersonId
+  ) {
+    return 'invitation';
+  }
+
+
+  if (
+    !hasInvitationId &&
+    hasEventId &&
+    hasPersonId
+  ) {
+    return 'event_scope';
+  }
+
+
+  return 'invalid';
+}
+
+
 function eventAttendanceDocumentId(
   eventId,
   personId
@@ -2214,6 +2277,99 @@ function invitationView(snapshot) {
 }
 
 
+// ======================================================
+// BUILD-118D1F3
+// EVENT SCOPE MEMBER -> PADRON DE ASISTENCIA
+// ======================================================
+
+function eventScopeMemberAttendanceView(
+  member
+) {
+
+  if (
+    !member ||
+    typeof member !==
+      'object'
+  ) {
+    return null;
+  }
+
+
+  const accountUid =
+    typeof member.accountUid ===
+      'string' &&
+    member.accountUid
+      ? member.accountUid
+      : null;
+
+
+  return {
+    id:
+      member.id || '',
+
+    rosterSource:
+      'event_scope',
+
+    scopeMemberId:
+      member.id || '',
+
+    eventId:
+      member.eventId || '',
+
+    active:
+      member.active ===
+        true,
+
+    assignedTo:
+      accountUid || '',
+
+    personId:
+      member.personId || '',
+
+    accountUid,
+
+    hasDigitalAccount:
+      member.hasDigitalAccount ===
+        true,
+
+    assignedToName:
+      member.name || '',
+
+    assignedToRole:
+      member.role || '',
+
+    parentInvitationId:
+      null,
+
+    ancestorInvitationIds:
+      [],
+
+    municipalityId:
+      member.municipalityId || '',
+
+    municipalityName:
+      member.municipalityName || '',
+
+    structureId:
+      member.structureId || '',
+
+    structureName:
+      member.structureName || '',
+
+    membershipId:
+      member.membershipId || '',
+
+    locality:
+      member.locality || '',
+
+    version:
+      Number(
+        member.resolutionVersion
+      ) || 1
+  };
+}
+
+
 function eventContactView(parent, person) {
 
   if (
@@ -3799,6 +3955,19 @@ exports.recordDoorEventAttendance =
 // AUTORIZACION DEL WORKSPACE DE ASISTENCIA
 // ======================================================
 
+function eventAttendanceUsesCanonicalRoster(
+  event
+) {
+
+  return (
+    event?.scopeMode ===
+      'organizational' &&
+    event?.scopeType ===
+      'municipality'
+  );
+}
+
+
 function eventAttendanceWorkspaceScope(
   profile,
   event
@@ -3897,6 +4066,68 @@ function eventAttendanceInvitationAllowed(
 }
 
 
+function canValidateEventScopeAttendance(
+  validator,
+  member,
+  event
+) {
+
+  if (
+    !validator ||
+    !member ||
+    !event
+  ) {
+    return false;
+  }
+
+
+  if (
+    validator.active !== true ||
+    member.active !== true ||
+    event.active !== true
+  ) {
+    return false;
+  }
+
+
+  if (
+    !eventAttendanceUsesCanonicalRoster(
+      event
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    validator.campaignId !==
+      event.campaignId ||
+    member.campaignId !==
+      event.campaignId
+  ) {
+    return false;
+  }
+
+
+  if (
+    member.eventId !==
+      event.id ||
+    !member.personId
+  ) {
+    return false;
+  }
+
+
+  return (
+    eventAttendanceWorkspaceScope(
+      validator,
+      event
+    ) ===
+      'event'
+  );
+}
+
+
 // ======================================================
 // HELPERS PARA PRUEBAS
 // ======================================================
@@ -3917,6 +4148,8 @@ exports._test = {
   eventIncidentView,
   EVENT_CHECKIN_METHODS,
   eventCheckInMethod,
+  eventScopeMemberDocumentId,
+  eventAttendanceRequestMode,
   eventAttendanceDocumentId,
   eventAttendanceView,
   canValidateEventAttendance,
@@ -3927,6 +4160,9 @@ exports._test = {
   canRecordEventAttendanceAt,
   eventAttendanceWorkspaceScope,
   eventAttendanceInvitationAllowed,
+  eventAttendanceUsesCanonicalRoster,
+  eventScopeMemberAttendanceView,
+  canValidateEventScopeAttendance,
   doorPersonCandidateRef,
   canonicalDoorIdentityRecords
 };
@@ -4807,10 +5043,48 @@ exports.recordEventAttendance =
         request.data || {};
 
 
-      const invitationId =
-        validId(
-          data.invitationId
+      const requestMode =
+        eventAttendanceRequestMode(
+          data
         );
+
+
+      if (
+        requestMode ===
+          'invalid'
+      ) {
+        fail(
+          'invalid-argument',
+          'Indica invitationId o bien eventId + personId para registrar asistencia.'
+        );
+      }
+
+
+      const invitationId =
+        requestMode ===
+          'invitation'
+          ? validId(
+              data.invitationId
+            )
+          : null;
+
+
+      const requestedEventId =
+        requestMode ===
+          'event_scope'
+          ? validId(
+              data.eventId
+            )
+          : null;
+
+
+      const requestedPersonId =
+        requestMode ===
+          'event_scope'
+          ? validId(
+              data.personId
+            )
+          : null;
 
 
       const checkInMethod =
@@ -4835,48 +5109,128 @@ exports.recordEventAttendance =
 
 
           // ==============================================
-          // INVITACION
+          // ORIGEN DEL PADRON
+          //
+          // invitation:
+          //   compatibilidad con eventInvitations.
+          //
+          // event_scope:
+          //   persona canónica de eventScopeMembers.
           // ==============================================
 
-          const invitationRef =
-            db.collection(
-              'eventInvitations'
-            ).doc(
-              invitationId
-            );
+          let invitation =
+            null;
 
+          let scopeMember =
+            null;
 
-          const invitationSnapshot =
-            await tx.get(
-              invitationRef
-            );
+          let resolvedEventId =
+            '';
 
 
           if (
-            !invitationSnapshot.exists
+            requestMode ===
+              'invitation'
           ) {
-            fail(
-              'not-found',
-              'La invitación no existe.'
-            );
-          }
+
+            const invitationRef =
+              db.collection(
+                'eventInvitations'
+              ).doc(
+                invitationId
+              );
 
 
-          const invitation = {
-            ...invitationSnapshot.data(),
-            id:
-              invitationSnapshot.id
-          };
+            const invitationSnapshot =
+              await tx.get(
+                invitationRef
+              );
 
 
-          if (
-            invitation.campaignId !==
-              validator.campaignId
-          ) {
-            fail(
-              'permission-denied',
-              'La invitación pertenece a otra campaña.'
-            );
+            if (
+              !invitationSnapshot.exists
+            ) {
+              fail(
+                'not-found',
+                'La invitación no existe.'
+              );
+            }
+
+
+            invitation = {
+              ...invitationSnapshot.data(),
+              id:
+                invitationSnapshot.id
+            };
+
+
+            if (
+              invitation.campaignId !==
+                validator.campaignId
+            ) {
+              fail(
+                'permission-denied',
+                'La invitación pertenece a otra campaña.'
+              );
+            }
+
+
+            resolvedEventId =
+              validId(
+                invitation.eventId
+              );
+
+          } else {
+
+            const scopeMemberRef =
+              db.collection(
+                'eventScopeMembers'
+              ).doc(
+                eventScopeMemberDocumentId(
+                  requestedEventId,
+                  requestedPersonId
+                )
+              );
+
+
+            const scopeMemberSnapshot =
+              await tx.get(
+                scopeMemberRef
+              );
+
+
+            if (
+              !scopeMemberSnapshot.exists
+            ) {
+              fail(
+                'not-found',
+                'La persona no pertenece al padrón canónico de este evento.'
+              );
+            }
+
+
+            scopeMember = {
+              ...scopeMemberSnapshot.data(),
+              id:
+                scopeMemberSnapshot.id
+            };
+
+
+            if (
+              scopeMember.eventId !==
+                requestedEventId ||
+              scopeMember.personId !==
+                requestedPersonId
+            ) {
+              fail(
+                'failed-precondition',
+                'El miembro del padrón no coincide con el evento o la persona solicitada.'
+              );
+            }
+
+
+            resolvedEventId =
+              requestedEventId;
           }
 
 
@@ -4888,9 +5242,7 @@ exports.recordEventAttendance =
             db.collection(
               'events'
             ).doc(
-              validId(
-                invitation.eventId
-              )
+              resolvedEventId
             );
 
 
@@ -4918,12 +5270,36 @@ exports.recordEventAttendance =
 
 
           if (
-            !canValidateEventAttendance(
-              validator,
-              invitation,
-              event
-            )
+            event.archived ===
+              true
           ) {
+            fail(
+              'failed-precondition',
+              'El evento está archivado. Restáuralo antes de operar el control de asistencia.'
+            );
+          }
+
+
+          // ==============================================
+          // AUTORIZACION
+          // ==============================================
+
+          const authorized =
+            requestMode ===
+              'invitation'
+              ? canValidateEventAttendance(
+                  validator,
+                  invitation,
+                  event
+                )
+              : canValidateEventScopeAttendance(
+                  validator,
+                  scopeMember,
+                  event
+                );
+
+
+          if (!authorized) {
             fail(
               'permission-denied',
               'No tienes autorización para validar esta asistencia.'
@@ -4971,37 +5347,87 @@ exports.recordEventAttendance =
           // personId = identidad primaria permanente.
           // accountUid = cuenta digital opcional.
           //
-          // También resuelve invitaciones digitales
-          // anteriores que todavía solo tienen assignedTo.
+          // invitation:
+          //   resuelve compatibilidad histórica.
+          //
+          // event_scope:
+          //   usa directamente eventScopeMembers.
           // ==============================================
 
-          const canonicalIdentity =
-            await resolveInvitationCanonicalIdentity(
-              tx,
-              db,
-              invitation,
-              validator.campaignId
-            );
+          let personId =
+            '';
+
+          let accountUid =
+            null;
+
+          let personName =
+            '';
+
+          let attendanceInvitationId =
+            null;
 
 
-          const personId =
-            canonicalIdentity.personId;
+          if (
+            requestMode ===
+              'invitation'
+          ) {
+
+            const canonicalIdentity =
+              await resolveInvitationCanonicalIdentity(
+                tx,
+                db,
+                invitation,
+                validator.campaignId
+              );
 
 
-          const accountUid =
-            canonicalIdentity.accountUid;
+            personId =
+              canonicalIdentity.personId;
 
 
-          const personName =
-            typeof invitation.assignedToName ===
-              'string' &&
-            invitation.assignedToName.trim()
-              ? invitation.assignedToName
-              : (
-                  canonicalIdentity.person
-                    ?.name ||
-                  ''
-                );
+            accountUid =
+              canonicalIdentity.accountUid;
+
+
+            personName =
+              typeof invitation.assignedToName ===
+                'string' &&
+              invitation.assignedToName.trim()
+                ? invitation.assignedToName
+                : (
+                    canonicalIdentity.person
+                      ?.name ||
+                    ''
+                  );
+
+
+            attendanceInvitationId =
+              invitation.id;
+
+          } else {
+
+            personId =
+              requestedPersonId;
+
+
+            accountUid =
+              typeof scopeMember.accountUid ===
+                'string' &&
+              scopeMember.accountUid
+                ? scopeMember.accountUid
+                : null;
+
+
+            personName =
+              typeof scopeMember.name ===
+                'string'
+                ? scopeMember.name.trim()
+                : '';
+
+
+            attendanceInvitationId =
+              null;
+          }
 
 
           const attendanceId =
@@ -5065,7 +5491,7 @@ exports.recordEventAttendance =
             accountUid,
 
             invitationId:
-              invitation.id,
+              attendanceInvitationId,
 
             personName,
 
@@ -5129,7 +5555,7 @@ exports.recordEventAttendance =
               accountUid,
 
               invitationId:
-                invitation.id,
+                attendanceInvitationId,
 
               personName,
 
@@ -5222,6 +5648,17 @@ exports.getEventAttendanceWorkspace =
       }
 
 
+      if (
+        rawEvent.archived ===
+          true
+      ) {
+        fail(
+          'failed-precondition',
+          'El evento está archivado. Restáuralo antes de operar el control de asistencia.'
+        );
+      }
+
+
       const event =
         eventView(
           eventSnapshot
@@ -5244,54 +5681,137 @@ exports.getEventAttendanceWorkspace =
 
 
       // ==============================================
-      // INVITACIONES DEL EVENTO
+      // PADRON DE ASISTENCIA
       //
-      // Consulta por eventId.
-      // La privacidad se aplica en backend antes
-      // de devolver cualquier persona.
+      // Evento general:
+      //   eventScopeMembers.
+      //
+      // Evento legado:
+      //   eventInvitations.
       // ==============================================
 
-      const invitationSnapshot =
-        await db.collection(
-          'eventInvitations'
-        )
-          .where(
-            'eventId',
-            '==',
-            eventId
+      const usesCanonicalRoster =
+        eventAttendanceUsesCanonicalRoster(
+          rawEvent
+        );
+
+
+      let invitations = [];
+
+      let rosterTruncated =
+        false;
+
+
+      if (usesCanonicalRoster) {
+
+        // El padrón general representa el universo
+        // completo del evento. No debe exponerse bajo
+        // el alcance legacy "direct".
+        if (scope !== 'event') {
+
+          fail(
+            'permission-denied',
+            'No tienes autorización para consultar el padrón completo de este evento.'
+          );
+        }
+
+
+        const scopeMemberSnapshot =
+          await db.collection(
+            'eventScopeMembers'
           )
-          .limit(500)
-          .get();
+            .where(
+              'eventId',
+              '==',
+              eventId
+            )
+            .limit(500)
+            .get();
 
 
-      const allowedSnapshots =
-        invitationSnapshot.docs
-          .filter(
-            snapshot =>
-              eventAttendanceInvitationAllowed(
-                scope,
-                profile,
-                snapshot.data(),
-                eventId
-              )
+        invitations =
+          scopeMemberSnapshot.docs
+            .filter(
+              snapshot => {
+
+                const member =
+                  snapshot.data();
+
+                return (
+                  member.active ===
+                    true &&
+                  member.campaignId ===
+                    profile.campaignId &&
+                  member.eventId ===
+                    eventId
+                );
+              }
+            )
+            .map(
+              snapshot =>
+                eventScopeMemberAttendanceView({
+                  ...snapshot.data(),
+                  id:
+                    snapshot.id
+                })
+            )
+            .filter(Boolean);
+
+
+        rosterTruncated =
+          scopeMemberSnapshot.size >=
+            500;
+
+      } else {
+
+        const invitationSnapshot =
+          await db.collection(
+            'eventInvitations'
+          )
+            .where(
+              'eventId',
+              '==',
+              eventId
+            )
+            .limit(500)
+            .get();
+
+
+        const allowedSnapshots =
+          invitationSnapshot.docs
+            .filter(
+              snapshot =>
+                eventAttendanceInvitationAllowed(
+                  scope,
+                  profile,
+                  snapshot.data(),
+                  eventId
+                )
+            );
+
+
+        if (
+          scope === 'direct' &&
+          !allowedSnapshots.length
+        ) {
+
+          fail(
+            'permission-denied',
+            'No tienes personas a tu cargo para validar en este evento.'
+          );
+        }
+
+
+        invitations =
+          allowedSnapshots.map(
+            invitationView
           );
 
 
-      if (
-        scope === 'direct' &&
-        !allowedSnapshots.length
-      ) {
-        fail(
-          'permission-denied',
-          'No tienes personas a tu cargo para validar en este evento.'
-        );
+        rosterTruncated =
+          invitationSnapshot.size >=
+            500;
       }
-
-
-      const invitations =
-        allowedSnapshots.map(
-          invitationView
-        );
 
 
       // ==============================================
@@ -5626,14 +6146,18 @@ exports.getEventAttendanceWorkspace =
         canValidateWholeEvent:
           scope === 'event',
 
+        rosterSource:
+          usesCanonicalRoster
+            ? 'event_scope'
+            : 'event_invitations',
+
         invitations,
 
         summary,
 
         limits: {
           invitationsTruncated:
-            invitationSnapshot.size >=
-            500
+            rosterTruncated
         }
       };
     }

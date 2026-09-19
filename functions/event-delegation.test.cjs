@@ -16,6 +16,8 @@ const {
   canReportEventIncident,
   eventIncidentView,
   EVENT_CHECKIN_METHODS,
+  eventScopeMemberDocumentId,
+  eventAttendanceRequestMode,
   eventAttendanceDocumentId,
   eventAttendanceView,
   canValidateEventAttendance,
@@ -25,7 +27,10 @@ const {
   eventAttendanceWindow,
   canRecordEventAttendanceAt,
   eventAttendanceWorkspaceScope,
-  eventAttendanceInvitationAllowed
+  eventAttendanceInvitationAllowed,
+  eventAttendanceUsesCanonicalRoster,
+  eventScopeMemberAttendanceView,
+  canValidateEventScopeAttendance
 } =
   require('./event-delegation.cjs')._test;
 
@@ -1274,6 +1279,476 @@ assert.equal(
     'EVENT-ATT-WORKSPACE'
   ),
   false
+);
+
+
+// ======================================================
+// BUILD-118D1F3
+// PADRON CANONICO DESDE EVENT SCOPE
+// ======================================================
+
+const digitalScopeMember =
+  eventScopeMemberAttendanceView({
+    id:
+      'SCOPE-MEMBER-001',
+
+    eventId:
+      'EVENT-001',
+
+    campaignId:
+      'CAM-001',
+
+    personId:
+      'PERSON-001',
+
+    accountUid:
+      'USER-001',
+
+    hasDigitalAccount:
+      true,
+
+    name:
+      'Persona con cuenta',
+
+    role:
+      'participante',
+
+    municipalityId:
+      'MUN-001',
+
+    municipalityName:
+      'Compostela',
+
+    structureId:
+      'EST-001',
+
+    structureName:
+      'Estructura Uno',
+
+    membershipId:
+      'MEM-001',
+
+    locality:
+      'Compostela',
+
+    active:
+      true,
+
+    resolutionVersion:
+      1
+  });
+
+
+assert.equal(
+  digitalScopeMember.rosterSource,
+  'event_scope'
+);
+
+assert.equal(
+  digitalScopeMember.personId,
+  'PERSON-001'
+);
+
+assert.equal(
+  digitalScopeMember.accountUid,
+  'USER-001'
+);
+
+assert.equal(
+  digitalScopeMember.assignedTo,
+  'USER-001'
+);
+
+assert.equal(
+  digitalScopeMember.assignedToName,
+  'Persona con cuenta'
+);
+
+assert.equal(
+  digitalScopeMember.active,
+  true
+);
+
+
+const accountlessScopeMember =
+  eventScopeMemberAttendanceView({
+    id:
+      'SCOPE-MEMBER-002',
+
+    eventId:
+      'EVENT-001',
+
+    campaignId:
+      'CAM-001',
+
+    personId:
+      'PERSON-002',
+
+    accountUid:
+      null,
+
+    hasDigitalAccount:
+      false,
+
+    name:
+      'Persona sin cuenta',
+
+    role:
+      'colaborador_base',
+
+    municipalityId:
+      'MUN-001',
+
+    municipalityName:
+      'Compostela',
+
+    structureId:
+      'EST-001',
+
+    structureName:
+      'Estructura Uno',
+
+    membershipId:
+      'MEM-002',
+
+    locality:
+      'Zacualpan',
+
+    active:
+      true,
+
+    resolutionVersion:
+      1
+  });
+
+
+assert.equal(
+  accountlessScopeMember.personId,
+  'PERSON-002'
+);
+
+assert.equal(
+  accountlessScopeMember.accountUid,
+  null
+);
+
+assert.equal(
+  accountlessScopeMember.assignedTo,
+  ''
+);
+
+assert.equal(
+  accountlessScopeMember.hasDigitalAccount,
+  false
+);
+
+assert.equal(
+  accountlessScopeMember.assignedToName,
+  'Persona sin cuenta'
+);
+
+assert.equal(
+  accountlessScopeMember.active,
+  true
+);
+
+
+assert.equal(
+  eventScopeMemberAttendanceView(
+    null
+  ),
+  null
+);
+
+
+assert.equal(
+  eventAttendanceUsesCanonicalRoster({
+    scopeMode:
+      'organizational',
+    scopeType:
+      'municipality'
+  }),
+  true
+);
+
+assert.equal(
+  eventAttendanceUsesCanonicalRoster({
+    scopeMode:
+      'delegated',
+    scopeType:
+      'municipality'
+  }),
+  false
+);
+
+assert.equal(
+  eventAttendanceUsesCanonicalRoster({
+    scopeMode:
+      'organizational',
+    scopeType:
+      'structure'
+  }),
+  false
+);
+
+assert.equal(
+  eventAttendanceUsesCanonicalRoster(
+    null
+  ),
+  false
+);
+
+
+const {
+  scopeMemberId:
+    generalScopeMemberId
+} =
+  require(
+    './event-general-scope.cjs'
+  )._test;
+
+
+assert.equal(
+  eventScopeMemberDocumentId(
+    'EVENT-001',
+    'PERSON-001'
+  ),
+  generalScopeMemberId(
+    'EVENT-001',
+    'PERSON-001'
+  )
+);
+
+
+assert.equal(
+  eventAttendanceRequestMode({
+    invitationId:
+      'INV-001'
+  }),
+  'invitation'
+);
+
+
+assert.equal(
+  eventAttendanceRequestMode({
+    eventId:
+      'EVENT-001',
+
+    personId:
+      'PERSON-001'
+  }),
+  'event_scope'
+);
+
+
+assert.equal(
+  eventAttendanceRequestMode({
+    invitationId:
+      'INV-001',
+
+    eventId:
+      'EVENT-001',
+
+    personId:
+      'PERSON-001'
+  }),
+  'invalid'
+);
+
+
+assert.equal(
+  eventAttendanceRequestMode({
+    eventId:
+      'EVENT-001'
+  }),
+  'invalid'
+);
+
+
+assert.equal(
+  eventAttendanceRequestMode({}),
+  'invalid'
+);
+
+
+const canonicalAttendanceEvent = {
+  id:
+    'EVENT-SCOPE-001',
+
+  campaignId:
+    'CAM-001',
+
+  active:
+    true,
+
+  scopeMode:
+    'organizational',
+
+  scopeType:
+    'municipality',
+
+  createdBy:
+    'COORD-001',
+
+  attendanceValidatorIds:
+    [
+      'VALIDATOR-001'
+    ]
+};
+
+
+const canonicalAttendanceMember = {
+  eventId:
+    'EVENT-SCOPE-001',
+
+  campaignId:
+    'CAM-001',
+
+  personId:
+    'PERSON-001',
+
+  active:
+    true
+};
+
+
+assert.equal(
+  canValidateEventScopeAttendance(
+    {
+      uid:
+        'COORD-001',
+
+      campaignId:
+        'CAM-001',
+
+      role:
+        'coordinador_municipal',
+
+      active:
+        true
+    },
+    canonicalAttendanceMember,
+    canonicalAttendanceEvent
+  ),
+  true
+);
+
+
+assert.equal(
+  canValidateEventScopeAttendance(
+    {
+      uid:
+        'VALIDATOR-001',
+
+      campaignId:
+        'CAM-001',
+
+      role:
+        'integrante',
+
+      active:
+        true
+    },
+    canonicalAttendanceMember,
+    canonicalAttendanceEvent
+  ),
+  true
+);
+
+
+assert.equal(
+  canValidateEventScopeAttendance(
+    {
+      uid:
+        'OTHER-001',
+
+      campaignId:
+        'CAM-001',
+
+      role:
+        'integrante',
+
+      active:
+        true
+    },
+    canonicalAttendanceMember,
+    canonicalAttendanceEvent
+  ),
+  false
+);
+
+
+assert.equal(
+  canValidateEventScopeAttendance(
+    {
+      uid:
+        'COORD-001',
+
+      campaignId:
+        'CAM-001',
+
+      role:
+        'coordinador_municipal',
+
+      active:
+        true
+    },
+    {
+      ...canonicalAttendanceMember,
+
+      campaignId:
+        'CAM-999'
+    },
+    canonicalAttendanceEvent
+  ),
+  false
+);
+
+
+assert.equal(
+  canValidateEventScopeAttendance(
+    {
+      uid:
+        'COORD-001',
+
+      campaignId:
+        'CAM-001',
+
+      role:
+        'coordinador_municipal',
+
+      active:
+        true
+    },
+    canonicalAttendanceMember,
+    {
+      ...canonicalAttendanceEvent,
+
+      scopeMode:
+        'delegated'
+    }
+  ),
+  false
+);
+
+
+console.log(
+  'OK: BUILD-118D1F3 canonical attendance authorization passed.'
+);
+
+
+console.log(
+  'OK: BUILD-118D1F3 attendance request contract passed.'
+);
+
+
+console.log(
+  'OK: BUILD-118D1F3 canonical roster selector passed.'
+);
+
+
+console.log(
+  'OK: BUILD-118D1F3 canonical attendance roster adapter passed.'
 );
 
 

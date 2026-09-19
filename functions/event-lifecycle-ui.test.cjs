@@ -179,6 +179,102 @@ assert.match(
 );
 
 
+// ======================================================
+// BUILD-118D1F3
+// ASISTENCIA CANONICA DESDE EVENT SCOPE
+// ======================================================
+
+assert.match(
+  js,
+  /function attendanceEventIds/
+);
+
+assert.match(
+  js,
+  /workspace\s*\?\.organizedEvents/
+);
+
+assert.match(
+  js,
+  /event\.archived !==\s*true/
+);
+
+assert.match(
+  js,
+  /function attendanceRecordRequest/
+);
+
+assert.match(
+  js,
+  /invitation\?\.rosterSource ===\s*"event_scope"/
+);
+
+assert.match(
+  js,
+  /personId:\s*invitation\.personId/
+);
+
+assert.match(
+  js,
+  /invitationId:\s*invitation\.id/
+);
+
+assert.match(
+  js,
+  /await recordEventAttendance\(\s*attendanceRequest\s*\)/
+);
+
+assert.match(
+  workspace,
+  /eventAttendanceUsesCanonicalRoster/
+);
+
+assert.match(
+  workspace,
+  /eventScopeMemberAttendanceView/
+);
+
+assert.match(
+  workspace,
+  /rosterSource:\s*usesCanonicalRoster/
+);
+
+assert.match(
+  workspace,
+  /'event_scope'/
+);
+
+assert.match(
+  workspace,
+  /'event_invitations'/
+);
+
+assert.match(
+  workspace,
+  /eventScopeMemberDocumentId/
+);
+
+assert.match(
+  workspace,
+  /eventAttendanceRequestMode/
+);
+
+assert.match(
+  workspace,
+  /canValidateEventScopeAttendance/
+);
+
+assert.match(
+  workspace,
+  /attendanceInvitationId/
+);
+
+
+console.log(
+  'OK: BUILD-118D1F3 canonical attendance UI contract passed.'
+);
+
+
 console.log(
   'OK: BUILD-118D1F0 event lifecycle and filters contract passed.'
 );

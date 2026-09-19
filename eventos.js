@@ -6777,28 +6777,106 @@ function closeTransportControl() {
 
 function attendanceEventIds() {
 
-  return [
-    ...new Set(
-      (
-        workspace
-          ?.createdInvitations ||
-        []
-      )
-        .filter(
-          invitation =>
-            eventMatchesFilter(
-              eventById(
-                invitation.eventId
-              )
-            )
-        )
-        .map(
-          invitation =>
-            invitation.eventId
-        )
-        .filter(Boolean)
+  const legacyEventIds =
+    (
+      workspace
+        ?.createdInvitations ||
+      []
     )
-  ];
+      .map(
+        invitation =>
+          invitation.eventId
+      )
+      .filter(Boolean);
+
+
+  const organizedEventIds =
+    (
+      workspace
+        ?.organizedEvents ||
+      []
+    )
+      .map(
+        event =>
+          event?.id
+      )
+      .filter(Boolean);
+
+
+  return [
+    ...new Set([
+      ...legacyEventIds,
+      ...organizedEventIds
+    ])
+  ]
+    .filter(
+      eventId => {
+
+        const event =
+          eventById(
+            eventId
+          );
+
+
+        return (
+          event &&
+          event.archived !==
+            true &&
+          eventMatchesFilter(
+            event
+          )
+        );
+      }
+    );
+}
+
+
+function attendanceRecordRequest(
+  invitation
+) {
+
+  if (
+    invitation?.rosterSource ===
+      "event_scope"
+  ) {
+
+    const eventId =
+      invitation.eventId ||
+      selectedAttendanceEventId;
+
+
+    if (
+      !eventId ||
+      !invitation.personId
+    ) {
+      return null;
+    }
+
+
+    return {
+      eventId,
+
+      personId:
+        invitation.personId,
+
+      checkInMethod:
+        "manual"
+    };
+  }
+
+
+  if (!invitation?.id) {
+    return null;
+  }
+
+
+  return {
+    invitationId:
+      invitation.id,
+
+    checkInMethod:
+      "manual"
+  };
 }
 
 
@@ -7932,6 +8010,112 @@ async function searchAttendanceIdentity() {
 }
 
 
+let attendanceTimingRefreshTimer =
+  null;
+
+
+function scheduleAttendanceTimingRefresh(
+  event
+) {
+
+  if (attendanceTimingRefreshTimer) {
+
+    window.clearTimeout(
+      attendanceTimingRefreshTimer
+    );
+
+    attendanceTimingRefreshTimer =
+      null;
+  }
+
+
+  const windowRange =
+    attendanceCheckInWindow(
+      event
+    );
+
+
+  if (!windowRange) {
+    return;
+  }
+
+
+  const now =
+    Date.now();
+
+
+  let nextBoundary =
+    null;
+
+
+  if (
+    now <
+      windowRange.opensAtMillis
+  ) {
+
+    nextBoundary =
+      windowRange.opensAtMillis;
+
+  } else if (
+    now <
+      windowRange.closesAtMillis
+  ) {
+
+    nextBoundary =
+      windowRange.closesAtMillis;
+  }
+
+
+  if (
+    !Number.isFinite(
+      nextBoundary
+    )
+  ) {
+    return;
+  }
+
+
+  const eventId =
+    event?.id ||
+    selectedAttendanceEventId;
+
+
+  const delay =
+    Math.min(
+      Math.max(
+        nextBoundary -
+          now +
+          250,
+        250
+      ),
+      2147483000
+    );
+
+
+  attendanceTimingRefreshTimer =
+    window.setTimeout(
+      () => {
+
+        attendanceTimingRefreshTimer =
+          null;
+
+
+        if (
+          !attendanceWorkspace ||
+          selectedAttendanceEventId !==
+            eventId
+        ) {
+          return;
+        }
+
+
+        renderAttendanceControl();
+      },
+      delay
+    );
+}
+
+
 function renderAttendanceControl() {
 
   const panel =
@@ -8033,15 +8217,80 @@ function renderAttendanceControl() {
     );
 
 
-  $("attendanceTimingStatus")
-    .textContent =
-    checkInOpen
-      ? "La recepción de asistentes está abierta. Puedes registrar presencia física."
-      : (
-          checkInClosed
-            ? "ASISTENCIA CERRADA. El registro terminó 1 hora 30 minutos después de la hora citada."
-            : "Puedes consultar el padrón. La recepción se habilitará 45 minutos antes de la hora citada."
-        );
+  const timingStatus =
+    $("attendanceTimingStatus");
+
+
+  timingStatus.setAttribute(
+    "role",
+    "status"
+  );
+
+  timingStatus.setAttribute(
+    "aria-live",
+    "polite"
+  );
+
+  timingStatus.style.padding =
+    "10px 12px";
+
+  timingStatus.style.borderRadius =
+    "8px";
+
+  timingStatus.style.fontWeight =
+    "600";
+
+  timingStatus.style.marginTop =
+    "8px";
+
+
+  if (checkInOpen) {
+
+    timingStatus.textContent =
+      "✓ ASISTENCIA ABIERTA. Puedes registrar presencia física.";
+
+    timingStatus.style.backgroundColor =
+      "#e8f5e9";
+
+    timingStatus.style.border =
+      "1px solid #81c784";
+
+    timingStatus.style.color =
+      "#1b5e20";
+
+  } else if (checkInClosed) {
+
+    timingStatus.textContent =
+      "ASISTENCIA CERRADA. El registro terminó 1 hora 30 minutos después de la hora citada.";
+
+    timingStatus.style.backgroundColor =
+      "#ffebee";
+
+    timingStatus.style.border =
+      "1px solid #e57373";
+
+    timingStatus.style.color =
+      "#b71c1c";
+
+  } else {
+
+    timingStatus.textContent =
+      "⚠ Puedes consultar el padrón. La recepción se habilitará 45 minutos antes de la hora citada.";
+
+    timingStatus.style.backgroundColor =
+      "#fff8e1";
+
+    timingStatus.style.border =
+      "1px solid #ffca28";
+
+    timingStatus.style.color =
+      "#7a5200";
+  }
+
+
+  scheduleAttendanceTimingRefresh(
+    event
+  );
 
 
   renderAttendancePeople();
@@ -8211,13 +8460,32 @@ async function markAttendancePresent(
 
   try {
 
-    await recordEventAttendance({
-      invitationId:
-        invitation.id,
+    const attendanceRequest =
+      attendanceRecordRequest(
+        invitation
+      );
 
-      checkInMethod:
-        "manual"
-    });
+
+    if (!attendanceRequest) {
+
+      $("attendanceStatus")
+        .textContent =
+        "No fue posible identificar a la persona dentro del padrón de asistencia.";
+
+
+      attendanceBusy =
+        false;
+
+
+      renderAttendancePeople();
+
+      return;
+    }
+
+
+    await recordEventAttendance(
+      attendanceRequest
+    );
 
 
     $("attendanceStatus")
@@ -8251,6 +8519,17 @@ async function markAttendancePresent(
 
 
 function closeAttendanceControl() {
+
+  if (attendanceTimingRefreshTimer) {
+
+    window.clearTimeout(
+      attendanceTimingRefreshTimer
+    );
+
+    attendanceTimingRefreshTimer =
+      null;
+  }
+
 
   attendanceWorkspace =
     null;
