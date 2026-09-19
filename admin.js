@@ -673,25 +673,152 @@ function blockTerritorialWorkspace(message) {
     ensureTerritorialAccessPanel();
 
   panel.hidden = false;
-  panel.innerHTML = "";
+  panel.className =
+    "card shell territorial-access-panel territorial-access-panel--blocked";
 
-  const title =
-    document.createElement("h2");
-
-  title.textContent =
-    "Acceso territorial no autorizado";
-
-  const detail =
-    document.createElement("p");
-
-  detail.textContent =
+  const accessMessage =
     message ||
     "No tienes una autorización territorial vigente.";
 
-  panel.append(
-    title,
-    detail
-  );
+  panel.innerHTML = `
+    <div class="territorial-access-status">
+      <div class="territorial-access-status__icon" aria-hidden="true">
+        🔒
+      </div>
+
+      <div>
+        <p class="territorial-access-eyebrow">
+          OPERACIÓN TERRITORIAL PROTEGIDA
+        </p>
+
+        <h2>
+          Sin autorización territorial vigente
+        </h2>
+
+        <p class="territorial-access-status__message">
+          ${accessMessage}
+        </p>
+
+        <p class="territorial-access-status__note">
+          Tu cuenta permanece activa. Por seguridad, los mapas,
+          registros, indicadores y evidencias territoriales solo
+          están disponibles mientras exista una autorización válida.
+        </p>
+      </div>
+    </div>
+
+    <div class="territorial-access-intro">
+      <p class="territorial-access-eyebrow">
+        CAPACIDADES DEL MÓDULO
+      </p>
+
+      <h3>
+        Del trabajo de campo a información verificable y medible
+      </h3>
+
+      <p>
+        TERRA Campaign concentra la operación territorial en un mismo
+        entorno para documentar actividades, supervisar cobertura y
+        mantener trazabilidad sobre cada registro autorizado.
+      </p>
+    </div>
+
+    <div class="territorial-access-features">
+
+      <article class="territorial-access-feature">
+        <div class="territorial-access-feature__icon" aria-hidden="true">
+          📍
+        </div>
+
+        <h4>Registro verificable</h4>
+
+        <p>
+          Documenta actividades de campo con responsable, ubicación,
+          fecha, resultado operativo y evidencia cuando corresponda.
+        </p>
+      </article>
+
+      <article class="territorial-access-feature">
+        <div class="territorial-access-feature__icon" aria-hidden="true">
+          🗺️
+        </div>
+
+        <h4>Mapa y cobertura</h4>
+
+        <p>
+          Organiza geográficamente el trabajo registrado para conocer
+          las zonas atendidas y facilitar el seguimiento operativo.
+        </p>
+      </article>
+
+      <article class="territorial-access-feature">
+        <div class="territorial-access-feature__icon" aria-hidden="true">
+          📊
+        </div>
+
+        <h4>Indicadores operativos</h4>
+
+        <p>
+          Convierte registros individuales en información de avance,
+          cobertura, entregas, resultados de visita y seguimientos.
+        </p>
+      </article>
+
+      <article class="territorial-access-feature">
+        <div class="territorial-access-feature__icon" aria-hidden="true">
+          🛡️
+        </div>
+
+        <h4>Seguridad y trazabilidad</h4>
+
+        <p>
+          El acceso depende de una autorización vigente, con identidad,
+          alcance territorial, permisos y tiempo de operación definidos.
+        </p>
+      </article>
+
+    </div>
+
+    <div class="territorial-access-trace">
+      <span>QUÉ SE HIZO</span>
+      <span>QUIÉN</span>
+      <span>DÓNDE</span>
+      <span>CUÁNDO</span>
+      <span>RESULTADO</span>
+    </div>
+
+    <div class="territorial-access-security">
+      <div>
+        <strong>Acceso por autorización</strong>
+        <span>
+          La jerarquía por sí sola no habilita información territorial.
+        </span>
+      </div>
+
+      <div>
+        <strong>Alcance controlado</strong>
+        <span>
+          Cada autorización determina qué información puede consultarse
+          o registrarse.
+        </span>
+      </div>
+
+      <div>
+        <strong>Protección automática</strong>
+        <span>
+          Al vencer o revocarse el acceso, el espacio territorial vuelve
+          a quedar protegido.
+        </span>
+      </div>
+    </div>
+
+    <footer class="territorial-access-footer">
+      <strong>TERRA Campaign</strong>
+      <span>
+        Operación territorial organizada, protegida y verificable.
+      </span>
+    </footer>
+  `;
 }
 
 function applyTerritorialWorkspaceAccess(access) {
@@ -706,6 +833,9 @@ function applyTerritorialWorkspaceAccess(access) {
 
   const panel =
     ensureTerritorialAccessPanel();
+
+  panel.className =
+    "card shell territorial-access-panel";
 
   const grant =
     access?.grant || {};
