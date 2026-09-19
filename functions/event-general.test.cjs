@@ -7,7 +7,8 @@ const assert =
 
 const {
   canCreateGeneralMunicipalEvent,
-  buildGeneralMunicipalEvent
+  buildGeneralMunicipalEvent,
+  eventRecordMode
 } =
   require(
     './event-general.cjs'
@@ -258,6 +259,79 @@ assert.equal(
 );
 
 
+// ======================================================
+// BUILD-118D1F1 recordMode
+// ======================================================
+
+assert.equal(
+  legacyEvent.recordMode,
+  'production'
+);
+
+
+const testEvent =
+  buildGeneralMunicipalEvent({
+    profile:
+      coordinator,
+
+    eventId:
+      'EVENT-TEST-001',
+
+    title:
+      'Evento de prueba',
+
+    description:
+      'Validación recordMode',
+
+    venue:
+      'Plaza',
+
+    locality:
+      'Compostela',
+
+    startsAt:
+      '2027-01-03T18:00:00.000Z',
+
+    endsAt:
+      '2027-01-03T20:00:00.000Z',
+
+    recordMode:
+      'test',
+
+    confirmationLeadMinutes:
+      60
+  });
+
+
+assert.equal(
+  testEvent.recordMode,
+  'test'
+);
+
+
+assert.equal(
+  eventRecordMode(),
+  'production'
+);
+
+
+assert.equal(
+  eventRecordMode(
+    'test'
+  ),
+  'test'
+);
+
+
+assert.throws(
+  () =>
+    eventRecordMode(
+      'development'
+    ),
+  /modo del evento no es válido/i
+);
+
+
 console.log(
-  'OK: BUILD-118D1A general municipal event contract passed.'
+  'OK: BUILD-118D1F1 event record mode contract passed.'
 );

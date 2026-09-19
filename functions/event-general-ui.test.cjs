@@ -166,7 +166,7 @@ assert.match(
 
 assert.match(
   html,
-  /build-118d1f0-event-lifecycle-card/
+  /build-118d1f1-record-mode-filter/
 );
 
 

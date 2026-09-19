@@ -2057,6 +2057,12 @@ function eventView(snapshot) {
     active:
       d.active === true,
 
+    recordMode:
+      d.recordMode ===
+        'test'
+        ? 'test'
+        : 'production',
+
     createdBy:
       d.createdBy || '',
 

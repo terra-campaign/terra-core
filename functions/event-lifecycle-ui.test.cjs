@@ -32,17 +32,76 @@ assert.match(html, /data-event-filter="future"/);
 assert.match(html, /data-event-filter="in-progress"/);
 assert.match(html, /data-event-filter="completed"/);
 assert.match(html, /data-event-filter="legacy"/);
+assert.match(html, /data-event-filter="test"/);
 
 assert.match(js, /selectedEventFilter = "active"/);
 assert.match(js, /function eventMatchesFilter/);
 assert.match(js, /function renderEventFilters/);
 assert.match(js, /"En curso"/);
 assert.match(js, /"Concluido"/);
+assert.match(
+  js,
+  /selectedEventFilter ===\s*"test"/
+);
+assert.match(
+  js,
+  /event\?\.recordMode ===\s*"test"/
+);
 
 assert.match(backend, /endsAtMillis/);
 assert.match(backend, /input\.endsAt/);
 assert.match(workspace, /endsAtMillis/);
+assert.match(
+  workspace,
+  /recordMode:/
+);
+
+
+// ======================================================
+// BUILD-118D1F1
+// TEST / PRODUCTION RECORD MODE
+// ======================================================
+
+assert.match(
+  js,
+  /function currentEventRecordMode/
+);
+
+assert.match(
+  js,
+  /terra-campaign\.web\.app/
+);
+
+assert.match(
+  js,
+  /terra-campaign\.firebaseapp\.com/
+);
+
+assert.match(
+  js,
+  /terra-campaign\.github\.io/
+);
+
+assert.match(
+  js,
+  /recordMode:\s*currentEventRecordMode\(\)/
+);
+
+assert.match(
+  backend,
+  /function eventRecordMode/
+);
+
+assert.match(
+  backend,
+  /recordMode/
+);
+
 
 console.log(
   'OK: BUILD-118D1F0 event lifecycle and filters contract passed.'
+);
+
+console.log(
+  'OK: BUILD-118D1F1 frontend record mode contract passed.'
 );

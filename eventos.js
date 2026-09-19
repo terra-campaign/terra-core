@@ -33,6 +33,34 @@ const functions =
   );
 
 
+// ======================================================
+// BUILD-118D1F1
+// CLASIFICACION SEGURA DE REGISTROS
+// ======================================================
+
+function currentEventRecordMode() {
+
+  const hostname =
+    window.location.hostname
+      .toLowerCase();
+
+
+  const productionHosts =
+    new Set([
+      "terra-campaign.web.app",
+      "terra-campaign.firebaseapp.com",
+      "terra-campaign.github.io"
+    ]);
+
+
+  return productionHosts.has(
+    hostname
+  )
+    ? "production"
+    : "test";
+}
+
+
 const getEventWorkspace =
   httpsCallable(
     functions,
@@ -1848,6 +1876,17 @@ function eventMatchesFilter(
   }
 
 
+  if (
+    selectedEventFilter ===
+      "test"
+  ) {
+    return (
+      event?.recordMode ===
+        "test"
+    );
+  }
+
+
   const state =
     eventState(
       event
@@ -1924,6 +1963,13 @@ function renderEventFilters() {
         }
       ).length,
 
+    test:
+      events.filter(
+        event =>
+          event?.recordMode ===
+            "test"
+      ).length,
+
     future:
       events.filter(
         event =>
@@ -1960,6 +2006,9 @@ function renderEventFilters() {
 
     all:
       "Todos",
+
+    test:
+      "Pruebas",
 
     future:
       "Próximos",
@@ -8840,6 +8889,9 @@ $("newEventForm")
           $("eventLocality")
             .value
             .trim(),
+
+        recordMode:
+          currentEventRecordMode(),
 
         startsAt:
           starts.toISOString(),

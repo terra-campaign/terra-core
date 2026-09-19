@@ -169,6 +169,35 @@ function eventDate(
 }
 
 
+function eventRecordMode(
+  value
+) {
+
+  const mode =
+    value ||
+    'production';
+
+
+  if (
+    ![
+      'production',
+      'test'
+    ].includes(
+      mode
+    )
+  ) {
+
+    fail(
+      'invalid-argument',
+      'El modo del evento no es válido.'
+    );
+  }
+
+
+  return mode;
+}
+
+
 function confirmationLeadMinutes(
   value
 ) {
@@ -239,6 +268,8 @@ function buildGeneralMunicipalEvent({
   locality,
   startsAt,
   endsAt,
+  recordMode =
+    'production',
   confirmationLeadMinutes:
     leadMinutes
 }) {
@@ -276,6 +307,8 @@ function buildGeneralMunicipalEvent({
     venue,
 
     locality,
+
+    recordMode,
 
     startsAt,
 
@@ -465,6 +498,12 @@ exports.createGeneralEvent =
         );
 
 
+      const recordMode =
+        eventRecordMode(
+          input.recordMode
+        );
+
+
       const startsAt =
         eventDate(
           input.startsAt
@@ -564,6 +603,7 @@ exports.createGeneralEvent =
           description,
           venue,
           locality,
+          recordMode,
           startsAt,
           endsAt,
           leadMinutes
@@ -580,6 +620,7 @@ exports.createGeneralEvent =
           locality,
           startsAt,
           endsAt,
+          recordMode,
           confirmationLeadMinutes:
             leadMinutes
         });
@@ -826,5 +867,6 @@ exports.createGeneralEvent =
 
 exports._test = {
   canCreateGeneralMunicipalEvent,
-  buildGeneralMunicipalEvent
+  buildGeneralMunicipalEvent,
+  eventRecordMode
 };
