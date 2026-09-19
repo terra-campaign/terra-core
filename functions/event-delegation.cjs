@@ -2063,6 +2063,22 @@ function eventView(snapshot) {
         ? 'test'
         : 'production',
 
+    archived:
+      d.archived ===
+        true,
+
+    archivedAtMillis:
+      typeof d.archivedAt?.toMillis ===
+        'function'
+        ? d.archivedAt.toMillis()
+        : null,
+
+    archivedBy:
+      d.archivedBy || '',
+
+    archivedByName:
+      d.archivedByName || '',
+
     createdBy:
       d.createdBy || '',
 

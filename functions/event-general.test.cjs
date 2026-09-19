@@ -7,6 +7,7 @@ const assert =
 
 const {
   canCreateGeneralMunicipalEvent,
+  canManageEventArchive,
   buildGeneralMunicipalEvent,
   eventRecordMode
 } =
@@ -189,6 +190,106 @@ assert.equal(
   'COORD-001'
 );
 
+
+// ======================================================
+// BUILD-118D1F2
+// ARCHIVADO / RESTAURACION
+// ======================================================
+
+assert.equal(
+  event.archived,
+  false
+);
+
+assert.equal(
+  event.archivedAt,
+  null
+);
+
+assert.equal(
+  event.archivedBy,
+  ''
+);
+
+assert.equal(
+  event.archivedByName,
+  ''
+);
+
+
+assert.equal(
+  canManageEventArchive(
+    coordinator,
+    event
+  ),
+  true
+);
+
+
+assert.equal(
+  canManageEventArchive(
+    {
+      ...coordinator,
+      municipalityId:
+        'MUN-002'
+    },
+    event
+  ),
+  false
+);
+
+
+assert.equal(
+  canManageEventArchive(
+    {
+      ...coordinator,
+      campaignId:
+        'CAM-002'
+    },
+    event
+  ),
+  false
+);
+
+
+assert.equal(
+  canManageEventArchive(
+    {
+      ...coordinator,
+      uid:
+        'COORD-002'
+    },
+    event
+  ),
+  false
+);
+
+
+assert.equal(
+  canManageEventArchive(
+    {
+      ...coordinator,
+      role:
+        'admin'
+    },
+    event
+  ),
+  false
+);
+
+
+assert.equal(
+  canManageEventArchive(
+    {
+      ...coordinator,
+      role:
+        'lider_principal'
+    },
+    event
+  ),
+  false
+);
+
 assert.equal(
   event.createdBy,
   'COORD-001'
@@ -334,4 +435,8 @@ assert.throws(
 
 console.log(
   'OK: BUILD-118D1F1 event record mode contract passed.'
+);
+
+console.log(
+  'OK: BUILD-118D1F2 event archive authorization contract passed.'
 );

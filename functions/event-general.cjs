@@ -259,6 +259,32 @@ function canCreateGeneralMunicipalEvent(
 // CONSTRUCCIÓN DEL EVENTO
 // ======================================================
 
+function canManageEventArchive(
+  profile,
+  event
+) {
+
+  return Boolean(
+    canCreateGeneralMunicipalEvent(
+      profile
+    ) &&
+    event &&
+    event.campaignId ===
+      profile.campaignId &&
+    event.scopeType ===
+      'municipality' &&
+    event.scopeMunicipalityId ===
+      profile.municipalityId &&
+    event.operationalOwnerId ===
+      profile.uid
+  );
+}
+
+
+// ======================================================
+// CONSTRUCCIÓN DEL EVENTO
+// ======================================================
+
 function buildGeneralMunicipalEvent({
   profile,
   eventId,
@@ -331,6 +357,18 @@ function buildGeneralMunicipalEvent({
 
     active:
       true,
+
+    archived:
+      false,
+
+    archivedAt:
+      null,
+
+    archivedBy:
+      '',
+
+    archivedByName:
+      '',
 
     // ================================================
     // ALCANCE ORGANIZACIONAL
@@ -862,11 +900,215 @@ exports.createGeneralEvent =
 
 
 // ======================================================
+// BUILD-118D1F2
+// ARCHIVAR / RESTAURAR EVENTO
+// ======================================================
+
+exports.setEventArchived =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const input =
+        request.data ||
+        {};
+
+
+      const eventId =
+        validId(
+          input.eventId,
+          'Evento'
+        );
+
+
+      if (
+        typeof input.archived !==
+          'boolean'
+      ) {
+
+        fail(
+          'invalid-argument',
+          'El estado de archivo no es válido.'
+        );
+      }
+
+
+      const archived =
+        input.archived;
+
+
+      const db =
+        getFirestore();
+
+
+      const profile =
+        await loadCaller(
+          db,
+          request
+        );
+
+
+      const eventRef =
+        db.collection(
+          'events'
+        )
+          .doc(
+            eventId
+          );
+
+
+      return db.runTransaction(
+        async tx => {
+
+          const eventSnapshot =
+            await tx.get(
+              eventRef
+            );
+
+
+          if (
+            !eventSnapshot.exists
+          ) {
+
+            fail(
+              'not-found',
+              'El evento no existe.'
+            );
+          }
+
+
+          const event =
+            eventSnapshot.data();
+
+
+          if (
+            !canManageEventArchive(
+              profile,
+              event
+            )
+          ) {
+
+            fail(
+              'permission-denied',
+              'No tienes autorización para archivar o restaurar este evento.'
+            );
+          }
+
+
+          const currentArchived =
+            event.archived ===
+              true;
+
+
+          if (
+            currentArchived ===
+              archived
+          ) {
+
+            return {
+              eventId,
+              archived,
+              changed:
+                false
+            };
+          }
+
+
+          const update = archived
+            ? {
+                archived:
+                  true,
+
+                archivedAt:
+                  FieldValue
+                    .serverTimestamp(),
+
+                archivedBy:
+                  profile.uid,
+
+                archivedByName:
+                  profile.name ||
+                  'Sin nombre'
+              }
+            : {
+                archived:
+                  false,
+
+                archivedAt:
+                  null,
+
+                archivedBy:
+                  '',
+
+                archivedByName:
+                  ''
+              };
+
+
+          tx.update(
+            eventRef,
+            update
+          );
+
+
+          const auditRef =
+            db.collection(
+              'logs'
+            )
+              .doc();
+
+
+          tx.create(
+            auditRef,
+            {
+              action:
+                archived
+                  ? 'ARCHIVE_EVENT'
+                  : 'RESTORE_EVENT',
+
+              campaignId:
+                profile.campaignId,
+
+              municipalityId:
+                profile.municipalityId,
+
+              eventId,
+
+              actorUid:
+                profile.uid,
+
+              actorRole:
+                profile.role,
+
+              archived,
+
+              createdAt:
+                FieldValue
+                  .serverTimestamp()
+            }
+          );
+
+
+          return {
+            eventId,
+            archived,
+            changed:
+              true
+          };
+        }
+      );
+    }
+  );
+
+
+// ======================================================
 // TEST HELPERS
 // ======================================================
 
 exports._test = {
   canCreateGeneralMunicipalEvent,
+  canManageEventArchive,
   buildGeneralMunicipalEvent,
   eventRecordMode
 };

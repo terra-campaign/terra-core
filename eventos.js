@@ -82,6 +82,13 @@ const createGeneralEvent =
   );
 
 
+const setEventArchived =
+  httpsCallable(
+    functions,
+    "setEventArchived"
+  );
+
+
 const resolveGeneralEventScope =
   httpsCallable(
     functions,
@@ -1870,6 +1877,25 @@ function eventMatchesFilter(
 
   if (
     selectedEventFilter ===
+      "archived"
+  ) {
+    return (
+      event?.archived ===
+        true
+    );
+  }
+
+
+  if (
+    event?.archived ===
+      true
+  ) {
+    return false;
+  }
+
+
+  if (
+    selectedEventFilter ===
       "all"
   ) {
     return true;
@@ -1944,12 +1970,27 @@ function renderEventFilters() {
       : [];
 
 
+  const regularEvents =
+    events.filter(
+      event =>
+        event?.archived !==
+          true
+    );
+
+
   const counts = {
     all:
-      events.length,
+      regularEvents.length,
+
+    archived:
+      events.filter(
+        event =>
+          event?.archived ===
+            true
+      ).length,
 
     active:
-      events.filter(
+      regularEvents.filter(
         event => {
           const state =
             eventState(event);
@@ -1964,35 +2005,35 @@ function renderEventFilters() {
       ).length,
 
     test:
-      events.filter(
+      regularEvents.filter(
         event =>
           event?.recordMode ===
             "test"
       ).length,
 
     future:
-      events.filter(
+      regularEvents.filter(
         event =>
           eventState(event).code ===
             "future"
       ).length,
 
     "in-progress":
-      events.filter(
+      regularEvents.filter(
         event =>
           eventState(event).code ===
             "in-progress"
       ).length,
 
     completed:
-      events.filter(
+      regularEvents.filter(
         event =>
           eventState(event).code ===
             "completed"
       ).length,
 
     legacy:
-      events.filter(
+      regularEvents.filter(
         event =>
           eventState(event).code ===
             "legacy"
@@ -2009,6 +2050,9 @@ function renderEventFilters() {
 
     test:
       "Pruebas",
+
+    archived:
+      "Archivados",
 
     future:
       "Próximos",
@@ -8247,6 +8291,91 @@ function closeAttendanceControl() {
 
 
 // ======================================================
+// BUILD-118D1F2
+// ARCHIVAR / RESTAURAR EVENTO
+// ======================================================
+
+async function changeEventArchivedState(
+  event,
+  button
+) {
+
+  const archived =
+    event?.archived ===
+      true;
+
+  const nextArchived =
+    !archived;
+
+
+  if (
+    nextArchived &&
+    !window.confirm(
+      `¿Archivar el evento "${event.title || "Evento"}"?\n\nDejará de aparecer en las vistas operativas normales, pero conservará todo su historial.`
+    )
+  ) {
+    return;
+  }
+
+
+  const originalText =
+    button.textContent;
+
+
+  button.disabled =
+    true;
+
+  button.textContent =
+    nextArchived
+      ? "Archivando…"
+      : "Restaurando…";
+
+
+  $("workspaceStatus")
+    .textContent =
+    nextArchived
+      ? "Archivando evento…"
+      : "Restaurando evento…";
+
+
+  try {
+
+    await setEventArchived({
+      eventId:
+        event.id,
+
+      archived:
+        nextArchived
+    });
+
+
+    await reload();
+
+
+    $("workspaceStatus")
+      .textContent =
+      nextArchived
+        ? "✓ Evento archivado. Su historial se conserva."
+        : "✓ Evento restaurado a la operación normal.";
+
+  } catch (error) {
+
+    button.disabled =
+      false;
+
+    button.textContent =
+      originalText;
+
+
+    $("workspaceStatus")
+      .textContent =
+      error.message ||
+      "No fue posible actualizar el archivo del evento.";
+  }
+}
+
+
+// ======================================================
 // BUILD-118D1E · EVENTOS QUE ORGANIZO
 // ======================================================
 
@@ -8368,23 +8497,71 @@ function renderOrganizedEvents() {
       "event-meta";
 
 
-    const button =
+    const actions =
       node(
-        "button",
-        "Abrir transporte"
+        "div"
       );
 
-    button.type =
-      "button";
+    actions.className =
+      "event-actions";
 
-    button.className =
-      "button";
 
-    button.onclick =
-      () =>
-        openTransportControl(
-          event.id
+    if (
+      event.archived !==
+        true
+    ) {
+
+      const transportButton =
+        node(
+          "button",
+          "Abrir transporte"
         );
+
+      transportButton.type =
+        "button";
+
+      transportButton.className =
+        "button";
+
+      transportButton.onclick =
+        () =>
+          openTransportControl(
+            event.id
+          );
+
+
+      actions.append(
+        transportButton
+      );
+    }
+
+
+    const archiveButton =
+      node(
+        "button",
+        event.archived ===
+          true
+          ? "Restaurar evento"
+          : "Archivar evento"
+      );
+
+    archiveButton.type =
+      "button";
+
+    archiveButton.className =
+      "button button--secondary";
+
+    archiveButton.onclick =
+      () =>
+        changeEventArchivedState(
+          event,
+          archiveButton
+        );
+
+
+    actions.append(
+      archiveButton
+    );
 
 
     card.append(
@@ -8393,7 +8570,7 @@ function renderOrganizedEvents() {
       endMeta,
       stateMeta,
       scope,
-      button
+      actions
     );
 
     list.append(card);

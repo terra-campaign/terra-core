@@ -5138,6 +5138,9 @@ exports.createEventInvitations =
 exports.createGeneralEvent =
   require("./event-general.cjs").createGeneralEvent;
 
+exports.setEventArchived =
+  require("./event-general.cjs").setEventArchived;
+
 
 // ======================================================
 // BUILD-118D1B
