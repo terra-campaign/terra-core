@@ -2319,3 +2319,19 @@ button.button-whatsapp:disabled {
       repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* ==========================================================
+   BUILD-121C2 — PERIODO VISIBLE
+========================================================== */
+
+.territorial-supervision__item--period {
+  grid-column: span 2;
+}
+
+@media (max-width: 700px) {
+
+  .territorial-supervision__item--period {
+    grid-column: span 2;
+  }
+}

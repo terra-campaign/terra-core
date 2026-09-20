@@ -314,6 +314,11 @@ const territorialSupervisionVisible =
     "#territorialSupervisionVisible"
   );
 
+const territorialSupervisionPeriod =
+  document.querySelector(
+    "#territorialSupervisionPeriod"
+  );
+
 const territorialSupervisionUpdated =
   document.querySelector(
     "#territorialSupervisionUpdated"
@@ -3269,6 +3274,98 @@ function territorialSupervisionFilterLabel() {
 }
 
 
+function territorialVisitDate(visit) {
+
+  const value =
+    visit?.visitedAt ||
+    visit?.createdAt ||
+    null;
+
+  if (!value) {
+    return null;
+  }
+
+  if (
+    typeof value.toDate === "function"
+  ) {
+    const date = value.toDate();
+
+    return Number.isNaN(
+      date.getTime()
+    )
+      ? null
+      : date;
+  }
+
+  if (
+    Number.isFinite(value?.seconds)
+  ) {
+    return new Date(
+      value.seconds * 1000
+    );
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(
+      value.getTime()
+    )
+      ? null
+      : value;
+  }
+
+  return null;
+}
+
+
+function formatTerritorialPeriodDate(date) {
+
+  return date.toLocaleDateString(
+    "es-MX",
+    {
+      timeZone: "America/Mazatlan",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    }
+  );
+}
+
+
+function territorialVisiblePeriodLabel(visits) {
+
+  const dates =
+    visits
+      .map(territorialVisitDate)
+      .filter(Boolean)
+      .sort(
+        (a, b) =>
+          a.getTime() - b.getTime()
+      );
+
+  if (!dates.length) {
+    return "Sin registros visibles";
+  }
+
+  const first =
+    dates[0];
+
+  const last =
+    dates[dates.length - 1];
+
+  const firstText =
+    formatTerritorialPeriodDate(first);
+
+  const lastText =
+    formatTerritorialPeriodDate(last);
+
+  if (firstText === lastText) {
+    return firstText;
+  }
+
+  return `${firstText} – ${lastText}`;
+}
+
+
 function clearTerritorialSupervisionContext() {
 
   if (!territorialSupervisionContext) {
@@ -3281,6 +3378,7 @@ function clearTerritorialSupervisionContext() {
   territorialSupervisionMode.textContent = "—";
   territorialSupervisionFilter.textContent = "Todos";
   territorialSupervisionVisible.textContent = "0";
+  territorialSupervisionPeriod.textContent = "—";
 
   territorialSupervisionUpdated.textContent =
     "Vista todavía no actualizada.";
@@ -3315,6 +3413,11 @@ function updateTerritorialSupervisionContext() {
 
   territorialSupervisionVisible.textContent =
     String(filteredVisits.length);
+
+  territorialSupervisionPeriod.textContent =
+    territorialVisiblePeriodLabel(
+      filteredVisits
+    );
 
   territorialSupervisionUpdated.textContent =
     `Vista actualizada: ${
