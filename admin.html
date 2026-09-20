@@ -22,7 +22,7 @@
 
 <link
   rel="stylesheet"
-  href="./styles.css?v=build-117d-001"
+  href="./styles.css?v=build-121b3-stats"
 >
 </head>
 
@@ -154,6 +154,80 @@
 
     </section>
 
+
+
+    <!-- =====================================================
+         BUILD-121B3 — RESULTADOS AGREGADOS DE ENCUESTA
+    ====================================================== -->
+
+    <section
+      id="candidateSupportStatsSection"
+      class="card survey-stats-card"
+      hidden
+      aria-labelledby="candidateSupportStatsTitle"
+    >
+
+      <div class="section-heading survey-stats-heading">
+
+        <div>
+          <p class="eyebrow">
+            RESULTADOS DE LA ENCUESTA
+          </p>
+
+          <h2 id="candidateSupportStatsTitle">
+            Respuesta declarada de apoyo
+          </h2>
+
+          <p
+            id="candidateSupportStatsScope"
+            class="survey-stats-scope"
+          >
+            Cargando alcance autorizado...
+          </p>
+        </div>
+
+      </div>
+
+      <p
+        id="candidateSupportStatsMessage"
+        class="message survey-stats-message"
+      >
+        Cargando resultados agregados...
+      </p>
+
+      <div
+        id="candidateSupportStatsGrid"
+        class="survey-stats-grid"
+        hidden
+      >
+
+        <article class="survey-stat">
+          <span>Respuestas</span>
+          <strong id="candidateSupportTotal">0</strong>
+          <small>Muestra agregada</small>
+        </article>
+
+        <article class="survey-stat">
+          <span>Sí</span>
+          <strong id="candidateSupportYes">0</strong>
+          <small id="candidateSupportYesPercent">0%</small>
+        </article>
+
+        <article class="survey-stat">
+          <span>No</span>
+          <strong id="candidateSupportNo">0</strong>
+          <small id="candidateSupportNoPercent">0%</small>
+        </article>
+
+        <article class="survey-stat">
+          <span>Otro</span>
+          <strong id="candidateSupportOther">0</strong>
+          <small id="candidateSupportOtherPercent">0%</small>
+        </article>
+
+      </div>
+
+    </section>
 
 
    <!-- =====================================================
@@ -371,23 +445,23 @@
   </div>
 
   <p class="gps-capture-card__help">
-    Inicia la ubicación y continúa llenando el formulario.
-    TERRA buscará automáticamente la mejor precisión disponible.
+    Primero captura tu ubicación. Mientras TERRA busca la mejor
+    precisión disponible, puedes continuar llenando el formulario.
   </p>
 
   <button
     id="locationButton"
-    class="button button--secondary"
+    class="button button--secondary gps-cta--pending"
     type="button"
   >
-    Obtener ubicación GPS
+    📍 1. Obtener ubicación GPS
   </button>
 
   <p
     id="locationStatus"
     class="message gps-status gps-status--info"
   >
-    Ubicación todavía no capturada.
+    Aún no se ha capturado la ubicación.
   </p>
 
   <input id="latitude" type="hidden">
@@ -804,7 +878,7 @@
 
 <script
   type="module"
-  src="./admin.js?v=build-121a"
+  src="./admin.js?v=build-121b3-stats"
 ></script>
 
 </body>

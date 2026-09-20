@@ -59,6 +59,12 @@ const recordCandidateSupportResponseCall =
     "recordCandidateSupportResponse"
   );
 
+const getCandidateSupportStatsCall =
+  httpsCallable(
+    terraFunctions,
+    "getCandidateSupportStats"
+  );
+
 
 
 
@@ -304,6 +310,63 @@ const totalVacantElement =
 const totalFollowUpsElement =
   document.querySelector("#totalFollowUps");
 
+const candidateSupportStatsSection =
+  document.querySelector(
+    "#candidateSupportStatsSection"
+  );
+
+const candidateSupportStatsScope =
+  document.querySelector(
+    "#candidateSupportStatsScope"
+  );
+
+const candidateSupportStatsMessage =
+  document.querySelector(
+    "#candidateSupportStatsMessage"
+  );
+
+const candidateSupportStatsGrid =
+  document.querySelector(
+    "#candidateSupportStatsGrid"
+  );
+
+const candidateSupportTotal =
+  document.querySelector(
+    "#candidateSupportTotal"
+  );
+
+const candidateSupportYes =
+  document.querySelector(
+    "#candidateSupportYes"
+  );
+
+const candidateSupportNo =
+  document.querySelector(
+    "#candidateSupportNo"
+  );
+
+const candidateSupportOther =
+  document.querySelector(
+    "#candidateSupportOther"
+  );
+
+const candidateSupportYesPercent =
+  document.querySelector(
+    "#candidateSupportYesPercent"
+  );
+
+const candidateSupportNoPercent =
+  document.querySelector(
+    "#candidateSupportNoPercent"
+  );
+
+const candidateSupportOtherPercent =
+  document.querySelector(
+    "#candidateSupportOtherPercent"
+  );
+
+let candidateSupportStatsRequestId = 0;
+
 const visitsList =
   document.querySelector("#visitsList");
 
@@ -327,6 +390,197 @@ const citizenInfoHint =
 
 const photoInstruction =
   document.querySelector("#photoInstruction");
+
+// ======================================================
+// BUILD-121B3 — RESULTADOS AGREGADOS
+// ======================================================
+
+function resetCandidateSupportStats() {
+  candidateSupportTotal.textContent = "0";
+  candidateSupportYes.textContent = "0";
+  candidateSupportNo.textContent = "0";
+  candidateSupportOther.textContent = "0";
+
+  candidateSupportYesPercent.textContent = "0%";
+  candidateSupportNoPercent.textContent = "0%";
+  candidateSupportOtherPercent.textContent = "0%";
+}
+
+
+function candidateSupportPercent(value, total) {
+  const n = Number(value || 0);
+  const t = Number(total || 0);
+
+  if (!Number.isFinite(t) || t <= 0) {
+    return "0%";
+  }
+
+  return `${((n / t) * 100).toLocaleString(
+    "es-MX",
+    {
+      maximumFractionDigits: 1
+    }
+  )}%`;
+}
+
+
+function candidateSupportScopeLabel(data) {
+  const labels = {
+    campaign: "Campaña",
+    municipality: "Municipio",
+    structure: "Estructura",
+    brigade: "Brigada"
+  };
+
+  const scope =
+    labels[data?.scopeType] ||
+    "Alcance autorizado";
+
+  const mode =
+    data?.recordMode === "demo"
+      ? "Modo demostración"
+      : "Operación";
+
+  return [
+    scope,
+    data?.scopeId || "",
+    mode
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+
+function clearCandidateSupportStats() {
+  candidateSupportStatsRequestId += 1;
+
+  resetCandidateSupportStats();
+
+  candidateSupportStatsGrid.hidden = true;
+  candidateSupportStatsSection.hidden = true;
+
+  candidateSupportStatsScope.textContent = "";
+
+  candidateSupportStatsMessage.textContent =
+    "Resultados no disponibles sin autorización territorial vigente.";
+}
+
+
+function renderCandidateSupportStats(data) {
+  candidateSupportStatsSection.hidden = false;
+
+  candidateSupportStatsScope.textContent =
+    candidateSupportScopeLabel(data);
+
+  if (data?.displayAllowed !== true) {
+    resetCandidateSupportStats();
+
+    candidateSupportStatsGrid.hidden = true;
+
+    const minimum =
+      Number(data?.minimumSampleSize || 5);
+
+    candidateSupportStatsMessage.textContent =
+      `Muestra insuficiente. Se requieren al menos ` +
+      `${minimum} respuestas agregadas en este alcance.`;
+
+    return;
+  }
+
+  const total =
+    Number(data?.totalResponses || 0);
+
+  const yes =
+    Number(data?.yes || 0);
+
+  const no =
+    Number(data?.no || 0);
+
+  const other =
+    Number(data?.other || 0);
+
+  candidateSupportTotal.textContent =
+    String(total);
+
+  candidateSupportYes.textContent =
+    String(yes);
+
+  candidateSupportNo.textContent =
+    String(no);
+
+  candidateSupportOther.textContent =
+    String(other);
+
+  candidateSupportYesPercent.textContent =
+    candidateSupportPercent(yes, total);
+
+  candidateSupportNoPercent.textContent =
+    candidateSupportPercent(no, total);
+
+  candidateSupportOtherPercent.textContent =
+    candidateSupportPercent(other, total);
+
+  candidateSupportStatsGrid.hidden = false;
+
+  candidateSupportStatsMessage.textContent =
+    "Resultados agregados de respuestas declaradas.";
+}
+
+
+async function loadCandidateSupportStats() {
+  const requestId =
+    ++candidateSupportStatsRequestId;
+
+  if (
+    currentTerritorialAccess?.read !== true
+  ) {
+    clearCandidateSupportStats();
+    return;
+  }
+
+  candidateSupportStatsSection.hidden = false;
+  candidateSupportStatsGrid.hidden = true;
+
+  candidateSupportStatsMessage.textContent =
+    "Cargando resultados agregados...";
+
+  try {
+    const response =
+      await getCandidateSupportStatsCall({});
+
+    if (
+      requestId !==
+        candidateSupportStatsRequestId ||
+      currentTerritorialAccess?.read !== true
+    ) {
+      return;
+    }
+
+    renderCandidateSupportStats(
+      response?.data || {}
+    );
+
+  } catch (error) {
+    console.error(
+      "Error al cargar estadísticas:",
+      error
+    );
+
+    if (
+      requestId !==
+      candidateSupportStatsRequestId
+    ) {
+      return;
+    }
+
+    resetCandidateSupportStats();
+    candidateSupportStatsGrid.hidden = true;
+
+    candidateSupportStatsMessage.textContent =
+      "No fue posible cargar los resultados agregados.";
+  }
+}
+
 
 // ======================================================
 // BUILD-120A4 — RESPUESTA DECLARADA DE APOYO
@@ -949,6 +1203,8 @@ function blockTerritorialWorkspace(message) {
   releaseTerritorialEvidence();
   currentTerritorialAccess = null;
 
+  clearCandidateSupportStats();
+
   clearTerritorialAccessTimer();
   stopTerritorialVisitListener();
 
@@ -1207,6 +1463,8 @@ function applyTerritorialWorkspaceAccess(access) {
     panel.hidden = true;
     panel.innerHTML = "";
   }
+
+  void loadCandidateSupportStats();
 }
 
 function scheduleTerritorialAccessValidation(access) {
@@ -1458,6 +1716,26 @@ function getGpsQuality(accuracy) {
 
 function setGpsStatus(message, tone = "info") {
 
+  if (locationButton) {
+
+    const hasValidLocation =
+      Boolean(
+        latitudeInput.value &&
+        longitudeInput.value &&
+        gpsAccuracyInput.value
+      );
+
+    locationButton.classList.toggle(
+      "gps-cta--pending",
+      !hasValidLocation
+    );
+
+    locationButton.classList.toggle(
+      "gps-cta--captured",
+      hasValidLocation
+    );
+  }
+
   locationStatus.classList.remove(
     "gps-status--info",
     "gps-status--success",
@@ -1500,7 +1778,7 @@ function finishGpsSearch() {
 
   locationButton.disabled = false;
   locationButton.textContent =
-    "Actualizar ubicación GPS";
+    "📍 Actualizar ubicación GPS";
 
   if (!bestGpsPosition) {
 
@@ -1573,7 +1851,7 @@ function captureCurrentLocation() {
 
   locationButton.disabled = true;
   locationButton.textContent =
-    "Buscando mejor ubicación...";
+    "📍 Buscando mejor ubicación...";
 
   centerMapButton.disabled = true;
 
@@ -1630,6 +1908,14 @@ function captureCurrentLocation() {
         gpsCapturedAtInput.value =
           String(bestGpsPosition.capturedAt);
 
+        locationButton.classList.remove(
+          "gps-cta--pending"
+        );
+
+        locationButton.classList.add(
+          "gps-cta--captured"
+        );
+
         centerMapButton.disabled = false;
 
         const quality =
@@ -1676,7 +1962,7 @@ function captureCurrentLocation() {
 
           locationButton.disabled = false;
           locationButton.textContent =
-            "Obtener ubicación GPS";
+            "📍 1. Obtener ubicación GPS";
 
           centerMapButton.disabled = false;
 
@@ -2761,6 +3047,8 @@ observations:
 
         visitResult
       });
+
+      void loadCandidateSupportStats();
     }
 
     const visitResultLabels = {
@@ -2843,12 +3131,12 @@ observations:
 
     locationButton.disabled = false;
     locationButton.textContent =
-      "Obtener ubicación GPS";
+      "📍 1. Obtener ubicación GPS";
 
     centerMapButton.disabled = false;
 
     setGpsStatus(
-      "Ubicación todavía no capturada.",
+      "Aún no se ha capturado la ubicación.",
       "info"
     );
 
