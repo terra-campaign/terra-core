@@ -347,7 +347,12 @@ match /usuarios/{userId} {
       // territorialAccessGrant explícito, vigente y acotado.
 
       allow create: if
-        territorialCreateAllowed(request.resource.data);
+        territorialCreateAllowed(request.resource.data) &&
+        !request.resource.data.keys().hasAny([
+          "votingIntention",
+          "answeredQuestion",
+          "previousVotingIntention"
+        ]);
 
       allow get, list: if
         territorialReadAllowed(resource.data);

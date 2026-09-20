@@ -1656,3 +1656,381 @@ button.button-whatsapp:disabled {
     padding: 8px 16px;
   }
 }
+
+
+/* ======================================================
+   BUILD-120A2 — FORMULARIO TERRITORIAL MÓVIL
+   ====================================================== */
+
+#visitForm {
+  gap: 18px;
+}
+
+#visitForm label {
+  gap: 8px;
+  color: #17212b;
+}
+
+#visitForm input:not([type="hidden"]),
+#visitForm select,
+#visitForm textarea {
+  width: 100%;
+  border: 2px solid #b9c9d8;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #17212b;
+  font: inherit;
+  font-size: 16px;
+  box-shadow: 0 2px 7px rgba(23, 50, 77, 0.05);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+#visitForm input:not([type="hidden"]) {
+  min-height: 52px;
+  padding: 0 14px;
+}
+
+#visitForm select {
+  min-height: 56px;
+  padding: 0 44px 0 14px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#visitForm textarea {
+  min-height: 112px;
+  padding: 14px;
+  resize: vertical;
+}
+
+#visitForm input:not([type="hidden"]):focus,
+#visitForm select:focus,
+#visitForm textarea:focus {
+  outline: none;
+  border-color: #0d3b66;
+  box-shadow:
+    0 0 0 4px rgba(13, 59, 102, 0.12);
+}
+
+#visitForm input:disabled,
+#visitForm select:disabled {
+  background: #eef2f5;
+  border-color: #cbd5df;
+  color: #667785;
+  cursor: not-allowed;
+}
+
+#visitForm .visit-result-field {
+  padding: 16px;
+  border: 1px solid #c9d7e2;
+  border-radius: 14px;
+  background: #f7fafc;
+}
+
+#visitForm .visit-result-field select {
+  border-color: #6f91ab;
+  font-weight: 700;
+}
+
+#visitForm .citizen-section {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #d3dee7;
+  border-radius: 14px;
+  background: #fbfcfd;
+}
+
+#visitForm .citizen-section h3 {
+  margin-bottom: 0;
+}
+
+#visitForm .field-help {
+  margin: -4px 0 2px;
+  padding: 11px 13px;
+  border-left: 4px solid #6f91ab;
+  border-radius: 8px;
+  background: #eef5fa;
+  color: #425b6d;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+#visitForm .photo-instruction {
+  line-height: 1.5;
+}
+
+#visitForm #locationButton,
+#visitForm #photoButton,
+#visitForm #saveVisitButton {
+  min-height: 52px;
+  touch-action: manipulation;
+}
+
+@media (max-width: 768px) {
+
+  #visitForm {
+    gap: 20px;
+  }
+
+  #visitForm input:not([type="hidden"]) {
+    min-height: 56px;
+    font-size: 17px;
+  }
+
+  #visitForm select {
+    min-height: 60px;
+    font-size: 17px;
+  }
+
+  #visitForm textarea {
+    min-height: 120px;
+    font-size: 17px;
+  }
+
+  #visitForm .visit-result-field,
+  #visitForm .citizen-section {
+    padding: 15px;
+  }
+
+  #visitForm #locationButton,
+  #visitForm #photoButton,
+  #visitForm #saveVisitButton {
+    min-height: 56px;
+    font-size: 16px;
+  }
+}
+
+
+
+/* ======================================================
+   BUILD-120A2B — MENSAJES CONTEXTUALES
+   ====================================================== */
+
+#visitMessage.terra-form-alert {
+  min-height: auto;
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+#visitMessage.terra-form-alert--info {
+  background: #eef6fc;
+  border-color: #b9d5e8;
+  color: #234e6c;
+}
+
+#visitMessage.terra-form-alert--warning {
+  background: #fff7df;
+  border-color: #e7c86f;
+  color: #674f08;
+}
+
+#visitMessage.terra-form-alert--error {
+  background: #fff0f0;
+  border-color: #e2a1a1;
+  color: #8a2525;
+}
+
+#visitMessage.terra-form-alert--success {
+  background: #edf9f2;
+  border-color: #9bd1ae;
+  color: #21623b;
+}
+
+
+
+/* ======================================================
+   BUILD-120A2C — CONFIRMACIÓN DE GUARDADO
+   ====================================================== */
+
+#visitMessage.terra-form-alert {
+  display: grid;
+  gap: 4px;
+}
+
+#visitMessage .terra-status-title {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+#visitMessage .terra-status-detail {
+  display: block;
+  font-weight: 600;
+}
+
+#visitMessage .terra-status-meta {
+  display: block;
+}
+
+#visitMessage .terra-status-time {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.84rem;
+  opacity: 0.82;
+}
+
+#visitMessage.terra-form-alert--success {
+  border-left-width: 4px;
+}
+
+#visitMessage.terra-form-alert--warning {
+  border-left-width: 4px;
+}
+
+#visitMessage.terra-form-alert--error {
+  border-left-width: 4px;
+}
+
+#visitMessage.terra-form-alert--info {
+  border-left-width: 4px;
+}
+
+
+
+/* ======================================================
+   BUILD-120A3 — CALIDAD GPS
+   ====================================================== */
+
+.gps-capture-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #b9d5e8;
+  border-radius: 12px;
+  background: #f6fbff;
+}
+
+.gps-capture-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gps-capture-card__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #426b86;
+}
+
+.gps-capture-card h3 {
+  margin: 0;
+}
+
+.gps-capture-card__help {
+  margin: 0;
+  color: #536473;
+  line-height: 1.45;
+}
+
+#locationStatus.gps-status {
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid transparent;
+  border-left-width: 4px;
+  border-radius: 9px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+#locationStatus.gps-status--info {
+  background: #eef6fc;
+  border-color: #b9d5e8;
+  color: #234e6c;
+}
+
+#locationStatus.gps-status--success {
+  background: #edf9f2;
+  border-color: #9bd1ae;
+  color: #21623b;
+}
+
+#locationStatus.gps-status--warning {
+  background: #fff7df;
+  border-color: #e7c86f;
+  color: #674f08;
+}
+
+#locationStatus.gps-status--error {
+  background: #fff0f0;
+  border-color: #e2a1a1;
+  color: #8a2525;
+}
+
+@media (max-width: 720px) {
+  .gps-capture-card {
+    padding: 14px;
+  }
+
+  #locationButton {
+    min-height: 56px;
+    width: 100%;
+  }
+}
+
+
+
+/* ======================================================
+   BUILD-120A4 — RESPUESTA DE APOYO
+   ====================================================== */
+
+.candidate-support-section {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #c7d8e4;
+  border-radius: 12px;
+  background: #f8fbfd;
+}
+
+.candidate-support-section h3 {
+  margin: 0;
+}
+
+.candidate-support-section label {
+  display: grid;
+  gap: 8px;
+  font-weight: 700;
+}
+
+#candidateSupportResponse {
+  min-height: 56px;
+}
+
+#candidateSupportOtherText {
+  min-height: 52px;
+}
+
+.candidate-support-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eef6fc;
+  color: #315b76;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+
+  #candidateSupportResponse {
+    min-height: 60px;
+  }
+
+  #candidateSupportOtherText {
+    min-height: 56px;
+  }
+}

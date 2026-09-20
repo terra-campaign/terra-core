@@ -598,12 +598,7 @@ function buildInfoWindow(
           ${formatVisitResult(visit.visitResult)}
         </p>
 
-        <p style="margin:5px 0;">
-          <b>🗳 Intención:</b><br>
-          ${formatVotingIntention(
-            visit.votingIntention
-          )}
-        </p>
+
 
         <p style="margin:5px 0;">
           <b>🔁 Tipo de visita:</b><br>
@@ -805,15 +800,7 @@ latestVisit.visitResult
 
 </p>
 
-<p>
 
-<b>Intención actual:</b>
-
-${formatVotingIntention(
-latestVisit.votingIntention
-)}
-
-</p>
 
 </div>
 `;
@@ -1066,19 +1053,7 @@ style="color:#ea580c;font-weight:bold;">
 
 }
 
-if(
-visit.previousVotingIntention &&
-visit.previousVotingIntention!==visit.votingIntention
-){
 
-changes+=`
-<p
-style="color:#2563eb;font-weight:bold;">
-🔄 Cambió la intención
-</p>
-`;
-
-}
 
 
   return `
@@ -1142,17 +1117,12 @@ background:#ffffff;
         )}
       </p>
 
-      <p style="margin:4px 0;">
-        <b>Intención:</b><br>
-        ${formatVotingIntention(
-          visit.votingIntention
-        )}
-      </p>
+
 
       <p style="margin:4px 0;">
         <b>Encuestador:</b><br>
 
-       ${changes} 
+       ${changes}
         ${interviewer}
       </p>
 
@@ -1267,22 +1237,6 @@ function formatVisitResult(value) {
 }
 
 // ------------------------------------------------------
-// FORMATEAR INTENCIÓN
-// ------------------------------------------------------
-
-function formatVotingIntention(value) {
-  const labels = {
-    apoya: "Apoya al candidato",
-    indeciso: "Indeciso",
-    otra_opcion: "Prefiere otra opción",
-    no_respondio: "Prefirió no responder",
-    no_aplica: "No se realizó la pregunta"
-  };
-
-  return labels[value] || "Sin especificar";
-}
-
-// ------------------------------------------------------
 // PROTEGER TEXTO
 // ------------------------------------------------------
 
@@ -1293,4 +1247,4 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-} 
+}

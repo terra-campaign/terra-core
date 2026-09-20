@@ -80,7 +80,7 @@
 >
   Mi organización
 </a>
-  
+
   <a
     id="missionsButton"
     class="button button--secondary"
@@ -98,7 +98,7 @@
   >
     Eventos
   </a>
-  
+
     <button
         id="logoutButton"
         class="button button--small button--secondary"
@@ -128,30 +128,29 @@
       </article>
 
       <article class="card">
-        <span>Respuestas obtenidas</span>
-        <strong id="totalAnswers">0</strong>
+        <span>Contactos realizados</span>
+        <strong id="totalContacts">0</strong>
       </article>
 
-<article class="metric-card">
-  <span class="metric-label">Apoyos</span>
-  <strong id="totalSupport">0</strong>
-</article>
+      <article class="metric-card">
+        <span class="metric-label">No había nadie</span>
+        <strong id="totalNoHome">0</strong>
+      </article>
 
-<article class="metric-card">
-  <span class="metric-label">Indecisos</span>
-  <strong id="totalUndecided">0</strong>
-</article>
+      <article class="metric-card">
+        <span class="metric-label">Volver posteriormente</span>
+        <strong id="totalReturn">0</strong>
+      </article>
 
-<article class="metric-card">
-  <span class="metric-label">Otra opción</span>
-  <strong id="totalOtherOption">0</strong>
-</article>
+      <article class="metric-card">
+        <span class="metric-label">Deshabitados</span>
+        <strong id="totalVacant">0</strong>
+      </article>
 
-<article class="metric-card">
-  <span class="metric-label">Seguimientos</span>
-  <strong id="totalFollowUps">0</strong>
-</article>
-
+      <article class="metric-card">
+        <span class="metric-label">Seguimientos</span>
+        <strong id="totalFollowUps">0</strong>
+      </article>
 
     </section>
 
@@ -173,22 +172,22 @@
   <button
     type="button"
     class="territory-filter"
-    data-filter="support">
-    Apoya
+    data-filter="contact">
+    Contactos
   </button>
 
   <button
     type="button"
     class="territory-filter"
-    data-filter="indecisos">
-    Indecisos
+    data-filter="nohome">
+    No había nadie
   </button>
 
   <button
     type="button"
     class="territory-filter"
-    data-filter="otra">
-    Otra opción
+    data-filter="vacant">
+    Deshabitados
   </button>
 
   <button
@@ -343,6 +342,49 @@
 
       <form id="visitForm">
 
+<section
+  id="gpsCaptureSection"
+  class="gps-capture-card"
+>
+  <div class="gps-capture-card__header">
+    <div>
+      <p class="gps-capture-card__eyebrow">
+        UBICACIÓN GPS
+      </p>
+
+      <h3>
+        Verificación de ubicación
+      </h3>
+    </div>
+  </div>
+
+  <p class="gps-capture-card__help">
+    Inicia la ubicación y continúa llenando el formulario.
+    TERRA buscará automáticamente la mejor precisión disponible.
+  </p>
+
+  <button
+    id="locationButton"
+    class="button button--secondary"
+    type="button"
+  >
+    Obtener ubicación GPS
+  </button>
+
+  <p
+    id="locationStatus"
+    class="message gps-status gps-status--info"
+  >
+    Ubicación todavía no capturada.
+  </p>
+
+  <input id="latitude" type="hidden">
+  <input id="longitude" type="hidden">
+  <input id="gpsAccuracyMeters" type="hidden">
+  <input id="gpsCapturedAt" type="hidden">
+</section>
+
+
         <label>
           Calle
 
@@ -390,6 +432,119 @@
 
 
 <!-- =====================================================
+     BUILD-120A2
+     RESULTADO OPERATIVO DE LA VISITA
+====================================================== -->
+
+<label class="visit-result-field">
+          Resultado de la visita
+
+          <select
+  id="visitResult"
+  required
+>
+
+            <option value="">
+              Seleccionar
+            </option>
+
+            <option value="flyer_entregado">
+              Flyer entregado
+            </option>
+
+            <option value="no_estaba">
+              No había nadie
+            </option>
+<option value="no_estaba_flyer">
+  No había nadie — Flyer dejado
+</option>
+
+            <option value="se_nego">
+              Se negó
+            </option>
+
+            <option value="volver">
+              Volver posteriormente
+            </option>
+
+            <option value="deshabitado">
+              Domicilio deshabitado
+            </option>
+
+          </select>
+        </label>
+
+
+<!-- =====================================================
+     BUILD-120A4
+     RESPUESTA DECLARADA DE APOYO
+====================================================== -->
+
+<section
+  id="candidateSupportSection"
+  class="candidate-support-section"
+>
+  <h3>
+    Respuesta de apoyo
+  </h3>
+
+  <p
+    id="candidateSupportHint"
+    class="field-help"
+  >
+    Se habilita cuando hubo contacto directo con la persona.
+  </p>
+
+  <label>
+    ¿Apoya al candidato?
+
+    <select
+      id="candidateSupportResponse"
+      disabled
+    >
+      <option value="">
+        Seleccione...
+      </option>
+
+      <option value="yes">
+        SÍ
+      </option>
+
+      <option value="no">
+        NO
+      </option>
+
+      <option value="other">
+        OTRO
+      </option>
+    </select>
+  </label>
+
+  <div
+    id="candidateSupportOtherGroup"
+    hidden
+  >
+    <label>
+      ¿A quién apoya?
+
+      <input
+        id="candidateSupportOtherText"
+        type="text"
+        maxlength="80"
+        autocomplete="off"
+        placeholder="Escriba el nombre indicado por la persona"
+      >
+    </label>
+  </div>
+
+  <p class="candidate-support-note">
+    Registra únicamente la respuesta expresada por la persona.
+    No la interpretes ni la deduzcas.
+  </p>
+</section>
+
+
+<!-- =====================================================
      BUILD-106
      INFORMACIÓN DEL CIUDADANO
 ====================================================== -->
@@ -398,16 +553,22 @@
 
   <h3>Información del ciudadano</h3>
 
+  <p
+    id="citizenInfoHint"
+    class="field-help"
+    aria-live="polite"
+  >
+    Selecciona primero el resultado de la visita.
+  </p>
+
   <label>
 
-    ¿Cuántos mayores de 18 años habitan aquí? *
+    ¿Cuántos mayores de 18 años habitan aquí?
 
-    <select
-      id="adults"
-      required>
+    <select id="adults">
 
       <option value="">
-        Seleccione...
+        No se obtuvo / no aplica
       </option>
 
       <option value="1">1</option>
@@ -472,91 +633,6 @@
   hidden>
 </div>
 
-        <label>
-          Resultado de la visita
-
-          <select
-  id="visitResult"
-  required
-  onchange="applySmartVisitRules()"
->
-
-            <option value="">
-              Seleccionar
-            </option>
-
-            <option value="flyer_entregado">
-              Flyer entregado
-            </option>
-
-            <option value="no_estaba">
-              No había nadie
-            </option>
-<option value="no_estaba_flyer">
-  No había nadie — Flyer dejado
-</option>
-
-            <option value="se_nego">
-              Se negó
-            </option>
-
-            <option value="volver">
-              Volver posteriormente
-            </option>
-
-            <option value="deshabitado">
-              Domicilio deshabitado
-            </option>
-
-          </select>
-        </label>
-
-        <label>
-          Intención de voto
-
-          <select id="votingIntention" required>
-
-            <option value="">
-              Seleccionar
-            </option>
-
-            <option value="apoya">
-              Apoya al candidato
-            </option>
-
-            <option value="indeciso">
-              Indeciso
-            </option>
-
-            <option value="otra_opcion">
-              Prefiere otra opción
-            </option>
-
-            <option value="no_respondio">
-              Prefirió no responder
-            </option>
-
-            <option value="no_aplica">
-              No se realizó la pregunta
-            </option>
-
-          </select>
-        </label>
-
-        <button
-          id="locationButton"
-          class="button button--secondary"
-          type="button"
-        >
-          Obtener ubicación GPS
-        </button>
-
-        <p id="locationStatus" class="message">
-          Ubicación todavía no capturada.
-        </p>
-
-        <input id="latitude" type="hidden">
-        <input id="longitude" type="hidden">
 
 <div class="form-group">
 
@@ -564,7 +640,7 @@
     Evidencia fotográfica
 </label>
 
-<p class="photo-instruction">
+<p id="photoInstruction" class="photo-instruction">
 📸 <strong>Evidencia de la visita:</strong> Tome la fotografía mostrando el <strong>flyer entregado</strong>. Siempre que sea posible, el ciudadano deberá sostener el flyer en su mano y deberá apreciarse parte de la fachada o acceso del domicilio. Esta imagen será utilizada como evidencia del trabajo realizado.
 </p>
 
@@ -710,63 +786,13 @@
     </section>
   </div>
 
-<script>
-  function applySmartVisitRules() {
-    const visitResult =
-      document.querySelector("#visitResult");
 
-    const votingIntention =
-      document.querySelector("#votingIntention");
-
-    if (!visitResult || !votingIntention) {
-      return;
-    }
-
-    const result = visitResult.value;
-
-    if (!result) {
-      votingIntention.value = "";
-      votingIntention.disabled = true;
-      votingIntention.required = false;
-      return;
-    }
-
-    if (result === "flyer_entregado") {
-      votingIntention.value = "";
-      votingIntention.disabled = false;
-      votingIntention.required = true;
-      return;
-    }
-
-    if (result === "se_nego") {
-      votingIntention.value = "no_respondio";
-      votingIntention.disabled = true;
-      votingIntention.required = false;
-      return;
-    }
-
-    if (
-      result === "no_estaba" ||
-      result === "no_estaba_flyer" ||
-      result === "volver" ||
-      result === "deshabitado"
-    ) {
-      votingIntention.value = "no_aplica";
-      votingIntention.disabled = true;
-      votingIntention.required = false;
-    }
-  }
-
-  window.addEventListener("DOMContentLoaded", () => {
-    applySmartVisitRules();
-  });
-</script>
 
 
 
 <script
   type="module"
-  src="./admin.js?v=build-118c-3b3e-3f-b"
+  src="./admin.js?v=build-120a4-connect"
 ></script>
 
 </body>

@@ -53,6 +53,12 @@ const getMyTerritorialAccessCall =
     "getMyTerritorialAccess"
   );
 
+const recordCandidateSupportResponseCall =
+  httpsCallable(
+    terraFunctions,
+    "recordCandidateSupportResponse"
+  );
+
 
 
 
@@ -126,8 +132,20 @@ const duplicateAddressWarning =
 const visitResultInput =
   document.querySelector("#visitResult");
 
-const votingIntentionInput =
-  document.querySelector("#votingIntention");
+const candidateSupportSection =
+  document.querySelector("#candidateSupportSection");
+
+const candidateSupportResponseInput =
+  document.querySelector("#candidateSupportResponse");
+
+const candidateSupportOtherGroup =
+  document.querySelector("#candidateSupportOtherGroup");
+
+const candidateSupportOtherTextInput =
+  document.querySelector("#candidateSupportOtherText");
+
+const candidateSupportHint =
+  document.querySelector("#candidateSupportHint");
 
 const locationButton =
   document.querySelector("#locationButton");
@@ -147,11 +165,111 @@ const latitudeInput =
 const longitudeInput =
   document.querySelector("#longitude");
 
+const gpsAccuracyInput =
+  document.querySelector("#gpsAccuracyMeters");
+
+const gpsCapturedAtInput =
+  document.querySelector("#gpsCapturedAt");
+
+const GPS_TARGET_METERS = 10;
+const GPS_VERY_GOOD_METERS = 25;
+const GPS_ACCEPTABLE_METERS = 50;
+const GPS_MAX_METERS = 100;
+const GPS_SEARCH_DURATION_MS = 12000;
+
+let gpsWatchId = null;
+let gpsSearchTimer = null;
+let bestGpsPosition = null;
+
 const saveVisitButton =
   document.querySelector("#saveVisitButton");
 
 const visitMessage =
   document.querySelector("#visitMessage");
+
+function updateVisitMessagePresentation() {
+
+  if (!visitMessage) {
+    return;
+  }
+
+  const message =
+    visitMessage.textContent.trim();
+
+  visitMessage.classList.remove(
+    "terra-form-alert",
+    "terra-form-alert--info",
+    "terra-form-alert--warning",
+    "terra-form-alert--error",
+    "terra-form-alert--success"
+  );
+
+  if (!message) {
+    return;
+  }
+
+  visitMessage.classList.add(
+    "terra-form-alert"
+  );
+
+  if (
+    message.startsWith("✅") ||
+    message.toLowerCase().includes("correctamente")
+  ) {
+    visitMessage.classList.add(
+      "terra-form-alert--success"
+    );
+
+    return;
+  }
+
+  if (
+    message.toLowerCase().includes("no fue posible") ||
+    message.toLowerCase().includes("rechazó") ||
+    message.toLowerCase().includes("desactivado") ||
+    message.toLowerCase().includes("no está disponible")
+  ) {
+    visitMessage.classList.add(
+      "terra-form-alert--error"
+    );
+
+    return;
+  }
+
+  if (
+    message.toLowerCase().includes("debes") ||
+    message.toLowerCase().includes("completa") ||
+    message.toLowerCase().includes("falta") ||
+    message.toLowerCase().includes("revise") ||
+    message.toLowerCase().includes("cancelado")
+  ) {
+    visitMessage.classList.add(
+      "terra-form-alert--warning"
+    );
+
+    return;
+  }
+
+  visitMessage.classList.add(
+    "terra-form-alert--info"
+  );
+}
+
+const visitMessageObserver =
+  new MutationObserver(
+    updateVisitMessagePresentation
+  );
+
+visitMessageObserver.observe(
+  visitMessage,
+  {
+    childList: true,
+    characterData: true,
+    subtree: true
+  }
+);
+
+updateVisitMessagePresentation();
 
 const photoButton =
   document.querySelector("#photoButton");
@@ -171,17 +289,17 @@ const totalVisitsElement =
 const totalFlyersElement =
   document.querySelector("#totalFlyers");
 
-const totalAnswersElement =
-  document.querySelector("#totalAnswers");
+const totalContactsElement =
+  document.querySelector("#totalContacts");
 
-const totalSupportElement =
-  document.querySelector("#totalSupport");
+const totalNoHomeElement =
+  document.querySelector("#totalNoHome");
 
-const totalUndecidedElement =
-  document.querySelector("#totalUndecided");
+const totalReturnElement =
+  document.querySelector("#totalReturn");
 
-const totalOtherOptionElement =
-  document.querySelector("#totalOtherOption");
+const totalVacantElement =
+  document.querySelector("#totalVacant");
 
 const totalFollowUpsElement =
   document.querySelector("#totalFollowUps");
@@ -192,74 +310,247 @@ const visitsList =
 const territoryFilters =
   document.querySelectorAll(".territory-filter");
 
-// Resultado de visita → Intención de voto
-// =====================================================
+const citizenSection =
+  document.querySelector(".citizen-section");
 
-function applyVisitResultRules() {
+const citizenInfoHint =
+  document.querySelector("#citizenInfoHint");
 
-    const visitResult =
-        visitResultInput.value;
+const photoInstruction =
+  document.querySelector("#photoInstruction");
 
-    // Sin resultado seleccionado
-    if (!visitResult) {
+// ======================================================
+// BUILD-120A4 — RESPUESTA DECLARADA DE APOYO
+// ======================================================
 
-        votingIntentionInput.value = "";
-        votingIntentionInput.disabled = true;
-        votingIntentionInput.required = false;
+function applyCandidateSupportExperience() {
 
-        return;
-    }
+  const visitResult =
+    visitResultInput.value;
 
-    // Hubo contacto con la persona
-    // La intención debe seleccionarse manualmente
-    if (visitResult === "flyer_entregado") {
+  const response =
+    candidateSupportResponseInput.value;
 
-        votingIntentionInput.disabled = false;
-        votingIntentionInput.required = true;
-        votingIntentionInput.value = "";
+  const contactAvailable =
+    visitResult === "flyer_entregado";
 
-        return;
-    }
+  candidateSupportResponseInput.disabled =
+    !contactAvailable;
 
-    // La persona se negó a responder
-    if (visitResult === "se_nego") {
+  if (!contactAvailable) {
 
-        votingIntentionInput.value =
-            "no_respondio";
+    candidateSupportResponseInput.value = "";
 
-        votingIntentionInput.disabled = true;
-        votingIntentionInput.required = false;
+    candidateSupportOtherTextInput.value = "";
+    candidateSupportOtherTextInput.disabled = true;
+    candidateSupportOtherTextInput.required = false;
 
-        return;
-    }
+    candidateSupportOtherGroup.hidden = true;
 
-    // No se realizó la pregunta
-    if (
-        visitResult === "no_estaba" ||
-        visitResult === "no_estaba_flyer" ||
-        visitResult === "volver" ||
-        visitResult === "deshabitado"
-    ) {
+    candidateSupportHint.textContent =
+      "Se habilita cuando hubo contacto directo con la persona.";
 
-        votingIntentionInput.value =
-            "no_aplica";
+    return;
+  }
 
-        votingIntentionInput.disabled = true;
-        votingIntentionInput.required = false;
+  candidateSupportHint.textContent =
+    "Registra únicamente la respuesta expresada por la persona.";
 
-        return;
-    }
+  const showOther =
+    response === "other";
+
+  candidateSupportOtherGroup.hidden =
+    !showOther;
+
+  candidateSupportOtherTextInput.disabled =
+    !showOther;
+
+  candidateSupportOtherTextInput.required =
+    showOther;
+
+  if (!showOther) {
+    candidateSupportOtherTextInput.value = "";
+  }
 }
 
-visitResultInput.addEventListener(
-    "change",
-    applyVisitResultRules
+
+candidateSupportResponseInput.addEventListener(
+  "change",
+  applyCandidateSupportExperience
 );
 
-applyVisitResultRules();
+visitResultInput.addEventListener(
+  "change",
+  applyCandidateSupportExperience
+);
+
+applyCandidateSupportExperience();
 
 
 // ======================================================
+// BUILD-120A2 — FORMULARIO TERRITORIAL ADAPTATIVO
+// ======================================================
+
+function setCitizenOperationalFieldsEnabled(enabled) {
+
+  const fields = [
+    adultsInput,
+    citizenNameInput,
+    citizenPhoneInput
+  ];
+
+  fields.forEach((field) => {
+    if (!field) {
+      return;
+    }
+
+    field.disabled = !enabled;
+
+    if (!enabled) {
+      field.value = "";
+    }
+  });
+
+  // Nunca obligar a inventar este dato.
+  adultsInput.required = false;
+}
+
+
+function applyVisitResultExperience() {
+
+  const result =
+    visitResultInput.value;
+
+  let enableCitizenData = false;
+
+  let citizenMessage =
+    "Selecciona primero el resultado de la visita.";
+
+  let photoMessage =
+    `📸 <strong>Evidencia de la visita:</strong>
+     Selecciona primero el resultado para mostrar
+     la instrucción fotográfica correspondiente.`;
+
+  switch (result) {
+
+    case "flyer_entregado":
+
+      enableCitizenData = true;
+
+      citizenMessage =
+        "Captura únicamente la información que realmente se obtuvo. Si no conoces cuántos adultos habitan el domicilio, deja el dato como «No se obtuvo / no aplica».";
+
+      photoMessage =
+        `📸 <strong>Evidencia de la visita:</strong>
+         Toma una fotografía que permita verificar la entrega del material
+         y parte de la fachada o acceso del domicilio.
+         Evita captar rostros o datos personales innecesarios.`;
+
+      break;
+
+
+    case "no_estaba":
+
+      citizenMessage =
+        "No había nadie. No es necesario capturar número de adultos, nombre ni teléfono.";
+
+      photoMessage =
+        `📸 <strong>Evidencia de la visita:</strong>
+         Como no había nadie, toma una fotografía donde se aprecie
+         <strong>la casa completa</strong>.
+         Si no es posible, captura claramente la
+         <strong>fachada y el acceso principal</strong>.`;
+
+      break;
+
+
+    case "no_estaba_flyer":
+
+      citizenMessage =
+        "No había nadie. No es necesario capturar número de adultos, nombre ni teléfono.";
+
+      photoMessage =
+        `📸 <strong>Evidencia de la visita:</strong>
+         Toma una fotografía donde se aprecie
+         <strong>la casa completa o la fachada principal</strong>
+         y, cuando sea posible, el lugar donde quedó el flyer.
+         No ingreses al domicilio para obtener la evidencia.`;
+
+      break;
+
+
+    case "se_nego":
+
+      citizenMessage =
+        "La persona se negó. No es necesario capturar información personal.";
+
+      photoMessage =
+        `📸 <strong>Evidencia de la visita:</strong>
+         No fotografíes a la persona que se negó.
+         Toma únicamente una fotografía de la
+         <strong>fachada o acceso del domicilio</strong>
+         como evidencia de la visita.`;
+
+      break;
+
+
+    case "volver":
+
+      citizenMessage =
+        "La visita requiere seguimiento. No es necesario capturar datos que no fueron obtenidos.";
+
+      photoMessage =
+        `📸 <strong>Evidencia de la visita:</strong>
+         Toma una fotografía de la
+         <strong>casa, fachada o acceso principal</strong>
+         para dejar evidencia del intento de visita.`;
+
+      break;
+
+
+    case "deshabitado":
+
+      citizenMessage =
+        "El domicilio se registró como deshabitado. Los datos del ciudadano no aplican.";
+
+      photoMessage =
+        `📸 <strong>Evidencia de la visita:</strong>
+         Toma una fotografía donde se aprecie
+         <strong>la casa completa o su fachada principal</strong>
+         como evidencia del estado observado.`;
+
+      break;
+  }
+
+  setCitizenOperationalFieldsEnabled(
+    enableCitizenData
+  );
+
+  if (citizenInfoHint) {
+    citizenInfoHint.textContent =
+      citizenMessage;
+  }
+
+  if (photoInstruction) {
+    photoInstruction.innerHTML =
+      photoMessage;
+  }
+
+  if (citizenSection) {
+    citizenSection.dataset.visitState =
+      result || "pending";
+  }
+}
+
+
+visitResultInput.addEventListener(
+  "change",
+  applyVisitResultExperience
+);
+
+applyVisitResultExperience();
+
+
 // MODAL DOMICILIO DUPLICADO
 // ======================================================
 
@@ -1119,77 +1410,286 @@ centerMapButton.addEventListener("click", () => {
 // CAPTURAR GPS
 // ======================================================
 
-function captureCurrentLocation() {
-  if (!navigator.geolocation) {
-    locationStatus.textContent =
-      "Este dispositivo no permite obtener ubicación GPS.";
+function getGpsQuality(accuracy) {
+
+  if (accuracy <= GPS_TARGET_METERS) {
+    return {
+      label: "Excelente",
+      tone: "success"
+    };
+  }
+
+  if (accuracy <= GPS_VERY_GOOD_METERS) {
+    return {
+      label: "Muy buena",
+      tone: "success"
+    };
+  }
+
+  if (accuracy <= GPS_ACCEPTABLE_METERS) {
+    return {
+      label: "Aceptable",
+      tone: "success"
+    };
+  }
+
+  if (accuracy <= GPS_MAX_METERS) {
+    return {
+      label: "Limitada",
+      tone: "warning"
+    };
+  }
+
+  return {
+    label: "Insuficiente",
+    tone: "error"
+  };
+}
+
+
+function setGpsStatus(message, tone = "info") {
+
+  locationStatus.classList.remove(
+    "gps-status--info",
+    "gps-status--success",
+    "gps-status--warning",
+    "gps-status--error"
+  );
+
+  locationStatus.classList.add(
+    "gps-status",
+    `gps-status--${tone}`
+  );
+
+  locationStatus.textContent = message;
+}
+
+
+function clearGpsSearch() {
+
+  if (
+    gpsWatchId !== null &&
+    navigator.geolocation
+  ) {
+    navigator.geolocation.clearWatch(
+      gpsWatchId
+    );
+
+    gpsWatchId = null;
+  }
+
+  if (gpsSearchTimer !== null) {
+    clearTimeout(gpsSearchTimer);
+    gpsSearchTimer = null;
+  }
+}
+
+
+function finishGpsSearch() {
+
+  clearGpsSearch();
+
+  locationButton.disabled = false;
+  locationButton.textContent =
+    "Actualizar ubicación GPS";
+
+  if (!bestGpsPosition) {
+
+    centerMapButton.disabled = false;
+
+    setGpsStatus(
+      "⛔ No fue posible obtener una ubicación válida. Intenta nuevamente.",
+      "error"
+    );
 
     return;
   }
 
+  const accuracy =
+    bestGpsPosition.accuracy;
+
+  const roundedAccuracy =
+    Math.round(accuracy);
+
+  const quality =
+    getGpsQuality(accuracy);
+
+  if (accuracy > GPS_MAX_METERS) {
+
+    setGpsStatus(
+      `⛔ Ubicación demasiado imprecisa · Precisión: ${roundedAccuracy} m. Actualiza el GPS antes de guardar.`,
+      "error"
+    );
+
+    return;
+  }
+
+  if (accuracy > GPS_ACCEPTABLE_METERS) {
+
+    setGpsStatus(
+      `⚠️ Ubicación verificada · Precisión: ${roundedAccuracy} m · ${quality.label}. Conviene actualizar GPS si es posible.`,
+      "warning"
+    );
+
+    return;
+  }
+
+  setGpsStatus(
+    `✅ Ubicación verificada · Precisión: ${roundedAccuracy} m · ${quality.label}.`,
+    "success"
+  );
+}
+
+
+function captureCurrentLocation() {
+
+  if (!navigator.geolocation) {
+
+    setGpsStatus(
+      "⛔ Este dispositivo no permite obtener ubicación GPS.",
+      "error"
+    );
+
+    return;
+  }
+
+  clearGpsSearch();
+
+  bestGpsPosition = null;
+
+  latitudeInput.value = "";
+  longitudeInput.value = "";
+  gpsAccuracyInput.value = "";
+  gpsCapturedAtInput.value = "";
+
   locationButton.disabled = true;
+  locationButton.textContent =
+    "Buscando mejor ubicación...";
+
   centerMapButton.disabled = true;
 
-  locationButton.textContent = "Obteniendo ubicación...";
-  locationStatus.textContent =
-    "Esperando la ubicación del dispositivo...";
-
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      const latitude = position.coords.latitude;
-      const longitude = position.coords.longitude;
-      const accuracy = position.coords.accuracy;
-
-      latitudeInput.value = String(latitude);
-      longitudeInput.value = String(longitude);
-
-      locationStatus.textContent =
-        `Ubicación capturada. Precisión aproximada: ${Math.round(accuracy)} metros.`;
-
-      locationButton.textContent = "Actualizar ubicación GPS";
-      locationButton.disabled = false;
-      centerMapButton.disabled = false;
-
-      if (mapReady) {
-        await showCurrentLocation(latitude, longitude);
-      }
-    },
-
-    (error) => {
-      console.error("Error de geolocalización:", error);
-
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          locationStatus.textContent =
-            "El permiso de ubicación fue rechazado.";
-          break;
-
-        case error.POSITION_UNAVAILABLE:
-          locationStatus.textContent =
-            "No fue posible obtener la ubicación.";
-          break;
-
-        case error.TIMEOUT:
-          locationStatus.textContent =
-            "El dispositivo tardó demasiado en obtener el GPS.";
-          break;
-
-        default:
-          locationStatus.textContent =
-            "Ocurrió un error al obtener la ubicación.";
-      }
-
-      locationButton.textContent = "Obtener ubicación GPS";
-      locationButton.disabled = false;
-      centerMapButton.disabled = false;
-    },
-
-    {
-      enableHighAccuracy: true,
-      timeout: 20000,
-      maximumAge: 0
-    }
+  setGpsStatus(
+    "🔵 Buscando ubicación de alta precisión… Puedes continuar llenando el formulario.",
+    "info"
   );
+
+  gpsWatchId =
+    navigator.geolocation.watchPosition(
+
+      (position) => {
+
+        const latitude =
+          position.coords.latitude;
+
+        const longitude =
+          position.coords.longitude;
+
+        const accuracy =
+          Number(position.coords.accuracy);
+
+        if (
+          !Number.isFinite(latitude) ||
+          !Number.isFinite(longitude) ||
+          !Number.isFinite(accuracy)
+        ) {
+          return;
+        }
+
+        if (
+          bestGpsPosition &&
+          accuracy >= bestGpsPosition.accuracy
+        ) {
+          return;
+        }
+
+        bestGpsPosition = {
+          latitude,
+          longitude,
+          accuracy,
+          capturedAt: Date.now()
+        };
+
+        latitudeInput.value =
+          String(latitude);
+
+        longitudeInput.value =
+          String(longitude);
+
+        gpsAccuracyInput.value =
+          String(accuracy);
+
+        gpsCapturedAtInput.value =
+          String(bestGpsPosition.capturedAt);
+
+        centerMapButton.disabled = false;
+
+        const quality =
+          getGpsQuality(accuracy);
+
+        setGpsStatus(
+          `🔵 Buscando mejor ubicación… Mejor lectura actual: ${Math.round(accuracy)} m · ${quality.label}. Puedes continuar llenando el formulario.`,
+          "info"
+        );
+
+        if (mapReady) {
+
+          showCurrentLocation(
+            latitude,
+            longitude
+          ).catch((error) => {
+            console.error(
+              "No fue posible actualizar la ubicación en el mapa:",
+              error
+            );
+          });
+        }
+
+        if (
+          accuracy <= GPS_TARGET_METERS
+        ) {
+          finishGpsSearch();
+        }
+      },
+
+      (error) => {
+
+        console.error(
+          "Error de geolocalización:",
+          error
+        );
+
+        if (
+          error.code ===
+          error.PERMISSION_DENIED
+        ) {
+
+          clearGpsSearch();
+
+          locationButton.disabled = false;
+          locationButton.textContent =
+            "Obtener ubicación GPS";
+
+          centerMapButton.disabled = false;
+
+          setGpsStatus(
+            "⛔ El permiso de ubicación fue rechazado.",
+            "error"
+          );
+        }
+      },
+
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+
+  gpsSearchTimer =
+    setTimeout(
+      finishGpsSearch,
+      GPS_SEARCH_DURATION_MS
+    );
 }
 
 
@@ -1658,13 +2158,6 @@ async function detectDuplicateAddress() {
           )}
         </p>
 
-        <p>
-          <b>Última intención:</b>
-          ${formatVotingIntention(
-            latestVisit.votingIntention
-          )}
-        </p>
-
         <p style="margin-bottom:0;">
           El registro se guardará como seguimiento
           cuando corresponda.
@@ -1756,11 +2249,6 @@ async function confirmDuplicateVisit(visitHistory) {
               </p>
 
               <p>
-                <b>Intención:</b>
-                ${formatVotingIntention(visit.votingIntention)}
-              </p>
-
-              <p>
                 <b>Tipo:</b>
                 ${
                   visit.isFollowUp
@@ -1845,19 +2333,7 @@ async function confirmDuplicateVisit(visitHistory) {
 visitForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-const adultsValue =
-  Number(adultsInput.value);
 
-if (
-  !Number.isInteger(adultsValue) ||
-  adultsValue < 1
-) {
-  visitMessage.textContent =
-    "Indique cuántos mayores de 18 años habitan en el domicilio.";
-
-  adultsInput.focus();
-  return;
-}
 
 
 
@@ -1882,7 +2358,12 @@ const normalizedAddress = normalizeAddress(
 );
 
   const visitResult = visitResultInput.value;
-  const votingIntention = votingIntentionInput.value;
+
+  const candidateSupportResponse =
+    candidateSupportResponseInput.value;
+
+  const candidateSupportOtherText =
+    candidateSupportOtherTextInput.value.trim();
 
   const latitude = latitudeInput.value
     ? Number(latitudeInput.value)
@@ -1892,16 +2373,52 @@ const normalizedAddress = normalizeAddress(
     ? Number(longitudeInput.value)
     : null;
 
+  const gpsAccuracyMeters =
+    gpsAccuracyInput.value
+      ? Number(gpsAccuracyInput.value)
+      : null;
+
+  const gpsCapturedAtMillis =
+    gpsCapturedAtInput.value
+      ? Number(gpsCapturedAtInput.value)
+      : null;
+
   if (
     !street ||
     !houseNumber ||
     !neighborhood ||
     !locality ||
-    !visitResult ||
-    !votingIntention
+    !visitResult
   ) {
     visitMessage.textContent =
       "Completa todos los campos obligatorios.";
+
+    return;
+  }
+
+  if (
+    visitResult === "flyer_entregado" &&
+    !["yes", "no", "other"].includes(
+      candidateSupportResponse
+    )
+  ) {
+    visitMessage.textContent =
+      "Selecciona la respuesta a «¿Apoya al candidato?» antes de guardar.";
+
+    candidateSupportResponseInput.focus();
+
+    return;
+  }
+
+  if (
+    visitResult === "flyer_entregado" &&
+    candidateSupportResponse === "other" &&
+    !candidateSupportOtherText
+  ) {
+    visitMessage.textContent =
+      "Indica a quién declaró apoyar la persona.";
+
+    candidateSupportOtherTextInput.focus();
 
     return;
   }
@@ -1912,6 +2429,25 @@ const normalizedAddress = normalizeAddress(
   ) {
     visitMessage.textContent =
       "Debes obtener la ubicación GPS antes de guardar.";
+
+    return;
+  }
+
+  if (
+    !Number.isFinite(gpsAccuracyMeters) ||
+    !Number.isFinite(gpsCapturedAtMillis)
+  ) {
+    visitMessage.textContent =
+      "Debes verificar la precisión GPS antes de guardar.";
+
+    return;
+  }
+
+  if (
+    gpsAccuracyMeters > GPS_MAX_METERS
+  ) {
+    visitMessage.textContent =
+      `La ubicación GPS es demasiado imprecisa (${Math.round(gpsAccuracyMeters)} m). Actualiza la ubicación antes de guardar.`;
 
     return;
   }
@@ -1927,15 +2463,24 @@ if (!selectedPhoto) {
 
   saveVisitButton.disabled = true;
   saveVisitButton.textContent = "Guardando...";
-  visitMessage.textContent = "";
+  visitMessage.textContent =
+    "Guardando visita y evidencia...";
 
   const flyerDelivered =
   visitResult === "flyer_entregado" ||
   visitResult === "no_estaba_flyer";
 
-  const answeredQuestion =
-    votingIntention !== "no_respondio" &&
-    votingIntention !== "no_aplica";
+  const candidateSupportSubmissionId =
+    (
+      window.crypto &&
+      typeof window.crypto.randomUUID === "function"
+    )
+      ? window.crypto.randomUUID()
+      : `CSS-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 12)}`;
+
+
 
 
 
@@ -1960,6 +2505,9 @@ if (previousVisit) {
     );
 
   if (!continueAsFollowUp) {
+    visitMessage.textContent =
+      "Registro cancelado. Revise la información antes de volver a guardar.";
+
     return;
   }
 }
@@ -2145,18 +2693,25 @@ visitResult,
 
       flyerDelivered,
 
-      votingIntention,
-      answeredQuestion,
-
       latitude,
       longitude,
       hasLocation: true,
+
+      gpsAccuracyMeters:
+        Number(
+          gpsAccuracyMeters.toFixed(1)
+        ),
+
+      gpsCapturedAt:
+        new Date(gpsCapturedAtMillis),
 
       photoPath,
 hasPhoto: true,
 
 adults:
-  Number(adultsInput.value),
+  adultsInput.value
+    ? Number(adultsInput.value)
+    : null,
 
 citizenName:
   citizenNameInput.value.trim(),
@@ -2176,19 +2731,117 @@ observations:
       version: 1
     });
 
-    visitMessage.textContent =
-      `✅ Visita registrada correctamente. Gracias por contribuir al levantamiento territorial. ID: ${visitId}`;
+    if (
+      visitResult === "flyer_entregado"
+    ) {
+
+      saveVisitButton.textContent =
+        "Registrando respuesta...";
+
+      await recordCandidateSupportResponseCall({
+        response:
+          candidateSupportResponse,
+
+        otherText:
+          candidateSupportResponse === "other"
+            ? candidateSupportOtherText
+            : "",
+
+        submissionId:
+          candidateSupportSubmissionId,
+
+        visitResult
+      });
+    }
+
+    const visitResultLabels = {
+      flyer_entregado:
+        "Flyer entregado",
+
+      no_estaba:
+        "No había nadie",
+
+      no_estaba_flyer:
+        "No había nadie — Flyer dejado",
+
+      se_nego:
+        "Se negó",
+
+      volver:
+        "Volver posteriormente",
+
+      deshabitado:
+        "Deshabitado"
+    };
+
+    const visitResultLabel =
+      visitResultLabels[visitResult] ||
+      "Resultado registrado";
+
+    const visitFolio =
+      `VIS-${visitId.slice(0, 8).toUpperCase()}`;
+
+    const savedAt =
+      new Date().toLocaleString(
+        "es-MX",
+        {
+          timeZone: "America/Mazatlan",
+          dateStyle: "short",
+          timeStyle: "short"
+        }
+      );
+
+    visitMessage.innerHTML = `
+      <span class="terra-status-title">
+        ✅ Visita registrada correctamente
+      </span>
+
+      <span class="terra-status-detail">
+        ${
+          visitResult === "flyer_entregado"
+            ? "Registro territorial, evidencia y respuesta estadística guardados."
+            : "Registro territorial y evidencia fotográfica guardados."
+        }
+      </span>
+
+      <span class="terra-status-meta">
+        <strong>Resultado:</strong>
+        ${visitResultLabel}
+      </span>
+
+      <span class="terra-status-meta">
+        <strong>Folio:</strong>
+        ${visitFolio}
+      </span>
+
+      <span class="terra-status-time">
+        ${savedAt}
+      </span>
+    `;
 
     visitForm.reset();
 
-// Restablecer las reglas del formulario inteligente
-applyVisitResultRules();
+    applyVisitResultExperience();
+
+    clearGpsSearch();
+
+    bestGpsPosition = null;
 
     latitudeInput.value = "";
     longitudeInput.value = "";
+    gpsAccuracyInput.value = "";
+    gpsCapturedAtInput.value = "";
 
-    locationStatus.textContent =
-      "Ubicación todavía no capturada.";
+    locationButton.disabled = false;
+    locationButton.textContent =
+      "Obtener ubicación GPS";
+
+    centerMapButton.disabled = false;
+
+    setGpsStatus(
+      "Ubicación todavía no capturada.",
+      "info"
+    );
 
 selectedPhoto = null;
 
@@ -2206,8 +2859,19 @@ photoStatus.textContent =
 
 
     setTimeout(() => {
-      visitMessage.textContent = "";
-    }, 4000);
+
+      if (
+        !visitMessage.textContent.includes(
+          visitFolio
+        )
+      ) {
+        return;
+      }
+
+      visitMessage.textContent =
+        `✓ Última visita guardada correctamente · Folio: ${visitFolio}`;
+
+    }, 9000);
   } catch (error) {
     console.error("Error al guardar visita:", error);
 
@@ -2282,24 +2946,26 @@ function applyTerritoryFilter() {
       filteredVisits = [...latestVisits];
       break;
 
-    case "support":
+    case "contact":
       filteredVisits = latestVisits.filter(
         (visit) =>
-          visit.votingIntention === "apoya"
+          visit.visitResult === "flyer_entregado" ||
+          visit.visitResult === "se_nego"
       );
       break;
 
-    case "indecisos":
+    case "nohome":
       filteredVisits = latestVisits.filter(
         (visit) =>
-          visit.votingIntention === "indeciso"
+          visit.visitResult === "no_estaba" ||
+          visit.visitResult === "no_estaba_flyer"
       );
       break;
 
-    case "otra":
+    case "vacant":
       filteredVisits = latestVisits.filter(
         (visit) =>
-          visit.votingIntention === "otra_opcion"
+          visit.visitResult === "deshabitado"
       );
       break;
 
@@ -2352,23 +3018,26 @@ function updateMetrics(visits) {
     (visit) => visit.flyerDelivered === true
   ).length;
 
-  const totalAnswers = visits.filter(
-    (visit) => visit.answeredQuestion === true
+  const totalContacts = visits.filter(
+    (visit) =>
+      visit.visitResult === "flyer_entregado" ||
+      visit.visitResult === "se_nego"
   ).length;
 
-  const totalSupport = visits.filter(
+  const totalNoHome = visits.filter(
     (visit) =>
-      visit.votingIntention === "apoya"
+      visit.visitResult === "no_estaba" ||
+      visit.visitResult === "no_estaba_flyer"
   ).length;
 
-  const totalUndecided = visits.filter(
+  const totalReturn = visits.filter(
     (visit) =>
-      visit.votingIntention === "indeciso"
+      visit.visitResult === "volver"
   ).length;
 
-  const totalOtherOption = visits.filter(
+  const totalVacant = visits.filter(
     (visit) =>
-      visit.votingIntention === "otra_opcion"
+      visit.visitResult === "deshabitado"
   ).length;
 
   const totalFollowUps = visits.filter(
@@ -2378,11 +3047,10 @@ function updateMetrics(visits) {
 
   totalVisitsElement.textContent = totalVisits;
   totalFlyersElement.textContent = totalFlyers;
-  totalAnswersElement.textContent = totalAnswers;
-
-  totalSupportElement.textContent = totalSupport;
-  totalUndecidedElement.textContent = totalUndecided;
-  totalOtherOptionElement.textContent = totalOtherOption;
+  totalContactsElement.textContent = totalContacts;
+  totalNoHomeElement.textContent = totalNoHome;
+  totalReturnElement.textContent = totalReturn;
+  totalVacantElement.textContent = totalVacant;
   totalFollowUpsElement.textContent = totalFollowUps;
 }
 
@@ -2444,19 +3112,6 @@ function renderVisits(visits) {
 
                 ${formatVisitResult(
                   visit.visitResult
-                )}
-
-              </strong>
-
-            </p>
-
-            <p>
-
-              Intención:
-              <strong>
-
-                ${formatVotingIntention(
-                  visit.votingIntention
                 )}
 
               </strong>
@@ -2553,18 +3208,6 @@ function formatVisitResult(value) {
     se_nego: "Se negó",
     volver: "Volver posteriormente",
     deshabitado: "Domicilio deshabitado"
-  };
-
-  return labels[value] || "Sin especificar";
-}
-
-function formatVotingIntention(value) {
-  const labels = {
-    apoya: "Apoya al candidato",
-    indeciso: "Indeciso",
-    otra_opcion: "Prefiere otra opción",
-    no_respondio: "Prefirió no responder",
-    no_aplica: "No se realizó la pregunta"
   };
 
   return labels[value] || "Sin especificar";

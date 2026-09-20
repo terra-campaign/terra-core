@@ -5215,6 +5215,15 @@ exports.revokeTerritorialAccess =
   require('./territorial-access-admin.cjs').revokeTerritorialAccess;
 
 
+// ======================================================
+// BUILD-120A4 — ENCUESTA DE APOYO AGREGADA
+// ======================================================
+
+exports.recordCandidateSupportResponse =
+  require('./candidate-support.cjs')
+    .recordCandidateSupportResponse;
+
+
 exports.searchPersonCandidates =
   require("./person-identity.cjs").searchPersonCandidates;
 
