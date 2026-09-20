@@ -5223,6 +5223,10 @@ exports.recordCandidateSupportResponse =
   require('./candidate-support.cjs')
     .recordCandidateSupportResponse;
 
+exports.getCandidateSupportStats =
+  require('./candidate-support.cjs')
+    .getCandidateSupportStats;
+
 
 exports.searchPersonCandidates =
   require("./person-identity.cjs").searchPersonCandidates;
