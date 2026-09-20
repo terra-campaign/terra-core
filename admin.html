@@ -288,13 +288,23 @@
 
         <button
             id="refreshDuplicates"
-            class="button button--small button--secondary">
+            class="button button--small button--secondary"
+            type="button">
 
-            Actualizar
+            Actualizar vista
 
         </button>
 
     </div>
+
+    <p
+      id="registeredHomesSummary"
+      class="registered-homes-summary"
+    >
+      Esperando visitas autorizadas...
+    </p>
+
+    <div class="registered-homes-table-wrap">
 
     <table class="duplicates-table">
 
@@ -319,7 +329,7 @@
 
                 <td colspan="6">
 
-                    Cargando...
+                    Todavía no existen domicilios para mostrar.
 
                 </td>
 
@@ -328,6 +338,8 @@
         </tbody>
 
     </table>
+
+    </div>
 
 </section>
 
@@ -792,7 +804,7 @@
 
 <script
   type="module"
-  src="./admin.js?v=build-120a4-connect"
+  src="./admin.js?v=build-121a"
 ></script>
 
 </body>

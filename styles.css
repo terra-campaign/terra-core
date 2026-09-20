@@ -2034,3 +2034,55 @@ button.button-whatsapp:disabled {
     min-height: 56px;
   }
 }
+
+
+
+/* ======================================================
+   BUILD-121A — DOMICILIOS REGISTRADOS
+   ====================================================== */
+
+.registered-homes-summary {
+  margin: 0 0 12px;
+  color: #607080;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.registered-homes-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.duplicates-table {
+  width: 100%;
+  min-width: 720px;
+}
+
+.registered-home-status {
+  display: inline-block;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: #eef4f8;
+  color: #314e63;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.registered-homes-empty {
+  padding: 20px 12px;
+  text-align: center;
+  color: #687887;
+}
+
+@media (max-width: 720px) {
+
+  .registered-homes-summary {
+    font-size: 0.86rem;
+  }
+
+  .duplicates-table {
+    min-width: 680px;
+  }
+}

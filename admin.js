@@ -307,6 +307,15 @@ const totalFollowUpsElement =
 const visitsList =
   document.querySelector("#visitsList");
 
+const registeredHomesTable =
+  document.querySelector("#duplicatesTable");
+
+const registeredHomesSummary =
+  document.querySelector("#registeredHomesSummary");
+
+const refreshRegisteredHomesButton =
+  document.querySelector("#refreshDuplicates");
+
 const territoryFilters =
   document.querySelectorAll(".territory-filter");
 
@@ -2930,6 +2939,21 @@ function listenVisits() {
 
       visitsList.innerHTML =
         "<p>No fue posible consultar las visitas.</p>";
+
+      if (registeredHomesTable) {
+        registeredHomesTable.innerHTML = `
+          <tr>
+            <td colspan="6">
+              No fue posible consultar los domicilios.
+            </td>
+          </tr>
+        `;
+      }
+
+      if (registeredHomesSummary) {
+        registeredHomesSummary.textContent =
+          "No fue posible actualizar la vista territorial.";
+      }
     }
   );
 }
@@ -2996,6 +3020,10 @@ function applyTerritoryFilter() {
 
   updateMetrics(filteredVisits);
 
+  renderRegisteredHomes(
+    filteredVisits
+  );
+
   renderVisits(
     filteredVisits.slice(0, 10)
   );
@@ -3005,6 +3033,169 @@ function applyTerritoryFilter() {
   }
 }
 
+
+
+// ======================================================
+// BUILD-121A — DOMICILIOS REGISTRADOS CANÓNICOS
+// ======================================================
+
+function registeredHomeKey(visit) {
+
+  const canonical =
+    String(
+      visit.normalizedAddress || ""
+    ).trim();
+
+  if (canonical) {
+    return canonical;
+  }
+
+  return [
+    visit.street,
+    visit.houseNumber,
+    visit.neighborhood,
+    visit.locality
+  ]
+    .map((value) =>
+      String(value || "")
+        .trim()
+        .toLocaleLowerCase("es-MX")
+    )
+    .join("|");
+}
+
+
+function renderRegisteredHomes(visits) {
+
+  if (
+    !registeredHomesTable ||
+    !registeredHomesSummary
+  ) {
+    return;
+  }
+
+  const homes =
+    new Map();
+
+  visits.forEach((visit) => {
+
+    const key =
+      registeredHomeKey(visit);
+
+    if (!key) {
+      return;
+    }
+
+    if (!homes.has(key)) {
+
+      homes.set(
+        key,
+        {
+          street:
+            visit.street || "",
+
+          houseNumber:
+            visit.houseNumber || "",
+
+          neighborhood:
+            visit.neighborhood || "",
+
+          locality:
+            visit.locality || "",
+
+          visits: 1,
+
+          latestVisit:
+            visit
+        }
+      );
+
+      return;
+    }
+
+    homes.get(key).visits += 1;
+  });
+
+
+  const rows =
+    [...homes.values()];
+
+
+  registeredHomesSummary.textContent =
+    `${rows.length} domicilio${rows.length === 1 ? "" : "s"} · ` +
+    `${visits.length} visita${visits.length === 1 ? "" : "s"} ` +
+    `en la vista actual.`;
+
+
+  if (!rows.length) {
+
+    registeredHomesTable.innerHTML = `
+      <tr>
+        <td
+          colspan="6"
+          class="registered-homes-empty"
+        >
+          No existen domicilios para el filtro seleccionado.
+        </td>
+      </tr>
+    `;
+
+    return;
+  }
+
+
+  registeredHomesTable.innerHTML =
+    rows
+      .map((home) => {
+
+        const latest =
+          home.latestVisit;
+
+        const status =
+          formatVisitResult(
+            latest.visitResult
+          );
+
+        const followUp =
+          latest.isFollowUp === true
+            ? ` · Seguimiento ${latest.followUpNumber || ""}`
+            : "";
+
+        return `
+          <tr>
+            <td>
+              ${escapeHtml(home.street || "-")}
+            </td>
+
+            <td>
+              ${escapeHtml(home.houseNumber || "-")}
+            </td>
+
+            <td>
+              ${escapeHtml(home.neighborhood || "-")}
+            </td>
+
+            <td>
+              ${escapeHtml(home.locality || "-")}
+            </td>
+
+            <td>
+              <strong>
+                ${home.visits}
+              </strong>
+            </td>
+
+            <td>
+              <span class="registered-home-status">
+                ${escapeHtml(status)}
+                ${escapeHtml(followUp)}
+              </span>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+}
 
 
 // ======================================================
@@ -3266,6 +3457,40 @@ territoryFilters.forEach((button) => {
   });
 
 });
+
+// ======================================================
+// BUILD-121A — ACTUALIZAR VISTA DE DOMICILIOS
+// ======================================================
+
+refreshRegisteredHomesButton?.addEventListener(
+  "click",
+  () => {
+
+    renderRegisteredHomes(
+      filteredVisits
+    );
+
+    const originalText =
+      refreshRegisteredHomesButton.textContent;
+
+    refreshRegisteredHomesButton.textContent =
+      "Actualizado ✓";
+
+    refreshRegisteredHomesButton.disabled =
+      true;
+
+    setTimeout(() => {
+
+      refreshRegisteredHomesButton.textContent =
+        originalText;
+
+      refreshRegisteredHomesButton.disabled =
+        false;
+
+    }, 1200);
+  }
+);
+
 
 // ======================================================
 // BUILD-105 — EVENTOS DEL DETECTOR
