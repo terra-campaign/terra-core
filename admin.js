@@ -289,6 +289,37 @@ const photoPreview =
 const photoStatus =
   document.querySelector("#photoStatus");
 
+const territorialSupervisionContext =
+  document.querySelector(
+    "#territorialSupervisionContext"
+  );
+
+const territorialSupervisionScope =
+  document.querySelector(
+    "#territorialSupervisionScope"
+  );
+
+const territorialSupervisionMode =
+  document.querySelector(
+    "#territorialSupervisionMode"
+  );
+
+const territorialSupervisionFilter =
+  document.querySelector(
+    "#territorialSupervisionFilter"
+  );
+
+const territorialSupervisionVisible =
+  document.querySelector(
+    "#territorialSupervisionVisible"
+  );
+
+const territorialSupervisionUpdated =
+  document.querySelector(
+    "#territorialSupervisionUpdated"
+  );
+
+
 const totalVisitsElement =
   document.querySelector("#totalVisits");
 
@@ -1204,6 +1235,7 @@ function blockTerritorialWorkspace(message) {
   currentTerritorialAccess = null;
 
   clearCandidateSupportStats();
+  clearTerritorialSupervisionContext();
 
   clearTerritorialAccessTimer();
   stopTerritorialVisitListener();
@@ -1431,7 +1463,7 @@ function applyTerritorialWorkspaceAccess(access) {
         formatTerritorialExpiration(
           grant.expiresAt
         )
-      }.`;
+      }`;
 
     panel.append(
       title,
@@ -3186,6 +3218,119 @@ photoStatus.textContent =
 });
 
 // ======================================================
+// BUILD-121C1 — CONTEXTO DE SUPERVISIÓN TERRITORIAL
+// ======================================================
+
+function territorialSupervisionScopeLabel() {
+
+  const grant =
+    currentTerritorialAccess?.grant || {};
+
+  const labels = {
+    campaign: "Campaña",
+    municipality: "Municipio",
+    structure: "Estructura",
+    brigade: "Brigada"
+  };
+
+  const label =
+    labels[grant.scopeType] ||
+    "Alcance autorizado";
+
+  const scopeId =
+    grant.scopeId ||
+    grant.municipalityId ||
+    grant.structureId ||
+    grant.brigadeId ||
+    "";
+
+  return [
+    label,
+    scopeId
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+
+function territorialSupervisionFilterLabel() {
+
+  const labels = {
+    all: "Todos",
+    contact: "Contactos",
+    nohome: "No había nadie",
+    vacant: "Deshabitados",
+    flyer: "Flyers",
+    volver: "Volver",
+    followup: "Seguimientos"
+  };
+
+  return labels[activeFilter] || "Todos";
+}
+
+
+function clearTerritorialSupervisionContext() {
+
+  if (!territorialSupervisionContext) {
+    return;
+  }
+
+  territorialSupervisionContext.hidden = true;
+
+  territorialSupervisionScope.textContent = "—";
+  territorialSupervisionMode.textContent = "—";
+  territorialSupervisionFilter.textContent = "Todos";
+  territorialSupervisionVisible.textContent = "0";
+
+  territorialSupervisionUpdated.textContent =
+    "Vista todavía no actualizada.";
+}
+
+
+function updateTerritorialSupervisionContext() {
+
+  if (
+    !territorialSupervisionContext ||
+    currentTerritorialAccess?.read !== true
+  ) {
+    clearTerritorialSupervisionContext();
+    return;
+  }
+
+  const grant =
+    currentTerritorialAccess?.grant || {};
+
+  territorialSupervisionContext.hidden = false;
+
+  territorialSupervisionScope.textContent =
+    territorialSupervisionScopeLabel();
+
+  territorialSupervisionMode.textContent =
+    grant.mode === "demo"
+      ? "Demostración"
+      : "Operación";
+
+  territorialSupervisionFilter.textContent =
+    territorialSupervisionFilterLabel();
+
+  territorialSupervisionVisible.textContent =
+    String(filteredVisits.length);
+
+  territorialSupervisionUpdated.textContent =
+    `Vista actualizada: ${
+      new Date().toLocaleString(
+        "es-MX",
+        {
+          timeZone: "America/Mazatlan",
+          dateStyle: "short",
+          timeStyle: "short"
+        }
+      )
+    }`;
+}
+
+
+// ======================================================
 // ESCUCHAR VISITAS EN TIEMPO REAL
 // ======================================================
 
@@ -3319,6 +3464,8 @@ function applyTerritoryFilter() {
   if (mapReady) {
     renderVisitMarkers(filteredVisits);
   }
+
+  updateTerritorialSupervisionContext();
 }
 
 
