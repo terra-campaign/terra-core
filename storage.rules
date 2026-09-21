@@ -114,12 +114,40 @@ service firebase.storage {
         );
     }
 
+    // =====================================================
+    // BUILD-123D4H-C7 — ADMIN TÉCNICO GLOBAL
+    // LECTURA EXPLÍCITA DE EVIDENCIA POR CAMPAÑA
+    // =====================================================
+
+    function adminCampaignAccessPath(campaignId) {
+      return /databases/(default)/documents/adminCampaignAccess/$(request.auth.uid)/campaigns/$(campaignId);
+    }
+
+    function adminHasCampaignAccess(campaignId) {
+      return roleIs("admin") &&
+             firestore.exists(
+               adminCampaignAccessPath(campaignId)
+             ) &&
+             firestore.get(
+               adminCampaignAccessPath(campaignId)
+             ).data.active == true &&
+             firestore.get(
+               adminCampaignAccessPath(campaignId)
+             ).data.adminUid == request.auth.uid &&
+             firestore.get(
+               adminCampaignAccessPath(campaignId)
+             ).data.campaignId == campaignId;
+    }
+
     function territorialStorageReadAllowed(campaignId, metadata) {
-      return territorialPermission("read") &&
-             campaignId == profile().campaignId &&
-             campaignId == territorialGrant().campaignId &&
-             storageRecordModeMatches(metadata) &&
-             storageScopeMatches(metadata);
+      return (
+        territorialPermission("read") &&
+        campaignId == profile().campaignId &&
+        campaignId == territorialGrant().campaignId &&
+        storageRecordModeMatches(metadata) &&
+        storageScopeMatches(metadata)
+      ) ||
+      adminHasCampaignAccess(campaignId);
     }
 
     function territorialStorageCreateAllowed(campaignId, metadata) {

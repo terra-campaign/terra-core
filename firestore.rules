@@ -37,6 +37,32 @@ service cloud.firestore {
 
 
     // =====================================================
+    // BUILD-123D4H-C7 — ADMIN TÉCNICO GLOBAL
+    // LECTURA EXPLÍCITA POR CAMPAÑA
+    // =====================================================
+
+    function adminCampaignAccessPath(campaignId) {
+      return /databases/$(database)/documents/adminCampaignAccess/$(request.auth.uid)/campaigns/$(campaignId);
+    }
+
+    function adminHasCampaignAccess(campaignId) {
+      return roleIs("admin") &&
+             exists(
+               adminCampaignAccessPath(campaignId)
+             ) &&
+             get(
+               adminCampaignAccessPath(campaignId)
+             ).data.active == true &&
+             get(
+               adminCampaignAccessPath(campaignId)
+             ).data.adminUid == request.auth.uid &&
+             get(
+               adminCampaignAccessPath(campaignId)
+             ).data.campaignId == campaignId;
+    }
+
+
+    // =====================================================
     // BUILD-119A4 — AUTORIZACIÓN TERRITORIAL EXPLÍCITA
     // =====================================================
 
@@ -355,7 +381,10 @@ match /usuarios/{userId} {
         ]);
 
       allow get, list: if
-        territorialReadAllowed(resource.data);
+        territorialReadAllowed(resource.data) ||
+        adminHasCampaignAccess(
+          resource.data.campaignId
+        );
 
       allow update, delete: if false;
     }
