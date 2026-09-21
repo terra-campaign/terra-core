@@ -20,6 +20,12 @@ const {
   'node:crypto'
 );
 
+const {
+  resolveCanonicalPersonForAccount
+} = require(
+  './person-identity.cjs'
+);
+
 
 const OPTIONS = {
   region:
@@ -1012,6 +1018,34 @@ exports.createQuickAffiliation =
         );
 
 
+      // ==================================================
+      // BUILD-123B2
+      // IDENTIDAD CANONICA DEL ACTOR TERRITORIAL
+      //
+      // caller.uid      = cuenta digital compatible.
+      // callerPersonId  = identidad permanente.
+      // ==================================================
+
+      const callerIdentity =
+        await resolveCanonicalPersonForAccount({
+
+          db,
+
+          accountUid:
+            caller.uid,
+
+          profile:
+            caller,
+
+          campaignId:
+            caller.campaignId
+        });
+
+
+      const callerPersonId =
+        callerIdentity.personId;
+
+
       const data =
         request.data ||
         {};
@@ -1272,6 +1306,9 @@ exports.createQuickAffiliation =
               introducedByUserId:
                 caller.uid,
 
+              introducedByPersonId:
+                callerPersonId,
+
               referredByUserId:
                 caller.uid,
 
@@ -1340,6 +1377,9 @@ exports.createQuickAffiliation =
               parentUserId:
                 caller.uid,
 
+              parentPersonId:
+                callerPersonId,
+
               parentUserName:
                 caller.name ||
                 '',
@@ -1349,6 +1389,9 @@ exports.createQuickAffiliation =
 
               introducedByUserId:
                 caller.uid,
+
+              introducedByPersonId:
+                callerPersonId,
 
               referredByUserId:
                 caller.uid,
