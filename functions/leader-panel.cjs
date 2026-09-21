@@ -56,19 +56,35 @@ exports.assignPrincipalLeader=onCall(options,async request=>{
   return {ok:true,campaignId,uid,alreadyAssigned:false};
  });
 });
+function panelCampaignId(request,p){
+ if(p.role==='lider_principal'){
+  try{return validId(p.campaignId,'campaignId');}
+  catch{deny();}
+ }
+ const requested=request.data?.campaignId;
+ if(typeof requested==='string'&&requested.trim()){
+  try{return validId(requested,'campaignId');}
+  catch{throw new HttpsError('invalid-argument','Campaña inválida.');}
+ }
+ try{return validId(p.campaignId,'campaignId');}
+ catch{throw new HttpsError('failed-precondition','Selecciona una campaña para consultar el panel.');}
+}
 exports.getPrincipalLeaderPanel=onCall(options,async request=>{
  const db=getFirestore();
  return db.runTransaction(async tx=>{
-  const p=await profile(tx,db,request);
+  const p=await activeProfile(tx,db,request);
   if(!['admin','lider_principal'].includes(p.role))deny();
-  if(p.role==='lider_principal'){
-   const lock=await tx.get(db.doc('principalLeaders/'+p.campaignId));
+  const campaignId=panelCampaignId(request,p);
+  if(p.role==='admin'){
+   await authorizeAdminCampaign(tx,db,request,campaignId);
+  }else{
+   const lock=await tx.get(db.doc('principalLeaders/'+campaignId));
    if(lock.data()?.uid!==request.auth.uid)deny();
   }
-  async function read(name){const s=await tx.get(db.collection(name).where('campaignId','==',p.campaignId).limit(5001));if(s.size>5000)throw new HttpsError('resource-exhausted','Se requiere un resumen precalculado por el volumen de datos.');return s.docs.map(d=>({...d.data(),_id:d.id}));}
+  async function read(name){const s=await tx.get(db.collection(name).where('campaignId','==',campaignId).limit(5001));if(s.size>5000)throw new HttpsError('resource-exhausted','Se requiere un resumen precalculado por el volumen de datos.');return s.docs.map(d=>({...d.data(),_id:d.id}));}
   const municipalities=await read('municipios'),users=await read('usuarios'),structures=await read('estructuras'),missions=await read('misiones'),evidence=await read('missionEvidence');
   const result=buildPanel(municipalities,users,structures,missions,evidence);
-  return {name:p.name||'Dirección',campaignId:p.campaignId,calculatedAt:Date.now(),...result};
+  return {name:p.name||'Dirección',campaignId,calculatedAt:Date.now(),...result};
  });
 });
 function buildPanel(municipalities,users,structures,missions,evidence){
