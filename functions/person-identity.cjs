@@ -906,6 +906,288 @@ exports.searchPersonCandidates =
   );
 
 
+
+// ======================================================
+// BUILD-123A
+// RESOLUCION CANONICA DE CUENTA DIGITAL -> PERSONA
+//
+// REGLA:
+// - accountUid identifica la cuenta digital.
+// - personId identifica permanentemente a la persona.
+// - Una cuenta territorial debe resolver exactamente una
+//   persona canónica activa dentro de su campaña.
+// - Soporta cuentas legacy que todavía no tienen personId
+//   en usuarios/{uid}, usando persons.accountUid.
+// - NO crea, fusiona ni reasigna personas.
+// ======================================================
+
+function canonicalDocumentId(
+  value,
+  label
+) {
+
+  const id =
+    typeof value === 'string'
+      ? value.trim()
+      : '';
+
+
+  if (
+    !id ||
+    id.includes('/')
+  ) {
+
+    fail(
+      'failed-precondition',
+      `${label || 'El identificador'} no es válido.`
+    );
+  }
+
+
+  return id;
+}
+
+
+async function canonicalRead(
+  target,
+  tx
+) {
+
+  if (
+    tx &&
+    typeof tx.get === 'function'
+  ) {
+
+    return tx.get(
+      target
+    );
+  }
+
+
+  return target.get();
+}
+
+
+async function resolveCanonicalPersonForAccount({
+  db,
+  tx = null,
+  accountUid,
+  profile,
+  campaignId
+}) {
+
+  if (!db) {
+
+    fail(
+      'internal',
+      'No fue posible acceder al repositorio de identidad.'
+    );
+  }
+
+
+  const uid =
+    canonicalDocumentId(
+      accountUid,
+      'La cuenta'
+    );
+
+
+  const canonicalCampaignId =
+    canonicalDocumentId(
+      campaignId,
+      'La campaña'
+    );
+
+
+  if (
+    !profile ||
+    profile.active !== true ||
+    profile.campaignId !==
+      canonicalCampaignId
+  ) {
+
+    fail(
+      'failed-precondition',
+      'La cuenta no tiene una identidad territorial activa válida.'
+    );
+  }
+
+
+  const profilePersonId =
+    typeof profile.personId ===
+      'string'
+      ? profile.personId.trim()
+      : '';
+
+
+  let personSnapshot;
+
+
+  // ------------------------------------------------------
+  // MODELO CANONICO
+  // usuarios/{uid}.personId
+  // ------------------------------------------------------
+
+  if (profilePersonId) {
+
+    const personId =
+      canonicalDocumentId(
+        profilePersonId,
+        'La persona'
+      );
+
+
+    personSnapshot =
+      await canonicalRead(
+        db
+          .collection(
+            'persons'
+          )
+          .doc(
+            personId
+          ),
+        tx
+      );
+
+  } else {
+
+    // ----------------------------------------------------
+    // COMPATIBILIDAD LEGACY
+    //
+    // Una cuenta antigua puede no tener personId todavía.
+    // En ese caso se permite resolver por accountUid
+    // únicamente cuando existe EXACTAMENTE una persona
+    // activa de la misma campaña.
+    // ----------------------------------------------------
+
+    const personsSnapshot =
+      await canonicalRead(
+        db
+          .collection(
+            'persons'
+          )
+          .where(
+            'accountUid',
+            '==',
+            uid
+          )
+          .limit(
+            3
+          ),
+        tx
+      );
+
+
+    const matches =
+      personsSnapshot.docs.filter(
+        snapshot => {
+
+          const person =
+            snapshot.data();
+
+
+          return (
+            person.active === true &&
+            person.campaignId ===
+              canonicalCampaignId
+          );
+        }
+      );
+
+
+    if (
+      matches.length !== 1
+    ) {
+
+      fail(
+        'failed-precondition',
+        'No fue posible resolver de forma única la persona canónica de esta cuenta.'
+      );
+    }
+
+
+    personSnapshot =
+      matches[0];
+  }
+
+
+  if (
+    !personSnapshot ||
+    !personSnapshot.exists
+  ) {
+
+    fail(
+      'failed-precondition',
+      'La persona canónica vinculada a la cuenta no existe.'
+    );
+  }
+
+
+  const person = {
+    ...personSnapshot.data(),
+    id:
+      personSnapshot.id
+  };
+
+
+  const storedPersonId =
+    typeof person.personId ===
+      'string' &&
+    person.personId.trim()
+      ? person.personId.trim()
+      : personSnapshot.id;
+
+
+  const personId =
+    canonicalDocumentId(
+      storedPersonId,
+      'La persona'
+    );
+
+
+  const personAccountUid =
+    typeof person.accountUid ===
+      'string'
+      ? person.accountUid.trim()
+      : '';
+
+
+  if (
+    personSnapshot.id !==
+      personId ||
+    person.active !==
+      true ||
+    person.campaignId !==
+      canonicalCampaignId ||
+    personAccountUid !==
+      uid ||
+    (
+      profilePersonId &&
+      profilePersonId !==
+        personId
+    )
+  ) {
+
+    fail(
+      'failed-precondition',
+      'La cuenta y la persona canónica tienen datos de identidad inconsistentes.'
+    );
+  }
+
+
+  return {
+    personId,
+    accountUid:
+      uid,
+    person
+  };
+}
+
+
+exports.resolveCanonicalPersonForAccount =
+  resolveCanonicalPersonForAccount;
+
+
 // ======================================================
 // HELPERS PARA PRUEBAS
 // ======================================================
