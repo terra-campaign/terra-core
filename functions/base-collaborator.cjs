@@ -27,6 +27,13 @@ const {
 );
 
 
+const {
+  canonicalMembershipDocumentId
+} = require(
+  './territorial-membership-id.cjs'
+);
+
+
 const OPTIONS = {
   region: 'us-central1',
   timeoutSeconds: 60
@@ -419,26 +426,31 @@ exports.createBaseCollaborator =
           .doc();
 
 
+      const personId =
+        personRef.id;
+
+
+      const membershipId =
+        canonicalMembershipDocumentId(
+          campaignId,
+          personId
+        );
+
+
       const membershipRef =
         db
           .collection(
             'territorialMemberships'
           )
-          .doc();
+          .doc(
+            membershipId
+          );
 
 
       const logRef =
         db
           .collection('logs')
           .doc();
-
-
-      const personId =
-        personRef.id;
-
-
-      const membershipId =
-        membershipRef.id;
 
 
       const ancestorIds =
