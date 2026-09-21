@@ -136,12 +136,17 @@ assert.ok(
 
 
 // ======================================================
-// NO ALTERAR MEMBERSHIP ID DETERMINISTICO
+// MEMBERSHIP ID DETERMINISTICO CENTRALIZADO
 // ======================================================
 
 assert.match(
   source,
-  /['"]territorial-membership-v1['"]/
+  /canonicalMembershipDocumentId/
+);
+
+assert.match(
+  source,
+  /require\(\s*['"]\.\/territorial-membership-id\.cjs['"]\s*\)/
 );
 
 

@@ -52,6 +52,14 @@ const {
   );
 
 
+const {
+  canonicalMembershipDocumentId
+} =
+  require(
+    './territorial-membership-id.cjs'
+  );
+
+
 const OPTIONS = {
   region:
     'us-central1',
@@ -242,19 +250,10 @@ function membershipDocumentId(
   personId
 ) {
 
-  return createHash(
-    'sha256'
-  )
-    .update(
-      JSON.stringify([
-        'territorial-membership-v1',
-        campaignId,
-        personId
-      ])
-    )
-    .digest(
-      'hex'
-    );
+  return canonicalMembershipDocumentId(
+    campaignId,
+    personId
+  );
 }
 
 
