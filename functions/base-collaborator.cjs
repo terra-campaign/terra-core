@@ -20,6 +20,12 @@ const {
   'firebase-admin/auth'
 );
 
+const {
+  resolveCanonicalPersonForAccount
+} = require(
+  './person-identity.cjs'
+);
+
 
 const OPTIONS = {
   region: 'us-central1',
@@ -156,6 +162,33 @@ exports.createBaseCollaborator =
           'El Participante no tiene campaña asignada.'
         );
       }
+
+
+      // ==================================================
+      // BUILD-123B1
+      // IDENTIDAD CANONICA DEL PARTICIPANTE CREADOR
+      //
+      // creatorUid    = cuenta digital compatible.
+      // creatorPersonId = identidad permanente.
+      // ==================================================
+
+      const creatorIdentity =
+        await resolveCanonicalPersonForAccount({
+
+          db,
+
+          accountUid:
+            creatorUid,
+
+          profile:
+            creatorProfile,
+
+          campaignId
+        });
+
+
+      const creatorPersonId =
+        creatorIdentity.personId;
 
 
       // ==================================================
@@ -511,6 +544,9 @@ exports.createBaseCollaborator =
         parentUserId:
           creatorUid,
 
+        parentPersonId:
+          creatorPersonId,
+
         parentUserName:
           creatorProfile.name ||
           '',
@@ -591,6 +627,9 @@ exports.createBaseCollaborator =
         introducedByUserId:
           creatorUid,
 
+        introducedByPersonId:
+          creatorPersonId,
+
         referredByUserId:
           creatorUid,
 
@@ -653,6 +692,9 @@ exports.createBaseCollaborator =
         parentUserId:
           creatorUid,
 
+        parentPersonId:
+          creatorPersonId,
+
         parentUserName:
           creatorProfile.name ||
           '',
@@ -662,6 +704,9 @@ exports.createBaseCollaborator =
 
         introducedByUserId:
           creatorUid,
+
+        introducedByPersonId:
+          creatorPersonId,
 
         referredByUserId:
           creatorUid,
