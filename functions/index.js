@@ -23,6 +23,13 @@ const {
 } = require("firebase-admin/firestore");
 
 
+const {
+  canonicalMembershipDocumentId
+} = require(
+  "./territorial-membership-id.cjs"
+);
+
+
 // ======================================================
 // INICIALIZACIÓN 
 // ======================================================
@@ -3848,12 +3855,25 @@ createdBy:
           .doc();
 
 
+      const personId =
+        personRef.id;
+
+
+      const membershipId =
+        canonicalMembershipDocumentId(
+          campaignId,
+          personId
+        );
+
+
       const membershipRef =
         db
           .collection(
             "territorialMemberships"
           )
-          .doc();
+          .doc(
+            membershipId
+          );
 
 
       const logRef =
@@ -3862,12 +3882,6 @@ createdBy:
           .doc();
 
 
-      const personId =
-        personRef.id;
-
-
-      const membershipId =
-        membershipRef.id;
 
 
       // El usuario digital queda enlazado
@@ -4736,12 +4750,25 @@ createdBy:
           .doc();
 
 
+      const personId =
+        personRef.id;
+
+
+      const membershipId =
+        canonicalMembershipDocumentId(
+          campaignId,
+          personId
+        );
+
+
       const membershipRef =
         db
           .collection(
             "territorialMemberships"
           )
-          .doc();
+          .doc(
+            membershipId
+          );
 
 
       const logRef =
@@ -4750,12 +4777,6 @@ createdBy:
           .doc();
 
 
-      const personId =
-        personRef.id;
-
-
-      const membershipId =
-        membershipRef.id;
 
 
       participantProfile.personId =
