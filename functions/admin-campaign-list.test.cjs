@@ -15,21 +15,12 @@ const {
   './admin-campaign-list.cjs'
 );
 
-
-// ======================================================
-// LIMITE
-// ======================================================
-
 assert.equal(
   MAX_CAMPAIGNS_PER_ADMIN,
   500
 );
 
-
-// ======================================================
-// ADMIN INACTIVO / NO ADMIN
-// ======================================================
-
+// Admin inactivo.
 assert.deepEqual(
   collectAccessibleCampaignIds({
     profile: {
@@ -62,6 +53,7 @@ assert.deepEqual(
   []
 );
 
+// No Admin.
 assert.deepEqual(
   collectAccessibleCampaignIds({
     profile: {
@@ -84,11 +76,30 @@ assert.deepEqual(
   []
 );
 
+// campaignId legacy NO entra solo.
+assert.deepEqual(
+  collectAccessibleCampaignIds({
+    profile: {
+      role:
+        'admin',
 
-// ======================================================
-// LEGACY + EXPLICITOS
-// ======================================================
+      active:
+        true,
 
+      campaignId:
+        'CAM-001'
+    },
+
+    adminUid:
+      'ADMIN-1',
+
+    accessRecords:
+      []
+  }),
+  []
+);
+
+// Solo accesos explícitos válidos y activos.
 assert.deepEqual(
   collectAccessibleCampaignIds({
     profile: {
@@ -116,7 +127,16 @@ assert.deepEqual(
         active:
           true
       },
+      {
+        adminUid:
+          'ADMIN-1',
 
+        campaignId:
+          'CAM-001',
+
+        active:
+          true
+      },
       {
         adminUid:
           'ADMIN-1',
@@ -127,7 +147,6 @@ assert.deepEqual(
         active:
           false
       },
-
       {
         adminUid:
           'OTRO-ADMIN',
@@ -146,50 +165,7 @@ assert.deepEqual(
   ]
 );
 
-
-// ======================================================
-// NO DUPLICAR LEGACY + EXPLICITO
-// ======================================================
-
-assert.deepEqual(
-  collectAccessibleCampaignIds({
-    profile: {
-      role:
-        'admin',
-
-      active:
-        true,
-
-      campaignId:
-        'CAM-001'
-    },
-
-    adminUid:
-      'ADMIN-1',
-
-    accessRecords: [
-      {
-        adminUid:
-          'ADMIN-1',
-
-        campaignId:
-          'CAM-001',
-
-        active:
-          true
-      }
-    ]
-  }),
-  [
-    'CAM-001'
-  ]
-);
-
-
-// ======================================================
-// FILTRAR CAMPAÑAS FORMALES
-// ======================================================
-
+// Filtrar campañas formales activas.
 assert.deepEqual(
   buildAccessibleCampaignList({
     campaignIds: [
@@ -256,7 +232,6 @@ assert.deepEqual(
       active:
         true
     },
-
     {
       campaignId:
         'CAM-001',
@@ -270,11 +245,7 @@ assert.deepEqual(
   ]
 );
 
-
-// ======================================================
-// NOMBRE VACIO NO SE EXPONE
-// ======================================================
-
+// Nombre vacío no se expone.
 assert.deepEqual(
   buildAccessibleCampaignList({
     campaignIds: [
@@ -297,7 +268,6 @@ assert.deepEqual(
   []
 );
 
-
 console.log(
-  'OK: BUILD-123D4G-D1 admin campaign listing contract passed.'
+  'OK: BUILD-123D4H-B1 explicit admin campaign listing contract passed.'
 );

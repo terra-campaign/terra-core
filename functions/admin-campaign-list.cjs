@@ -16,7 +16,6 @@ const {
 const {
   validId,
   isActiveTechnicalAdmin,
-  legacyAdminHasCampaignAccess,
   accessRecordAllows
 } = require(
   './admin-campaign-access.cjs'
@@ -117,24 +116,6 @@ function collectAccessibleCampaignIds({
         campaignId
       );
     }
-  }
-
-  const legacyCampaignId =
-    typeof profile.campaignId ===
-      'string'
-      ? profile.campaignId.trim()
-      : '';
-
-  if (
-    legacyCampaignId &&
-    legacyAdminHasCampaignAccess(
-      profile,
-      legacyCampaignId
-    )
-  ) {
-    result.add(
-      legacyCampaignId
-    );
   }
 
   return [
@@ -345,22 +326,9 @@ exports.listAdminCampaigns =
           campaignRecords
         });
 
-      const legacyCampaignId =
-        typeof profile.campaignId ===
-          'string'
-          ? profile.campaignId.trim()
-          : '';
-
       const selectedCampaignId =
-        campaigns.some(
-          campaign =>
-            campaign.campaignId ===
-            legacyCampaignId
-        )
-          ? legacyCampaignId
-          : campaigns[0]
-              ?.campaignId ||
-            null;
+        campaigns[0]?.campaignId || '';
+
 
       return {
         campaigns,

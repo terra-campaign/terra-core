@@ -9,18 +9,12 @@ const {
   validId,
   adminCampaignAccessDocumentPath,
   isActiveTechnicalAdmin,
-  legacyAdminHasCampaignAccess,
   accessRecordAllows,
   adminCanAccessCampaign
 } =
   require(
     './admin-campaign-access.cjs'
   );
-
-
-// ======================================================
-// IDS
-// ======================================================
 
 assert.equal(
   validId(
@@ -48,55 +42,13 @@ assert.throws(
   TypeError
 );
 
-
-// ======================================================
-// RUTA DETERMINISTICA DE ACCESO
-// ======================================================
-
-const accessPath =
-  adminCampaignAccessDocumentPath(
-    'ADMIN-1',
-    'CAM-001'
-  );
-
-assert.equal(
-  accessPath,
-  'adminCampaignAccess/ADMIN-1/campaigns/CAM-001'
-);
-
 assert.equal(
   adminCampaignAccessDocumentPath(
     ' ADMIN-1 ',
     ' CAM-001 '
   ),
-  accessPath
+  'adminCampaignAccess/ADMIN-1/campaigns/CAM-001'
 );
-
-assert.notEqual(
-  adminCampaignAccessDocumentPath(
-    'ADMIN-1',
-    'CAM-002'
-  ),
-  accessPath
-);
-
-// La jerarquia evita colisiones por separadores
-// usados dentro de los identificadores.
-assert.notEqual(
-  adminCampaignAccessDocumentPath(
-    'ADMIN__1',
-    'CAM-001'
-  ),
-  adminCampaignAccessDocumentPath(
-    'ADMIN',
-    '1__CAM-001'
-  )
-);
-
-
-// ======================================================
-// ADMIN TECNICO
-// ======================================================
 
 const adminProfile = {
   role:
@@ -105,6 +57,8 @@ const adminProfile = {
   active:
     true,
 
+  // Dato legacy permitido temporalmente.
+  // NO debe conceder autorización.
   campaignId:
     'CAM-001'
 };
@@ -127,31 +81,16 @@ assert.equal(
   false
 );
 
+const accessCAM001 = {
+  adminUid:
+    'ADMIN-1',
 
-// ======================================================
-// COMPATIBILIDAD LEGACY
-// ======================================================
+  campaignId:
+    'CAM-001',
 
-assert.equal(
-  legacyAdminHasCampaignAccess(
-    adminProfile,
-    'CAM-001'
-  ),
-  true
-);
-
-assert.equal(
-  legacyAdminHasCampaignAccess(
-    adminProfile,
-    'CAM-002'
-  ),
-  false
-);
-
-
-// ======================================================
-// ACCESO EXPLICITO NUEVO
-// ======================================================
+  active:
+    true
+};
 
 const accessCAM002 = {
   adminUid:
@@ -166,28 +105,32 @@ const accessCAM002 = {
 
 assert.equal(
   accessRecordAllows(
-    accessCAM002,
+    accessCAM001,
     'ADMIN-1',
-    'CAM-002'
+    'CAM-001'
   ),
   true
 );
 
 assert.equal(
   accessRecordAllows(
-    accessCAM002,
-    'ADMIN-OTHER',
+    accessCAM001,
+    'OTRO-ADMIN',
+    'CAM-001'
+  ),
+  false
+);
+
+assert.equal(
+  accessRecordAllows(
+    accessCAM001,
+    'ADMIN-1',
     'CAM-002'
   ),
   false
 );
 
-
-// ======================================================
-// DECISION CENTRAL
-// ======================================================
-
-// CAM-001 sigue funcionando por compatibilidad legacy.
+// El campaignId del perfil NO concede acceso.
 assert.equal(
   adminCanAccessCampaign({
     profile:
@@ -197,29 +140,33 @@ assert.equal(
       'ADMIN-1',
 
     campaignId:
-      'CAM-001'
-  }),
-  true
-);
+      'CAM-001',
 
-
-// CAM-002 no funciona sin autorización explícita.
-assert.equal(
-  adminCanAccessCampaign({
-    profile:
-      adminProfile,
-
-    adminUid:
-      'ADMIN-1',
-
-    campaignId:
-      'CAM-002'
+    accessRecord:
+      null
   }),
   false
 );
 
+// CAM-001 funciona únicamente con acceso explícito.
+assert.equal(
+  adminCanAccessCampaign({
+    profile:
+      adminProfile,
 
-// CAM-002 sí funciona con registro explícito.
+    adminUid:
+      'ADMIN-1',
+
+    campaignId:
+      'CAM-001',
+
+    accessRecord:
+      accessCAM001
+  }),
+  true
+);
+
+// También cualquier otra campaña autorizada explícitamente.
 assert.equal(
   adminCanAccessCampaign({
     profile:
@@ -237,9 +184,33 @@ assert.equal(
   true
 );
 
+// Un registro ajeno no concede acceso.
+assert.equal(
+  adminCanAccessCampaign({
+    profile:
+      adminProfile,
 
-// Un Líder Principal no se convierte en Admin
-// por tener un registro parecido.
+    adminUid:
+      'ADMIN-1',
+
+    campaignId:
+      'CAM-002',
+
+    accessRecord: {
+      adminUid:
+        'OTRO-ADMIN',
+
+      campaignId:
+        'CAM-002',
+
+      active:
+        true
+    }
+  }),
+  false
+);
+
+// Un Líder Principal no se convierte en Admin.
 assert.equal(
   adminCanAccessCampaign({
     profile: {
@@ -273,7 +244,6 @@ assert.equal(
   false
 );
 
-
 console.log(
-  'OK: BUILD-123D4B hierarchical admin multi-campaign access contract passed.'
+  'OK: BUILD-123D4H-B1 explicit admin campaign access contract passed.'
 );

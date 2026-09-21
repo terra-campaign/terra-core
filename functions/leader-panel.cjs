@@ -12,11 +12,6 @@ async function activeProfile(tx,db,request){
  if(!p||p.active!==true) deny();
  return p;
 }
-async function profile(tx,db,request){
- const p=await activeProfile(tx,db,request);
- if(typeof p.campaignId!=='string'||!p.campaignId||p.campaignId.includes('/')) deny();
- return p;
-}
 function requestedCampaignId(request){
  try{return validId(request.data?.campaignId,'campaignId');}
  catch{throw new HttpsError('invalid-argument','Indique la campaña donde se asignará al Líder Principal.');}
@@ -66,8 +61,7 @@ function panelCampaignId(request,p){
   try{return validId(requested,'campaignId');}
   catch{throw new HttpsError('invalid-argument','Campaña inválida.');}
  }
- try{return validId(p.campaignId,'campaignId');}
- catch{throw new HttpsError('failed-precondition','Selecciona una campaña para consultar el panel.');}
+ throw new HttpsError('failed-precondition','Selecciona una campaña para consultar el panel.');
 }
 exports.getPrincipalLeaderPanel=onCall(options,async request=>{
  const db=getFirestore();

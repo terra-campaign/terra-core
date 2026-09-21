@@ -82,54 +82,6 @@ function isActiveTechnicalAdmin(
 
 
 // ======================================================
-// COMPATIBILIDAD LEGACY
-//
-// Durante la transición, el campaignId histórico del Admin
-// sigue autorizando únicamente esa misma campaña.
-// No autoriza ninguna campaña adicional.
-// ======================================================
-
-function legacyAdminHasCampaignAccess(
-  profile,
-  campaignId
-) {
-
-  if (
-    !isActiveTechnicalAdmin(
-      profile
-    )
-  ) {
-    return false;
-  }
-
-  let targetCampaignId;
-
-  try {
-
-    targetCampaignId =
-      validId(
-        campaignId,
-        'campaignId'
-      );
-
-  } catch {
-
-    return false;
-  }
-
-  const legacyCampaignId =
-    typeof profile.campaignId === 'string'
-      ? profile.campaignId.trim()
-      : '';
-
-  return (
-    legacyCampaignId ===
-    targetCampaignId
-  );
-}
-
-
-// ======================================================
 // REGISTRO EXPLICITO DE ACCESO
 // ======================================================
 
@@ -178,11 +130,11 @@ function accessRecordAllows(
 // ======================================================
 // DECISION CENTRAL
 //
-// Durante transición:
-// 1. acceso explícito nuevo, o
-// 2. campaignId legacy actual.
+// El Administrador técnico solo obtiene acceso mediante
+// un registro explícito adminCampaignAccess.
 //
-// Más adelante podremos retirar el fallback legacy.
+// profile.campaignId puede seguir existiendo en perfiles
+// antiguos, pero NO concede autorización.
 // ======================================================
 
 function adminCanAccessCampaign({
@@ -200,18 +152,9 @@ function adminCanAccessCampaign({
     return false;
   }
 
-  if (
-    accessRecordAllows(
-      accessRecord,
-      adminUid,
-      campaignId
-    )
-  ) {
-    return true;
-  }
-
-  return legacyAdminHasCampaignAccess(
-    profile,
+  return accessRecordAllows(
+    accessRecord,
+    adminUid,
     campaignId
   );
 }
@@ -221,7 +164,6 @@ module.exports = {
   validId,
   adminCampaignAccessDocumentPath,
   isActiveTechnicalAdmin,
-  legacyAdminHasCampaignAccess,
   accessRecordAllows,
   adminCanAccessCampaign
 };
