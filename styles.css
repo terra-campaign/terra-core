@@ -2335,3 +2335,70 @@ button.button-whatsapp:disabled {
     grid-column: span 2;
   }
 }
+
+/* =====================================================
+   BUILD-123D4H-C16 — ADMIN MULTI-CAMPAÑA
+   ===================================================== */
+
+.admin-campaign-context {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-campaign-context__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-campaign-context__heading h2 {
+  margin: 0.15rem 0 0;
+}
+
+.admin-campaign-context__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-campaign-context__field {
+  display: grid;
+  gap: 0.45rem;
+  max-width: 34rem;
+}
+
+.admin-campaign-context__field > span {
+  font-weight: 700;
+}
+
+.admin-campaign-context__field select {
+  width: 100%;
+  min-height: 2.8rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #c7cdd4;
+  border-radius: 0.65rem;
+  background: #fff;
+  font: inherit;
+}
+
+.admin-campaign-context__field select:focus {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .admin-campaign-context__heading {
+    display: grid;
+  }
+
+  .admin-campaign-context__badge {
+    justify-self: start;
+  }
+}

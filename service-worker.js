@@ -3,7 +3,7 @@
 // PWA ENGINE — RELEASE v1.0.1
 // ======================================================
 
-const CACHE_NAME = "terra-campaign-v1.0.1";
+const CACHE_NAME = "terra-campaign-v1.0.2";
 
 const APP_SHELL = [
   "./",

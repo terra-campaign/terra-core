@@ -53,6 +53,13 @@ const getMyTerritorialAccessCall =
     "getMyTerritorialAccess"
   );
 
+
+const listAdminCampaignsCall =
+  httpsCallable(
+    terraFunctions,
+    "listAdminCampaigns"
+  );
+
 const recordCandidateSupportResponseCall =
   httpsCallable(
     terraFunctions,
@@ -288,6 +295,22 @@ const photoPreview =
 
 const photoStatus =
   document.querySelector("#photoStatus");
+
+const adminCampaignContext =
+  document.querySelector(
+    "#adminCampaignContext"
+  );
+
+const adminCampaignSelect =
+  document.querySelector(
+    "#adminCampaignSelect"
+  );
+
+const adminCampaignMessage =
+  document.querySelector(
+    "#adminCampaignMessage"
+  );
+
 
 const territorialSupervisionContext =
   document.querySelector(
@@ -883,6 +906,39 @@ let activeFilter = "all";
 let mapReady = false;
 
 let currentTerritorialAccess = null;
+
+let adminCampaigns = [];
+let selectedAdminCampaignId = "";
+
+function isTechnicalAdmin() {
+  return (
+    currentUserProfile?.role === "admin"
+  );
+}
+
+function adminCampaignLabel(campaign) {
+  return (
+    campaign?.name ||
+    campaign?.displayName ||
+    campaign?.campaignName ||
+    campaign?.title ||
+    campaign?.campaignId ||
+    "Campaña"
+  );
+}
+
+function adminSupervisorAccess(
+  campaignId
+) {
+  return {
+    authorized: true,
+    read: true,
+    write: false,
+    adminSupervisor: true,
+    campaignId,
+    grant: null
+  };
+}
 let territorialAccessTimer = null;
 let visitsUnsubscribe = null;
 
@@ -1444,7 +1500,31 @@ function applyTerritorialWorkspaceAccess(access) {
     saveVisitButton.disabled = !canWrite;
   }
 
-  if (
+  if (isTechnicalAdmin()) {
+
+    panel.hidden = false;
+    panel.innerHTML = "";
+
+    const title =
+      document.createElement("h2");
+
+    title.textContent =
+      "Supervisión administrativa";
+
+    const detail =
+      document.createElement("p");
+
+    detail.textContent =
+      `Campaña ${
+        selectedAdminCampaignId
+      }. Consulta de solo lectura. El Administrador Técnico no registra visitas desde este espacio.`;
+
+    panel.append(
+      title,
+      detail
+    );
+
+  } else if (
     grant.mode === "demo"
   ) {
     panel.hidden = false;
@@ -1501,7 +1581,11 @@ function applyTerritorialWorkspaceAccess(access) {
     panel.innerHTML = "";
   }
 
-  void loadCandidateSupportStats();
+  if (isTechnicalAdmin()) {
+    clearCandidateSupportStats();
+  } else {
+    void loadCandidateSupportStats();
+  }
 }
 
 function scheduleTerritorialAccessValidation(access) {
@@ -1546,7 +1630,211 @@ function scheduleTerritorialAccessValidation(access) {
     );
 }
 
+async function loadAdminCampaignContext() {
+
+  const response =
+    await listAdminCampaignsCall({});
+
+  const data =
+    response?.data || {};
+
+  adminCampaigns =
+    Array.isArray(data.campaigns)
+      ? data.campaigns
+      : [];
+
+  if (!adminCampaigns.length) {
+    throw new Error(
+      "El Administrador Técnico no tiene campañas autorizadas."
+    );
+  }
+
+  const allowedIds =
+    new Set(
+      adminCampaigns
+        .map(
+          campaign =>
+            String(
+              campaign?.campaignId || ""
+            ).trim()
+        )
+        .filter(Boolean)
+    );
+
+  const backendSelected =
+    String(
+      data.selectedCampaignId || ""
+    ).trim();
+
+  if (
+    !selectedAdminCampaignId ||
+    !allowedIds.has(
+      selectedAdminCampaignId
+    )
+  ) {
+    selectedAdminCampaignId =
+      allowedIds.has(
+        backendSelected
+      )
+        ? backendSelected
+        : String(
+            adminCampaigns[0]
+              ?.campaignId || ""
+          ).trim();
+  }
+
+  if (!selectedAdminCampaignId) {
+    throw new Error(
+      "No fue posible determinar una campaña autorizada."
+    );
+  }
+
+  if (adminCampaignSelect) {
+
+    adminCampaignSelect.innerHTML = "";
+
+    for (
+      const campaign
+      of adminCampaigns
+    ) {
+
+      const campaignId =
+        String(
+          campaign?.campaignId || ""
+        ).trim();
+
+      if (!campaignId) {
+        continue;
+      }
+
+      const option =
+        document.createElement(
+          "option"
+        );
+
+      option.value =
+        campaignId;
+
+      option.textContent =
+        `${adminCampaignLabel(
+          campaign
+        )} · ${campaignId}`;
+
+      adminCampaignSelect.append(
+        option
+      );
+    }
+
+    adminCampaignSelect.value =
+      selectedAdminCampaignId;
+
+    adminCampaignSelect.disabled =
+      false;
+  }
+
+  if (adminCampaignContext) {
+    adminCampaignContext.hidden =
+      false;
+  }
+
+  if (adminCampaignMessage) {
+    adminCampaignMessage.textContent =
+      `Supervisión activa: ${
+        selectedAdminCampaignId
+      }. El Administrador Técnico tiene acceso de solo lectura.`;
+  }
+
+  return adminSupervisorAccess(
+    selectedAdminCampaignId
+  );
+}
+
+
+async function changeAdminCampaign(
+  campaignId
+) {
+
+  const target =
+    String(
+      campaignId || ""
+    ).trim();
+
+  const authorized =
+    adminCampaigns.some(
+      campaign =>
+        String(
+          campaign?.campaignId || ""
+        ).trim() === target
+    );
+
+  if (!authorized) {
+    throw new Error(
+      "La campaña seleccionada no está autorizada para este administrador."
+    );
+  }
+
+  selectedAdminCampaignId =
+    target;
+
+  const access =
+    adminSupervisorAccess(
+      target
+    );
+
+  applyTerritorialWorkspaceAccess(
+    access
+  );
+
+  latestVisits = [];
+  filteredVisits = [];
+
+  stopTerritorialVisitListener();
+
+  if (mapReady) {
+    listenVisits();
+  }
+
+  if (adminCampaignMessage) {
+    adminCampaignMessage.textContent =
+      `Supervisión activa: ${
+        target
+      }. Vista administrativa de solo lectura.`;
+  }
+
+  return access;
+}
+
+
 async function validateTerritorialAccess() {
+
+  if (isTechnicalAdmin()) {
+
+    try {
+
+      const access =
+        await loadAdminCampaignContext();
+
+      applyTerritorialWorkspaceAccess(
+        access
+      );
+
+      return access;
+
+    } catch (error) {
+
+      console.error(
+        "Error al cargar campañas del Administrador Técnico:",
+        error
+      );
+
+      blockTerritorialWorkspace(
+        "No fue posible cargar las campañas autorizadas para supervisión."
+      );
+
+      return null;
+    }
+  }
+
   try {
     const response =
       await getMyTerritorialAccessCall({});
@@ -1588,6 +1876,51 @@ async function validateTerritorialAccess() {
 
     return null;
   }
+}
+
+
+if (adminCampaignSelect) {
+
+  adminCampaignSelect.addEventListener(
+    "change",
+    async () => {
+
+      if (!isTechnicalAdmin()) {
+        return;
+      }
+
+      adminCampaignSelect.disabled =
+        true;
+
+      try {
+
+        await changeAdminCampaign(
+          adminCampaignSelect.value
+        );
+
+      } catch (error) {
+
+        console.error(
+          "No fue posible cambiar la campaña supervisada:",
+          error
+        );
+
+        if (adminCampaignMessage) {
+          adminCampaignMessage.textContent =
+            error.message ||
+            "No fue posible cambiar la campaña.";
+        }
+
+        adminCampaignSelect.value =
+          selectedAdminCampaignId;
+
+      } finally {
+
+        adminCampaignSelect.disabled =
+          false;
+      }
+    }
+  );
 }
 
 
@@ -2227,6 +2560,23 @@ async function requireTerritorialWriteAccess() {
 
 
 function territorialVisitConstraints() {
+
+  if (isTechnicalAdmin()) {
+
+    if (!selectedAdminCampaignId) {
+      throw new Error(
+        "Selecciona una campaña autorizada para supervisión."
+      );
+    }
+
+    return [
+      where(
+        "campaignId",
+        "==",
+        selectedAdminCampaignId
+      )
+    ];
+  }
   const grant =
     requireTerritorialReadAccess();
 
@@ -3228,6 +3578,12 @@ photoStatus.textContent =
 
 function territorialSupervisionScopeLabel() {
 
+  if (isTechnicalAdmin()) {
+    return selectedAdminCampaignId
+      ? `Campaña ${selectedAdminCampaignId}`
+      : "Campaña seleccionada";
+  }
+
   const grant =
     currentTerritorialAccess?.grant || {};
 
@@ -3404,9 +3760,13 @@ function updateTerritorialSupervisionContext() {
     territorialSupervisionScopeLabel();
 
   territorialSupervisionMode.textContent =
-    grant.mode === "demo"
-      ? "Demostración"
-      : "Operación";
+    isTechnicalAdmin()
+      ? "Supervisión"
+      : (
+          grant.mode === "demo"
+            ? "Demostración"
+            : "Operación"
+        );
 
   territorialSupervisionFilter.textContent =
     territorialSupervisionFilterLabel();

@@ -22,7 +22,7 @@
 
 <link
   rel="stylesheet"
-  href="./styles.css?v=build-121c2"
+  href="./styles.css?v=build-123d4h-c16"
 >
 </head>
 
@@ -116,6 +116,55 @@
     <!-- =====================================================
          BUILD-121C1 — CONTEXTO DE SUPERVISIÓN TERRITORIAL
     ====================================================== -->
+
+    <section
+      id="adminCampaignContext"
+      class="card admin-campaign-context"
+      hidden
+    >
+
+      <div class="admin-campaign-context__heading">
+
+        <div>
+          <p class="eyebrow">
+            SUPERVISIÓN ADMINISTRATIVA
+          </p>
+
+          <h2>
+            Campaña supervisada
+          </h2>
+        </div>
+
+        <span class="admin-campaign-context__badge">
+          Solo lectura
+        </span>
+
+      </div>
+
+      <label
+        class="admin-campaign-context__field"
+        for="adminCampaignSelect"
+      >
+        <span>Selecciona la campaña</span>
+
+        <select id="adminCampaignSelect">
+          <option value="">
+            Cargando campañas autorizadas...
+          </option>
+        </select>
+      </label>
+
+      <p
+        id="adminCampaignMessage"
+        class="field-help"
+        aria-live="polite"
+      >
+        El Administrador Técnico supervisa únicamente
+        campañas autorizadas mediante adminCampaignAccess.
+      </p>
+
+    </section>
+
 
     <section
       id="territorialSupervisionContext"
@@ -942,7 +991,7 @@
 
 <script
   type="module"
-  src="./admin.js?v=build-121c2"
+  src="./admin.js?v=build-123d4h-c16"
 ></script>
 
 </body>
