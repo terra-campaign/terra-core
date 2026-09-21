@@ -6,6 +6,7 @@ const $=id=>document.getElementById(id);
 const functions=getFunctions(auth.app,'us-central1');
 const fetchPanel=httpsCallable(functions,'getPrincipalLeaderPanel');
 const assign=httpsCallable(functions,'assignPrincipalLeader');
+const listAdminCampaigns=httpsCallable(functions,'listAdminCampaigns');
 const createCoordinator=httpsCallable(functions,'createMunicipalCoordinator');
 
 let epoch=0;
@@ -13,6 +14,30 @@ let currentRole='';
 let selectedMunicipalityId='';
 let selectedMunicipalityName='';
 function line(parent,text){const p=document.createElement('p');p.textContent=text;parent.append(p);}
+async function loadAdminCampaigns(){
+ const select=$('campaignId');
+ select.replaceChildren();
+ select.disabled=true;
+ $('save').disabled=true;
+ $('campaignStatus').textContent='Consultando campañas autorizadas…';
+ const {data}=await listAdminCampaigns();
+ const campaigns=Array.isArray(data?.campaigns)?data.campaigns:[];
+ for(const campaign of campaigns){
+  const option=document.createElement('option');
+  option.value=campaign.campaignId;
+  option.textContent=`${campaign.name} · ${campaign.campaignId}`;
+  select.append(option);
+ }
+ if(data?.selectedCampaignId&&campaigns.some(c=>c.campaignId===data.selectedCampaignId)){
+  select.value=data.selectedCampaignId;
+ }
+ const available=campaigns.length>0;
+ select.disabled=!available;
+ $('save').disabled=!available;
+ $('campaignStatus').textContent=available
+  ? `Campañas disponibles: ${campaigns.length}. Selecciona dónde se asignará el Líder principal.`
+  : 'No hay campañas activas autorizadas para esta cuenta.';
+}
 async function refresh(){
  const version=epoch; $('refresh').disabled=true;$('municipalities').replaceChildren();$('coverage').textContent='';$('unmatched').textContent='';$('status').textContent='Consultando campaña…';
  try{const {data}=await fetchPanel();if(version!==epoch)return;
@@ -61,9 +86,9 @@ async function refresh(){
 $('refresh').onclick=refresh;$('logout').onclick=()=>signOut(auth);
 onAuthStateChanged(auth,async user=>{const version=++epoch;$('municipalities').replaceChildren();$('setup').hidden=true;$('leaderMissions').hidden=true;$('leaderEvents').hidden=true;$('refresh').disabled=true;
  if(!user){location.replace('./login.html');return;}
- try{const p=(await getDoc(doc(db,'usuarios',user.uid))).data();if(version!==epoch)return;if(!p||p.active!==true||!['admin','lider_principal'].includes(p.role))throw Error('Acceso reservado al Líder principal y administrador.');currentRole=p.role;$('setup').hidden=p.role!=='admin';$('leaderMissions').hidden=p.role!=='lider_principal';$('leaderEvents').hidden=p.role!=='lider_principal';await refresh();}catch(e){$('status').textContent=e.message;}
+ try{const p=(await getDoc(doc(db,'usuarios',user.uid))).data();if(version!==epoch)return;if(!p||p.active!==true||!['admin','lider_principal'].includes(p.role))throw Error('Acceso reservado al Líder principal y administrador.');currentRole=p.role;$('setup').hidden=p.role!=='admin';$('leaderMissions').hidden=p.role!=='lider_principal';$('leaderEvents').hidden=p.role!=='lider_principal';if(p.role==='admin')await loadAdminCampaigns();await refresh();}catch(e){$('status').textContent=e.message;}
 });
-$('assign').onsubmit=async e=>{e.preventDefault();$('save').disabled=true;try{await assign({uid:$('uid').value.trim(),name:$('name').value.trim()});$('assignmentStatus').textContent='Líder asignado. Puede entrar con su cuenta desde el acceso habitual.';$('assign').reset();}catch(e){$('assignmentStatus').textContent=e.message;}finally{$('save').disabled=false;}};
+$('assign').onsubmit=async e=>{e.preventDefault();const campaignId=$('campaignId').value.trim();if(!campaignId){$('assignmentStatus').textContent='Selecciona la campaña donde se asignará al Líder principal.';return;}$('save').disabled=true;try{await assign({campaignId,uid:$('uid').value.trim(),name:$('name').value.trim()});$('assignmentStatus').textContent=`Líder asignado correctamente en ${campaignId}. Puede entrar con su cuenta desde el acceso habitual.`;$('assign').reset();$('campaignId').value=campaignId;}catch(e){$('assignmentStatus').textContent=e.message;}finally{$('save').disabled=!$('campaignId').value;}};
 
 
 function normalizeWelcomePhone(value){

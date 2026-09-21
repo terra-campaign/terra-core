@@ -161,8 +161,67 @@ a.whatsapp-link {
     </small>
   </div>
 </section>
-<section id="setup" hidden><details><summary>Asignar al Líder principal · Administración</summary><p>Primero crea una cuenta nueva en Firebase Authentication. Copia su UID aquí. Se admite un solo líder por campaña; esta operación no cambia a los coordinadores existentes.</p><form id="assign"><label>Nombre completo<input id="name" required maxlength="120"></label><label>UID de la cuenta nueva<input id="uid" required maxlength="128" autocomplete="off"></label><button id="save">Asignar Líder principal</button></form><p id="assignmentStatus" role="status"></p></details><p><a href="./admin.html">Inicio</a></p></section>
-</main><script type="module" src="./direccion.js?v=build-118a-3d-001"></script>
+<section id="setup" hidden>
+  <details>
+    <summary>Asignar al Líder principal · Administración</summary>
+
+    <p>
+      Primero crea una cuenta nueva en Firebase Authentication.
+      Copia su UID aquí. Se admite un solo Líder principal por campaña.
+    </p>
+
+    <form id="assign">
+      <label>
+        Campaña
+        <select id="campaignId" required disabled>
+          <option value="">Consultando campañas…</option>
+        </select>
+      </label>
+
+      <small id="campaignStatus">
+        Las campañas disponibles se validan desde TERRA.
+      </small>
+
+      <label>
+        Nombre completo
+        <input
+          id="name"
+          required
+          maxlength="120"
+        >
+      </label>
+
+      <label>
+        UID de la cuenta nueva
+        <input
+          id="uid"
+          required
+          maxlength="128"
+          autocomplete="off"
+        >
+      </label>
+
+      <button
+        id="save"
+        type="submit"
+        disabled
+      >
+        Asignar Líder principal
+      </button>
+    </form>
+
+    <p
+      id="assignmentStatus"
+      role="status"
+      aria-live="polite"
+    ></p>
+  </details>
+
+  <p>
+    <a href="./admin.html">Inicio</a>
+  </p>
+</section>
+</main><script type="module" src="./direccion.js?v=build-123d4g-d2"></script>
   <script
     src="./password-toggle.js?v=build-116d-002"
     defer
