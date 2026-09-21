@@ -5425,3 +5425,12 @@ exports.recordEventTransportPassengerBoarding =
 exports.getEventTransportWorkspace =
   require("./event-transport-passenger-assignments.cjs")
     .getEventTransportWorkspace;
+
+// ======================================================
+// BUILD-123D4D
+// Formalizar campaña legacy del Administrador técnico.
+// ======================================================
+
+exports.registerCurrentAdminCampaign =
+  require("./campaign-registry-admin.cjs")
+    .registerCurrentAdminCampaign;
