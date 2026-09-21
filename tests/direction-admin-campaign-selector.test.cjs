@@ -48,7 +48,7 @@ test(
 
     assert.match(
       js,
-      /p\.role==='admin'\)await loadAdminCampaigns\(\)/
+      /if\(p\.role==='admin'\)\{const available=await loadAdminCampaigns\(\)/
     );
   }
 );

@@ -11,36 +11,94 @@ const createCoordinator=httpsCallable(functions,'createMunicipalCoordinator');
 
 let epoch=0;
 let currentRole='';
+let currentPanelCampaignId='';
 let selectedMunicipalityId='';
 let selectedMunicipalityName='';
 function line(parent,text){const p=document.createElement('p');p.textContent=text;parent.append(p);}
 async function loadAdminCampaigns(){
- const select=$('campaignId');
- select.replaceChildren();
- select.disabled=true;
+ const assignmentSelect=$('campaignId');
+ const panelSelect=$('panelCampaignId');
+
+ assignmentSelect.replaceChildren();
+ panelSelect.replaceChildren();
+
+ assignmentSelect.disabled=true;
+ panelSelect.disabled=true;
  $('save').disabled=true;
+
  $('campaignStatus').textContent='Consultando campañas autorizadas…';
+ $('panelCampaignStatus').textContent='Consultando campañas autorizadas…';
+
  const {data}=await listAdminCampaigns();
  const campaigns=Array.isArray(data?.campaigns)?data.campaigns:[];
+
  for(const campaign of campaigns){
-  const option=document.createElement('option');
-  option.value=campaign.campaignId;
-  option.textContent=`${campaign.name} · ${campaign.campaignId}`;
-  select.append(option);
+  const text=`${campaign.name} · ${campaign.campaignId}`;
+
+  const assignmentOption=document.createElement('option');
+  assignmentOption.value=campaign.campaignId;
+  assignmentOption.textContent=text;
+  assignmentSelect.append(assignmentOption);
+
+  const panelOption=document.createElement('option');
+  panelOption.value=campaign.campaignId;
+  panelOption.textContent=text;
+  panelSelect.append(panelOption);
  }
- if(data?.selectedCampaignId&&campaigns.some(c=>c.campaignId===data.selectedCampaignId)){
-  select.value=data.selectedCampaignId;
+
+ const requestedDefault=
+  data?.selectedCampaignId &&
+  campaigns.some(c=>c.campaignId===data.selectedCampaignId)
+   ? data.selectedCampaignId
+   : campaigns[0]?.campaignId||'';
+
+ if(requestedDefault){
+  assignmentSelect.value=requestedDefault;
+  panelSelect.value=requestedDefault;
+  currentPanelCampaignId=requestedDefault;
  }
+
  const available=campaigns.length>0;
- select.disabled=!available;
+
+ assignmentSelect.disabled=!available;
+ panelSelect.disabled=!available;
  $('save').disabled=!available;
+
  $('campaignStatus').textContent=available
   ? `Campañas disponibles: ${campaigns.length}. Selecciona dónde se asignará el Líder principal.`
   : 'No hay campañas activas autorizadas para esta cuenta.';
+
+ $('panelCampaignStatus').textContent=available
+  ? `Supervisando ${currentPanelCampaignId}. Cambiar esta selección no modifica la campaña destino al asignar un Líder principal.`
+  : 'No hay campañas activas autorizadas para supervisar.';
+
+ return available;
 }
 async function refresh(){
- const version=epoch; $('refresh').disabled=true;$('municipalities').replaceChildren();$('coverage').textContent='';$('unmatched').textContent='';$('status').textContent='Consultando campaña…';
- try{const {data}=await fetchPanel();if(version!==epoch)return;
+ const version=epoch;
+ $('refresh').disabled=true;
+ $('municipalities').replaceChildren();
+ $('coverage').textContent='';
+ $('unmatched').textContent='';
+ $('status').textContent='Consultando campaña…';
+
+ const payload=
+  currentRole==='admin' && currentPanelCampaignId
+   ? {campaignId:currentPanelCampaignId}
+   : {};
+
+ try{
+  const {data}=await fetchPanel(payload);
+  if(version!==epoch)return;
+
+  if(currentRole==='admin'){
+   currentPanelCampaignId=data.campaignId||currentPanelCampaignId;
+   if($('panelCampaignId').value!==currentPanelCampaignId){
+    $('panelCampaignId').value=currentPanelCampaignId;
+   }
+   $('panelCampaignStatus').textContent=`Supervisando ${currentPanelCampaignId}. Cambiar esta selección no modifica la campaña destino al asignar un Líder principal.`;
+  }
+
  $('session').textContent=data.name;
  $('coverage').textContent=`Municipios registrados: ${data.municipalities.length}. Objetivo de cobertura: 20 municipios de Nayarit.`;
  $('unmatched').textContent=[data.unassignedMissions?`${data.unassignedMissions} misiones sin destinatario individual; no se incluyen en el avance municipal.`:'',data.unmatchedMissions?`${data.unmatchedMissions} asignaciones con destinatario no se pudieron asociar a un municipio registrado; no están incluidas en las tarjetas.`:''].filter(Boolean).join(' ');
@@ -83,10 +141,22 @@ async function refresh(){
  $('status').textContent='Actualizado: '+new Date(data.calculatedAt).toLocaleString('es-MX');
  }catch(e){if(version===epoch)$('status').textContent=e.message||'No fue posible consultar el panel.';}finally{if(version===epoch)$('refresh').disabled=false;}
 }
-$('refresh').onclick=refresh;$('logout').onclick=()=>signOut(auth);
+$('refresh').onclick=refresh;
+$('logout').onclick=()=>signOut(auth);
+
+$('panelCampaignId').onchange=async()=>{
+ if(currentRole!=='admin')return;
+ const campaignId=$('panelCampaignId').value.trim();
+ if(!campaignId)return;
+
+ currentPanelCampaignId=campaignId;
+ $('panelCampaignStatus').textContent=`Cambiando panel a ${campaignId}…`;
+
+ await refresh();
+};
 onAuthStateChanged(auth,async user=>{const version=++epoch;$('municipalities').replaceChildren();$('setup').hidden=true;$('leaderMissions').hidden=true;$('leaderEvents').hidden=true;$('refresh').disabled=true;
  if(!user){location.replace('./login.html');return;}
- try{const p=(await getDoc(doc(db,'usuarios',user.uid))).data();if(version!==epoch)return;if(!p||p.active!==true||!['admin','lider_principal'].includes(p.role))throw Error('Acceso reservado al Líder principal y administrador.');currentRole=p.role;$('setup').hidden=p.role!=='admin';$('leaderMissions').hidden=p.role!=='lider_principal';$('leaderEvents').hidden=p.role!=='lider_principal';if(p.role==='admin')await loadAdminCampaigns();await refresh();}catch(e){$('status').textContent=e.message;}
+ try{const p=(await getDoc(doc(db,'usuarios',user.uid))).data();if(version!==epoch)return;if(!p||p.active!==true||!['admin','lider_principal'].includes(p.role))throw Error('Acceso reservado al Líder principal y administrador.');currentRole=p.role;currentPanelCampaignId='';$('setup').hidden=p.role!=='admin';$('panelCampaignControl').hidden=p.role!=='admin';$('leaderMissions').hidden=p.role!=='lider_principal';$('leaderEvents').hidden=p.role!=='lider_principal';if(p.role==='admin'){const available=await loadAdminCampaigns();if(!available){$('status').textContent='No hay campañas activas autorizadas para esta cuenta.';return;}}await refresh();}catch(e){$('status').textContent=e.message;}
 });
 $('assign').onsubmit=async e=>{e.preventDefault();const campaignId=$('campaignId').value.trim();if(!campaignId){$('assignmentStatus').textContent='Selecciona la campaña donde se asignará al Líder principal.';return;}$('save').disabled=true;try{await assign({campaignId,uid:$('uid').value.trim(),name:$('name').value.trim()});$('assignmentStatus').textContent=`Líder asignado correctamente en ${campaignId}. Puede entrar con su cuenta desde el acceso habitual.`;$('assign').reset();$('campaignId').value=campaignId;}catch(e){$('assignmentStatus').textContent=e.message;}finally{$('save').disabled=!$('campaignId').value;}};
 
