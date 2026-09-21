@@ -5434,3 +5434,12 @@ exports.getEventTransportWorkspace =
 exports.registerCurrentAdminCampaign =
   require("./campaign-registry-admin.cjs")
     .registerCurrentAdminCampaign;
+
+// ======================================================
+// BUILD-123D4F
+// Crear campaña independiente desde Admin técnico.
+// ======================================================
+
+exports.createCampaign =
+  require("./campaign-create-admin.cjs")
+    .createCampaign;
