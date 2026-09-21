@@ -1,34 +1,59 @@
 const {onCall,HttpsError}=require('firebase-functions/v2/https');
 const {getFirestore}=require('firebase-admin/firestore');
 const {getAuth}=require('firebase-admin/auth');
+const {validId,adminCampaignAccessDocumentPath,adminCanAccessCampaign}=require('./admin-campaign-access.cjs');
 const options={region:'us-central1',timeoutSeconds:60};
 function deny(){throw new HttpsError('permission-denied','Acceso no autorizado.');}
-async function profile(tx,db,request){
+async function activeProfile(tx,db,request){
  if(!request.auth) throw new HttpsError('unauthenticated','Inicie sesión.');
- const p=(await tx.get(db.doc('usuarios/'+request.auth.uid))).data();
- if(!p||p.active!==true||typeof p.campaignId!=='string'||!p.campaignId||p.campaignId.includes('/')) deny();
+ const s=await tx.get(db.doc('usuarios/'+request.auth.uid));
+ if(!s.exists) deny();
+ const p=s.data();
+ if(!p||p.active!==true) deny();
+ return p;
+}
+async function profile(tx,db,request){
+ const p=await activeProfile(tx,db,request);
+ if(typeof p.campaignId!=='string'||!p.campaignId||p.campaignId.includes('/')) deny();
+ return p;
+}
+function requestedCampaignId(request){
+ try{return validId(request.data?.campaignId,'campaignId');}
+ catch{throw new HttpsError('invalid-argument','Indique la campaña donde se asignará al Líder Principal.');}
+}
+async function authorizeAdminCampaign(tx,db,request,campaignId){
+ const p=await activeProfile(tx,db,request);
+ if(p.role!=='admin') deny();
+ const campaign=await tx.get(db.doc('campaigns/'+campaignId));
+ if(!campaign.exists) throw new HttpsError('failed-precondition','La campaña seleccionada no existe.');
+ const c=campaign.data();
+ if(!c||c.active!==true||c.campaignId!==campaignId) throw new HttpsError('failed-precondition','La campaña seleccionada no está activa o es incompatible.');
+ const access=await tx.get(db.doc(adminCampaignAccessDocumentPath(request.auth.uid,campaignId)));
+ if(!adminCanAccessCampaign({profile:p,adminUid:request.auth.uid,campaignId,accessRecord:access.exists?access.data():null})) deny();
  return p;
 }
 exports.assignPrincipalLeader=onCall(options,async request=>{
- const db=getFirestore();
- // Authorize before looking up any Auth account.
- const caller=await db.runTransaction(tx=>profile(tx,db,request));
- if(caller.role!=='admin') deny();
+ const db=getFirestore(), campaignId=requestedCampaignId(request);
+ // Authorize target campaign before looking up any Auth account.
+ await db.runTransaction(tx=>authorizeAdminCampaign(tx,db,request,campaignId));
  const uid=request.data?.uid;
  if(typeof uid!=='string'||!uid||uid.includes('/')||uid.length>128||uid===request.auth.uid) throw new HttpsError('invalid-argument','UID inválido. Use una cuenta nueva del líder.');
  const account=await getAuth().getUser(uid);
  if(account.disabled||!account.email) throw new HttpsError('failed-precondition','La cuenta debe estar habilitada y tener correo.');
- const name=String(request.data?.name||'').trim();
+ const name=String(request.data?.name||'').trim().replace(/\s+/g,' ');
  if(name.length<2||name.length>120) throw new HttpsError('invalid-argument','Indique el nombre completo.');
  return db.runTransaction(async tx=>{
-  const p=await profile(tx,db,request); if(p.role!=='admin') deny();
-  const ref=db.doc('principalLeaders/'+p.campaignId), userRef=db.doc('usuarios/'+uid);
+  await authorizeAdminCampaign(tx,db,request,campaignId);
+  const ref=db.doc('principalLeaders/'+campaignId), userRef=db.doc('usuarios/'+uid);
   const lock=await tx.get(ref), existing=await tx.get(userRef);
-  if(lock.exists){if(lock.data().uid===uid&&existing.data()?.role==='lider_principal'&&existing.data()?.campaignId===p.campaignId)return {ok:true}; throw new HttpsError('already-exists','La campaña ya tiene un líder asignado.');}
+  if(lock.exists){
+   if(lock.data().uid===uid&&existing.data()?.role==='lider_principal'&&existing.data()?.campaignId===campaignId)return {ok:true,campaignId,uid,alreadyAssigned:true};
+   throw new HttpsError('already-exists','La campaña ya tiene un líder asignado.');
+  }
   if(existing.exists) throw new HttpsError('failed-precondition','Esta cuenta ya tiene perfil. Utilice una cuenta nueva para conservar la jerarquía actual.');
   tx.create(ref,{uid,createdBy:request.auth.uid,createdAt:new Date()});
-  tx.create(userRef,{name,email:account.email,role:'lider_principal',campaignId:p.campaignId,active:true,createdBy:request.auth.uid,createdAt:new Date()});
-  return {ok:true};
+  tx.create(userRef,{name,email:account.email,role:'lider_principal',campaignId,active:true,createdBy:request.auth.uid,createdAt:new Date()});
+  return {ok:true,campaignId,uid,alreadyAssigned:false};
  });
 });
 exports.getPrincipalLeaderPanel=onCall(options,async request=>{
