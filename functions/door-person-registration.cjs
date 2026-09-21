@@ -44,6 +44,14 @@ const {
   );
 
 
+const {
+  resolveCanonicalPersonForAccount
+} =
+  require(
+    './person-identity.cjs'
+  );
+
+
 const OPTIONS = {
   region:
     'us-central1',
@@ -812,6 +820,58 @@ exports.createDoorRegistrationHandoff =
       }
 
 
+      // ==================================================
+      // BUILD-123B3
+      // IDENTIDADES CANONICAS DEL HANDOFF
+      //
+      // invitador -> referredByPersonId
+      // tutor     -> parent / introducedBy / mentor
+      // ==================================================
+
+      const [
+        inviterIdentity,
+        tutorIdentity
+      ] =
+        await Promise.all([
+
+          resolveCanonicalPersonForAccount({
+
+            db,
+
+            accountUid:
+              inviter.uid,
+
+            profile:
+              inviter,
+
+            campaignId:
+              caller.campaignId
+          }),
+
+          resolveCanonicalPersonForAccount({
+
+            db,
+
+            accountUid:
+              tutor.uid,
+
+            profile:
+              tutor,
+
+            campaignId:
+              caller.campaignId
+          })
+        ]);
+
+
+      const inviterPersonId =
+        inviterIdentity.personId;
+
+
+      const tutorPersonId =
+        tutorIdentity.personId;
+
+
       const structureId =
         validId(
           tutor.structureId
@@ -885,6 +945,9 @@ exports.createDoorRegistrationHandoff =
         inviterUserId:
           inviter.uid,
 
+        inviterPersonId:
+          inviterPersonId,
+
         inviterName:
           cleanText(
             inviter.name,
@@ -896,6 +959,9 @@ exports.createDoorRegistrationHandoff =
 
         mentorUserId:
           tutor.uid,
+
+        mentorPersonId:
+          tutorPersonId,
 
         mentorName:
           cleanText(
@@ -1278,6 +1344,127 @@ exports.completeDoorRegistrationHandoff =
       }
 
 
+      // ==================================================
+      // BUILD-123B3
+      // IDENTIDAD CANONICA DEL TUTOR QUE COMPLETA EL ALTA
+      // ==================================================
+
+      const callerIdentity =
+        await resolveCanonicalPersonForAccount({
+
+          db,
+
+          accountUid:
+            caller.uid,
+
+          profile:
+            caller,
+
+          campaignId:
+            caller.campaignId
+        });
+
+
+      const callerPersonId =
+        callerIdentity.personId;
+
+
+      const storedMentorPersonId =
+        validId(
+          handoff.mentorPersonId
+        );
+
+
+      if (
+        storedMentorPersonId &&
+        storedMentorPersonId !==
+          callerPersonId
+      ) {
+
+        fail(
+          'failed-precondition',
+          'La identidad canónica del tutor ya no coincide con el registro.'
+        );
+      }
+
+
+      let inviterPersonId =
+        validId(
+          handoff.inviterPersonId
+        );
+
+
+      // --------------------------------------------------
+      // COMPATIBILIDAD CON HANDOFFS ANTERIORES A BUILD-123B3
+      // --------------------------------------------------
+
+      if (!inviterPersonId) {
+
+        const inviterUid =
+          validId(
+            handoff.inviterUserId
+          );
+
+
+        if (!inviterUid) {
+
+          fail(
+            'failed-precondition',
+            'El registro no conserva un invitador válido.'
+          );
+        }
+
+
+        const inviterSnapshot =
+          await db
+            .collection(
+              'usuarios'
+            )
+            .doc(
+              inviterUid
+            )
+            .get();
+
+
+        if (!inviterSnapshot.exists) {
+
+          fail(
+            'failed-precondition',
+            'No fue posible resolver la identidad del invitador.'
+          );
+        }
+
+
+        const inviterProfile = {
+
+          ...inviterSnapshot.data(),
+
+          uid:
+            inviterSnapshot.id
+        };
+
+
+        const inviterIdentity =
+          await resolveCanonicalPersonForAccount({
+
+            db,
+
+            accountUid:
+              inviterUid,
+
+            profile:
+              inviterProfile,
+
+            campaignId:
+              caller.campaignId
+          });
+
+
+        inviterPersonId =
+          inviterIdentity.personId;
+      }
+
+
       const data =
         request.data || {};
 
@@ -1549,11 +1736,20 @@ exports.completeDoorRegistrationHandoff =
               introducedByUserId:
                 caller.uid,
 
+              introducedByPersonId:
+                callerPersonId,
+
               referredByUserId:
                 handoff.inviterUserId,
 
+              referredByPersonId:
+                inviterPersonId,
+
               mentorUserId:
                 caller.uid,
+
+              mentorPersonId:
+                callerPersonId,
 
               createdByUserId:
                 caller.uid,
@@ -1607,14 +1803,26 @@ exports.completeDoorRegistrationHandoff =
               parentUserId:
                 caller.uid,
 
+              parentPersonId:
+                callerPersonId,
+
               mentorUserId:
                 caller.uid,
+
+              mentorPersonId:
+                callerPersonId,
 
               introducedByUserId:
                 caller.uid,
 
+              introducedByPersonId:
+                callerPersonId,
+
               referredByUserId:
                 handoff.inviterUserId,
+
+              referredByPersonId:
+                inviterPersonId,
 
               ancestorUserIds,
 
@@ -1659,6 +1867,15 @@ exports.completeDoorRegistrationHandoff =
               completedByUserId:
                 caller.uid,
 
+              completedByPersonId:
+                callerPersonId,
+
+              inviterPersonId:
+                inviterPersonId,
+
+              mentorPersonId:
+                callerPersonId,
+
               completedAt:
                 now,
 
@@ -1692,11 +1909,17 @@ exports.completeDoorRegistrationHandoff =
               mentorUserId:
                 caller.uid,
 
+              mentorPersonId:
+                callerPersonId,
+
               mentorName:
                 caller.name || '',
 
               referredByUserId:
                 handoff.inviterUserId,
+
+              referredByPersonId:
+                inviterPersonId,
 
               handoffId:
                 handoff.id,
