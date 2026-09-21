@@ -179,6 +179,56 @@ a.whatsapp-link {
 </section>
 <section id="setup" hidden>
   <details>
+    <summary>Crear nueva campaña · Administración</summary>
+
+    <p>
+      Registra una campaña territorial independiente.
+      La creación no asigna Líder principal ni modifica la campaña que estás supervisando.
+    </p>
+
+    <form id="createCampaignForm">
+      <label>
+        ID de campaña
+        <input
+          id="newCampaignId"
+          required
+          maxlength="10"
+          placeholder="CAM-003"
+          autocomplete="off"
+        >
+      </label>
+
+      <small>
+        Formato requerido: CAM-001, CAM-002, CAM-003…
+      </small>
+
+      <label>
+        Nombre de campaña
+        <input
+          id="newCampaignName"
+          required
+          maxlength="120"
+          placeholder="Nombre de la campaña"
+          autocomplete="off"
+        >
+      </label>
+
+      <button
+        id="createCampaignButton"
+        type="submit"
+      >
+        Crear campaña
+      </button>
+    </form>
+
+    <p
+      id="createCampaignStatus"
+      role="status"
+      aria-live="polite"
+    ></p>
+  </details>
+
+  <details>
     <summary>Asignar al Líder principal · Administración</summary>
 
     <p>
@@ -237,7 +287,7 @@ a.whatsapp-link {
     <a href="./admin.html">Inicio</a>
   </p>
 </section>
-</main><script type="module" src="./direccion.js?v=build-123d4g-e3b"></script>
+</main><script type="module" src="./direccion.js?v=build-123d4g-h3"></script>
   <script
     src="./password-toggle.js?v=build-116d-002"
     defer

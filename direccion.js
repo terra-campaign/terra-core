@@ -7,6 +7,7 @@ const functions=getFunctions(auth.app,'us-central1');
 const fetchPanel=httpsCallable(functions,'getPrincipalLeaderPanel');
 const assign=httpsCallable(functions,'assignPrincipalLeader');
 const listAdminCampaigns=httpsCallable(functions,'listAdminCampaigns');
+const createCampaign=httpsCallable(functions,'createCampaign');
 const createCoordinator=httpsCallable(functions,'createMunicipalCoordinator');
 
 let epoch=0;
@@ -15,9 +16,15 @@ let currentPanelCampaignId='';
 let selectedMunicipalityId='';
 let selectedMunicipalityName='';
 function line(parent,text){const p=document.createElement('p');p.textContent=text;parent.append(p);}
-async function loadAdminCampaigns(){
+async function loadAdminCampaigns(options={}){
  const assignmentSelect=$('campaignId');
  const panelSelect=$('panelCampaignId');
+ const requestedPanelCampaignId=String(
+  options.panelCampaignId||currentPanelCampaignId||''
+ ).trim();
+ const requestedAssignmentCampaignId=String(
+  options.assignmentCampaignId||''
+ ).trim();
 
  assignmentSelect.replaceChildren();
  panelSelect.replaceChildren();
@@ -46,16 +53,31 @@ async function loadAdminCampaigns(){
   panelSelect.append(panelOption);
  }
 
- const requestedDefault=
+ const fallbackCampaignId=
   data?.selectedCampaignId &&
   campaigns.some(c=>c.campaignId===data.selectedCampaignId)
    ? data.selectedCampaignId
    : campaigns[0]?.campaignId||'';
 
- if(requestedDefault){
-  assignmentSelect.value=requestedDefault;
-  panelSelect.value=requestedDefault;
-  currentPanelCampaignId=requestedDefault;
+ const panelCampaignId=
+  requestedPanelCampaignId &&
+  campaigns.some(c=>c.campaignId===requestedPanelCampaignId)
+   ? requestedPanelCampaignId
+   : fallbackCampaignId;
+
+ const assignmentCampaignId=
+  requestedAssignmentCampaignId &&
+  campaigns.some(c=>c.campaignId===requestedAssignmentCampaignId)
+   ? requestedAssignmentCampaignId
+   : fallbackCampaignId;
+
+ if(panelCampaignId){
+  panelSelect.value=panelCampaignId;
+  currentPanelCampaignId=panelCampaignId;
+ }
+
+ if(assignmentCampaignId){
+  assignmentSelect.value=assignmentCampaignId;
  }
 
  const available=campaigns.length>0;
@@ -153,6 +175,57 @@ $('panelCampaignId').onchange=async()=>{
  $('panelCampaignStatus').textContent=`Cambiando panel a ${campaignId}…`;
 
  await refresh();
+};
+
+$('createCampaignForm').onsubmit=async e=>{
+ e.preventDefault();
+
+ if(currentRole!=='admin')return;
+
+ const campaignId=$('newCampaignId').value.trim().toUpperCase();
+ const name=$('newCampaignName').value.trim();
+
+ if(!/^CAM-[0-9]{3,6}$/.test(campaignId)){
+  $('createCampaignStatus').textContent='Usa un ID con formato CAM-001.';
+  return;
+ }
+
+ if(!name){
+  $('createCampaignStatus').textContent='Escribe el nombre de la campaña.';
+  return;
+ }
+
+ const button=$('createCampaignButton');
+ button.disabled=true;
+
+ $('createCampaignStatus').textContent=`Creando ${campaignId}…`;
+
+ try{
+  const {data}=await createCampaign({
+   campaignId,
+   name
+  });
+
+  const createdCampaignId=data?.campaignId||campaignId;
+  const visibleCampaignId=currentPanelCampaignId;
+
+  await loadAdminCampaigns({
+   panelCampaignId:visibleCampaignId,
+   assignmentCampaignId:createdCampaignId
+  });
+
+  $('createCampaignStatus').textContent=
+   `Campaña ${createdCampaignId} creada correctamente. `+
+   'La campaña visible no cambió. Ya puedes asignarle un Líder principal.';
+
+  $('createCampaignForm').reset();
+
+ }catch(error){
+  $('createCampaignStatus').textContent=
+   error?.message||'No fue posible crear la campaña.';
+ }finally{
+  button.disabled=false;
+ }
 };
 onAuthStateChanged(auth,async user=>{const version=++epoch;$('municipalities').replaceChildren();$('setup').hidden=true;$('leaderMissions').hidden=true;$('leaderEvents').hidden=true;$('refresh').disabled=true;
  if(!user){location.replace('./login.html');return;}
