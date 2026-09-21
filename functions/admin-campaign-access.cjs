@@ -1,13 +1,6 @@
 'use strict';
 
 
-const {
-  createHash
-} = require(
-  'node:crypto'
-);
-
-
 // ======================================================
 // VALIDACION DE IDENTIFICADORES
 // ======================================================
@@ -43,10 +36,10 @@ function validId(
 
 
 // ======================================================
-// ID DETERMINISTICO DEL ACCESO
+// RUTA DETERMINISTICA DEL ACCESO
 // ======================================================
 
-function adminCampaignAccessDocumentId(
+function adminCampaignAccessDocumentPath(
   adminUid,
   campaignId
 ) {
@@ -63,19 +56,12 @@ function adminCampaignAccessDocumentId(
       'campaignId'
     );
 
-  return createHash(
-    'sha256'
-  )
-    .update(
-      JSON.stringify([
-        'admin-campaign-access-v1',
-        uid,
-        campaign
-      ])
-    )
-    .digest(
-      'hex'
-    );
+  return [
+    'adminCampaignAccess',
+    uid,
+    'campaigns',
+    campaign
+  ].join('/');
 }
 
 
@@ -233,7 +219,7 @@ function adminCanAccessCampaign({
 
 module.exports = {
   validId,
-  adminCampaignAccessDocumentId,
+  adminCampaignAccessDocumentPath,
   isActiveTechnicalAdmin,
   legacyAdminHasCampaignAccess,
   accessRecordAllows,

@@ -7,7 +7,7 @@ const assert =
 
 const {
   validId,
-  adminCampaignAccessDocumentId,
+  adminCampaignAccessDocumentPath,
   isActiveTechnicalAdmin,
   legacyAdminHasCampaignAccess,
   accessRecordAllows,
@@ -50,43 +50,44 @@ assert.throws(
 
 
 // ======================================================
-// ID DETERMINISTICO
+// RUTA DETERMINISTICA DE ACCESO
 // ======================================================
 
-const accessId =
-  adminCampaignAccessDocumentId(
+const accessPath =
+  adminCampaignAccessDocumentPath(
     'ADMIN-1',
     'CAM-001'
   );
 
-assert.match(
-  accessId,
-  /^[a-f0-9]{64}$/
+assert.equal(
+  accessPath,
+  'adminCampaignAccess/ADMIN-1/campaigns/CAM-001'
 );
 
 assert.equal(
-  adminCampaignAccessDocumentId(
+  adminCampaignAccessDocumentPath(
     ' ADMIN-1 ',
     ' CAM-001 '
   ),
-  accessId
+  accessPath
 );
 
 assert.notEqual(
-  adminCampaignAccessDocumentId(
+  adminCampaignAccessDocumentPath(
     'ADMIN-1',
     'CAM-002'
   ),
-  accessId
+  accessPath
 );
 
-// Evitar ambigüedad por separadores dentro de los IDs.
+// La jerarquia evita colisiones por separadores
+// usados dentro de los identificadores.
 assert.notEqual(
-  adminCampaignAccessDocumentId(
+  adminCampaignAccessDocumentPath(
     'ADMIN__1',
     'CAM-001'
   ),
-  adminCampaignAccessDocumentId(
+  adminCampaignAccessDocumentPath(
     'ADMIN',
     '1__CAM-001'
   )
@@ -274,5 +275,5 @@ assert.equal(
 
 
 console.log(
-  'OK: BUILD-123D3 admin multi-campaign access contract passed.'
+  'OK: BUILD-123D4B hierarchical admin multi-campaign access contract passed.'
 );
