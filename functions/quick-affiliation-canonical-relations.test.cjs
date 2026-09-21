@@ -106,12 +106,22 @@ assert.equal(
 
 
 // ======================================================
-// NO DEBE CAMBIAR EL membershipId EN ESTE BUILD
+// MEMBERSHIP ID CANONICO CENTRALIZADO
 // ======================================================
 
 assert.match(
   source,
-  /hash\(\s*['"]territorial-membership['"],\s*caller\.campaignId,\s*personRef\.id\s*\)/
+  /canonicalMembershipDocumentId/
+);
+
+assert.match(
+  source,
+  /require\(\s*['"]\.\/territorial-membership-id\.cjs['"]\s*\)/
+);
+
+assert.doesNotMatch(
+  source,
+  /['"]territorial-membership['"]/
 );
 
 

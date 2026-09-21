@@ -27,6 +27,13 @@ const {
 );
 
 
+const {
+  canonicalMembershipDocumentId
+} = require(
+  './territorial-membership-id.cjs'
+);
+
+
 const OPTIONS = {
   region:
     'us-central1',
@@ -1157,8 +1164,7 @@ exports.createQuickAffiliation =
 
 
       const membershipId =
-        hash(
-          'territorial-membership',
+        canonicalMembershipDocumentId(
           caller.campaignId,
           personRef.id
         );
