@@ -29,6 +29,13 @@ const {
   "./territorial-membership-id.cjs"
 );
 
+const {
+  validId: validAdminCampaignId,
+  adminCanAccessCampaign
+} = require(
+  "./admin-campaign-access.cjs"
+);
+
 
 // ======================================================
 // INICIALIZACIÓN 
@@ -88,6 +95,203 @@ function normalizeName(value) {
 
 }
 
+
+
+
+// ======================================================
+// BUILD-123D4I
+// CONTEXTO DE CAMPAÑA PARA OPERACIONES ADMINISTRATIVAS
+//
+// ADMIN:
+// - campaignId explícito
+// - adminCampaignAccess explícito
+// - campaña formal activa
+//
+// LÍDER PRINCIPAL / COORDINADOR MUNICIPAL:
+// - conservan su campaignId operativo propio
+// - no pueden solicitar otra campaña
+// ======================================================
+
+async function resolveAdministrativeCampaignContext({
+  db,
+  request,
+  profile,
+  uid,
+  allowPrincipalLeader = false,
+  allowMunicipalCoordinator = false
+}) {
+
+  const requestedCampaignId =
+    cleanText(
+      request?.data?.campaignId || ""
+    );
+
+  if (
+    profile?.role ===
+    "admin"
+  ) {
+
+    if (!requestedCampaignId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Debe seleccionar una campaña autorizada."
+      );
+    }
+
+    let campaignId;
+
+    try {
+
+      campaignId =
+        validAdminCampaignId(
+          requestedCampaignId,
+          "campaignId"
+        );
+
+    } catch {
+
+      throw new HttpsError(
+        "invalid-argument",
+        "La campaña seleccionada no es válida."
+      );
+    }
+
+    const [
+      accessSnapshot,
+      campaignSnapshot
+    ] =
+      await Promise.all([
+
+        db
+          .doc(
+            `adminCampaignAccess/${uid}/campaigns/${campaignId}`
+          )
+          .get(),
+
+        db
+          .doc(
+            `campaigns/${campaignId}`
+          )
+          .get()
+
+      ]);
+
+    const accessRecord =
+      accessSnapshot.exists
+        ? accessSnapshot.data()
+        : null;
+
+    if (
+      !adminCanAccessCampaign({
+        profile,
+        adminUid:
+          uid,
+        campaignId,
+        accessRecord
+      })
+    ) {
+
+      throw new HttpsError(
+        "permission-denied",
+        "No tiene autorización para operar esta campaña."
+      );
+    }
+
+    const campaign =
+      campaignSnapshot.exists
+        ? campaignSnapshot.data()
+        : null;
+
+    if (
+      !campaign ||
+      campaign.active !== true ||
+      campaign.campaignId !==
+        campaignId
+    ) {
+
+      throw new HttpsError(
+        "failed-precondition",
+        "La campaña seleccionada no está activa."
+      );
+    }
+
+    return campaignId;
+  }
+
+
+  if (
+    profile?.role ===
+      "lider_principal" &&
+    allowPrincipalLeader
+  ) {
+
+    const campaignId =
+      cleanText(
+        profile.campaignId || ""
+      );
+
+    if (!campaignId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El Líder principal no tiene campaña asignada."
+      );
+    }
+
+    if (
+      requestedCampaignId &&
+      requestedCampaignId !==
+        campaignId
+    ) {
+
+      throw new HttpsError(
+        "permission-denied",
+        "El Líder principal no puede operar otra campaña."
+      );
+    }
+
+    return campaignId;
+  }
+
+
+  if (
+    profile?.role ===
+      "coordinador_municipal" &&
+    allowMunicipalCoordinator
+  ) {
+
+    const campaignId =
+      cleanText(
+        profile.campaignId || ""
+      );
+
+    if (!campaignId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El Coordinador municipal no tiene campaña asignada."
+      );
+    }
+
+    if (
+      requestedCampaignId &&
+      requestedCampaignId !==
+        campaignId
+    ) {
+
+      throw new HttpsError(
+        "permission-denied",
+        "El Coordinador municipal no puede operar otra campaña."
+      );
+    }
+
+    return campaignId;
+  }
+
+
+  throw new HttpsError(
+    "permission-denied",
+    "El usuario no puede operar este contexto de campaña."
+  );
+}
 
 
 // ======================================================
@@ -1345,12 +1549,6 @@ exports.createMunicipality = onCall(
       );
     }
 
-    if (!adminProfile.campaignId) {
-      throw new HttpsError(
-        "failed-precondition",
-        "El administrador no tiene una campaña asignada."
-      );
-    }
 
 
     // --------------------------------------------------
@@ -1390,7 +1588,14 @@ exports.createMunicipality = onCall(
       );
 
     const campaignId =
-      adminProfile.campaignId;
+      await resolveAdministrativeCampaignContext({
+        db,
+        request,
+        profile:
+          adminProfile,
+        uid:
+          adminUid
+      });
 
 
     // --------------------------------------------------
@@ -1425,11 +1630,28 @@ exports.createMunicipality = onCall(
     // 6. GENERAR ID CONSECUTIVO
     // --------------------------------------------------
 
+    // --------------------------------------------------
+    // 6. GENERAR ID GLOBALMENTE ÚNICO
+    //
+    // municipios es una colección global y múltiples
+    // módulos resuelven directamente:
+    //
+    // municipios/{municipalityId}
+    //
+    // Por lo tanto MUN-### debe ser único entre TODAS
+    // las campañas. La secuencia ya no pertenece
+    // individualmente a una campaña.
+    //
+    // Además, si la secuencia global no existe todavía
+    // o está atrasada respecto a documentos históricos,
+    // se saltan IDs ya ocupados dentro de la transacción.
+    // --------------------------------------------------
+
     const sequenceReference =
       db
         .collection("secuencias")
         .doc(
-          `${campaignId}_MUNICIPIOS`
+          "GLOBAL_MUNICIPIOS"
         );
 
     let createdMunicipality =
@@ -1443,25 +1665,73 @@ exports.createMunicipality = onCall(
             sequenceReference
           );
 
-        const currentNumber =
+        let nextNumber =
           sequenceSnapshot.exists
             ? Number(
                 sequenceSnapshot
                   .data()
                   .lastNumber || 0
-              )
-            : 0;
+              ) + 1
+            : 1;
 
-        const nextNumber =
-          currentNumber + 1;
+        if (
+          !Number.isSafeInteger(nextNumber) ||
+          nextNumber < 1
+        ) {
+          nextNumber = 1;
+        }
 
-        const municipalityId =
-          `MUN-${String(nextNumber).padStart(3, "0")}`;
+        let municipalityId =
+          "";
 
-        const municipalityReference =
-          db
-            .collection("municipios")
-            .doc(municipalityId);
+        let municipalityReference =
+          null;
+
+        let freeIdFound =
+          false;
+
+        const MAX_COLLISION_SCAN =
+          10000;
+
+        for (
+          let attempts = 0;
+          attempts < MAX_COLLISION_SCAN;
+          attempts += 1
+        ) {
+
+          municipalityId =
+            `MUN-${String(nextNumber).padStart(3, "0")}`;
+
+          municipalityReference =
+            db
+              .collection("municipios")
+              .doc(municipalityId);
+
+          const existingMunicipalitySnapshot =
+            await transaction.get(
+              municipalityReference
+            );
+
+          if (
+            !existingMunicipalitySnapshot.exists
+          ) {
+            freeIdFound =
+              true;
+            break;
+          }
+
+          nextNumber += 1;
+        }
+
+        if (
+          !freeIdFound ||
+          !municipalityReference
+        ) {
+          throw new HttpsError(
+            "resource-exhausted",
+            "No fue posible generar un identificador municipal disponible."
+          );
+        }
 
         const now =
           FieldValue.serverTimestamp();
@@ -1501,10 +1771,8 @@ exports.createMunicipality = onCall(
         transaction.set(
           sequenceReference,
           {
-            campaignId,
-
             type:
-              "municipios",
+              "municipios_global",
 
             lastNumber:
               nextNumber,
@@ -1655,15 +1923,16 @@ exports.createMunicipalCoordinator = onCall(
 
 
     const campaignId =
-      adminProfile.campaignId;
-
-
-    if (!campaignId) {
-      throw new HttpsError(
-        "failed-precondition",
-        "El usuario no tiene campaña asignada."
-      );
-    }
+      await resolveAdministrativeCampaignContext({
+        db,
+        request,
+        profile:
+          adminProfile,
+        uid:
+          adminUid,
+        allowPrincipalLeader:
+          true
+      });
 
 
     // ==================================================
@@ -1690,6 +1959,47 @@ exports.createMunicipalCoordinator = onCall(
         throw new HttpsError(
           "permission-denied",
           "El Líder principal no está registrado para esta campaña."
+        );
+      }
+    }
+
+
+    // ==================================================
+    // PADRE TERRITORIAL OFICIAL
+    //
+    // El Administrador puede ejecutar el alta,
+    // pero no se convierte en superior territorial.
+    //
+    // Jerarquia:
+    // Lider Principal -> Coordinador Municipal
+    // ==================================================
+
+    let principalLeaderUid =
+      adminUid;
+
+    if (
+      adminProfile.role ===
+      "admin"
+    ) {
+
+      const principalLeaderSnapshot =
+        await db
+          .collection("principalLeaders")
+          .doc(campaignId)
+          .get();
+
+      principalLeaderUid =
+        principalLeaderSnapshot.exists
+          ? cleanText(
+              principalLeaderSnapshot
+                .data()?.uid || ""
+            )
+          : "";
+
+      if (!principalLeaderUid) {
+        throw new HttpsError(
+          "failed-precondition",
+          "La campaña no tiene Líder principal asignado."
         );
       }
     }
@@ -1939,7 +2249,7 @@ exports.createMunicipalCoordinator = onCall(
           municipality.name || "",
 
         parentUserId:
-          adminUid,
+          principalLeaderUid,
 
         createdBy:
           adminUid,
@@ -2191,15 +2501,16 @@ exports.createStructure = onCall(
 
 
     const campaignId =
-      creatorProfile.campaignId;
-
-
-    if (!campaignId) {
-      throw new HttpsError(
-        "failed-precondition",
-        "El usuario no tiene campaña asignada."
-      );
-    }
+      await resolveAdministrativeCampaignContext({
+        db,
+        request,
+        profile:
+          creatorProfile,
+        uid:
+          creatorUid,
+        allowMunicipalCoordinator:
+          true
+      });
 
 
     // ==================================================
