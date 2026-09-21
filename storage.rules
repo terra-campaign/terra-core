@@ -140,14 +140,15 @@ service firebase.storage {
     }
 
     function territorialStorageReadAllowed(campaignId, metadata) {
-      return (
-        territorialPermission("read") &&
-        campaignId == profile().campaignId &&
-        campaignId == territorialGrant().campaignId &&
-        storageRecordModeMatches(metadata) &&
-        storageScopeMatches(metadata)
-      ) ||
-      adminHasCampaignAccess(campaignId);
+      return
+        adminHasCampaignAccess(campaignId) ||
+        (
+          territorialPermission("read") &&
+          campaignId == profile().campaignId &&
+          campaignId == territorialGrant().campaignId &&
+          storageRecordModeMatches(metadata) &&
+          storageScopeMatches(metadata)
+        );
     }
 
     function territorialStorageCreateAllowed(campaignId, metadata) {

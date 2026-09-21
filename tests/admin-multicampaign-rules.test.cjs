@@ -119,7 +119,7 @@ test(
 );
 
 test(
-  'visit evidence read allows explicit admin campaign access',
+  'visit evidence read evaluates explicit admin access before territorial grant',
   () => {
 
     const start =
@@ -138,9 +138,29 @@ test(
         start + 1100
       );
 
-    assert.match(
-      block,
-      /adminHasCampaignAccess\(campaignId\)/
+    const adminIndex =
+      block.indexOf(
+        'adminHasCampaignAccess(campaignId)'
+      );
+
+    const territorialIndex =
+      block.indexOf(
+        'territorialPermission("read")'
+      );
+
+    assert.notEqual(
+      adminIndex,
+      -1
+    );
+
+    assert.notEqual(
+      territorialIndex,
+      -1
+    );
+
+    assert.ok(
+      adminIndex < territorialIndex,
+      'Admin access must be evaluated first to stay within the Storage Rules two-document Firestore access limit.'
     );
   }
 );
