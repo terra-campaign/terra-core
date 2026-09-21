@@ -5443,3 +5443,12 @@ exports.registerCurrentAdminCampaign =
 exports.createCampaign =
   require("./campaign-create-admin.cjs")
     .createCampaign;
+
+// ======================================================
+// BUILD-123D4G-D1
+// Listar campañas autorizadas del Admin técnico.
+// ======================================================
+
+exports.listAdminCampaigns =
+  require("./admin-campaign-list.cjs")
+    .listAdminCampaigns;
