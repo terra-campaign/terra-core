@@ -201,17 +201,33 @@ test(
 
     assert.match(
       html,
-      /styles\.css\?v=build-123d4h-c16/
+      /styles\.css\?v=build-123d4h-c20/
     );
 
     assert.match(
       html,
-      /admin\.js\?v=build-123d4h-c16/
+      /admin\.js\?v=build-123d4h-c20/
     );
 
     assert.match(
       sw,
       /terra-campaign-v1\.0\.2/
+    );
+  }
+);
+
+test(
+  'technical admin hides complete visit registration card',
+  () => {
+
+    assert.match(
+      html,
+      /id="visitRegistrationCard"/
+    );
+
+    assert.match(
+      js,
+      /visitRegistrationCard\.hidden\s*=\s*!canWrite/
     );
   }
 );

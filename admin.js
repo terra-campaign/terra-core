@@ -112,6 +112,11 @@ const eventsButton =
 const organizationButton =
   document.querySelector("#organizationButton");
 
+const visitRegistrationCard =
+  document.querySelector(
+    "#visitRegistrationCard"
+  );
+
 const visitForm =
   document.querySelector("#visitForm");
 
@@ -1491,6 +1496,11 @@ function applyTerritorialWorkspaceAccess(access) {
 
   const canWrite =
     access?.write === true;
+
+  if (visitRegistrationCard) {
+    visitRegistrationCard.hidden =
+      !canWrite;
+  }
 
   if (visitForm) {
     visitForm.hidden = !canWrite;
