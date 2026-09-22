@@ -72,13 +72,13 @@ assert.match(
 
 const parentPersonMatches =
   source.match(
-    /parentPersonId:\s*creatorPersonId/g
+    /parentUserId:\s*creatorUid,\s*parentPersonId:\s*creatorPersonId/g
   ) || [];
 
 assert.equal(
   parentPersonMatches.length,
   2,
-  'Debe persistirse parentPersonId en usuario y membresía.'
+  'Usuario y membresía deben persistir la relación canónica parentUserId + parentPersonId.'
 );
 
 
@@ -91,6 +91,33 @@ assert.equal(
   introducedPersonMatches.length,
   2,
   'Debe persistirse introducedByPersonId en persona y membresía.'
+);
+
+
+
+assert.match(
+  source,
+  /require\(\s*['"]\.\/territorial-ancestry\.cjs['"]\s*\)/
+);
+
+assert.match(
+  source,
+  /const collaboratorAncestry\s*=\s*canonicalChildAncestry\s*\(/
+);
+
+assert.match(
+  source,
+  /const ancestorPersonIds\s*=\s*collaboratorAncestry\s*\.ancestorPersonIds/
+);
+
+assert.match(
+  source,
+  /ancestorIds,\s*ancestorPersonIds,\s*createdBy:/
+);
+
+assert.match(
+  source,
+  /ancestorUserIds:\s*ancestorIds,\s*ancestorPersonIds,/
 );
 
 

@@ -33,6 +33,12 @@ const {
   './territorial-membership-id.cjs'
 );
 
+const {
+  canonicalChildAncestry
+} = require(
+  './territorial-ancestry.cjs'
+);
+
 
 const OPTIONS = {
   region:
@@ -1188,37 +1194,23 @@ exports.createQuickAffiliation =
           .doc();
 
 
+      const affiliationAncestry =
+        canonicalChildAncestry({
+          parentUid:
+            caller.uid,
+          parentPersonId:
+            callerPersonId,
+          parentProfile:
+            caller
+        });
+
       const ancestorUserIds =
-        [
-          caller.uid,
-          ...(
-            Array.isArray(
-              caller.ancestorIds
-            )
-              ? caller
-                  .ancestorIds
-              : []
-          )
-        ]
-          .filter(
-            (
-              value,
-              index,
-              list
-            ) =>
-              typeof value ===
-                'string' &&
-              value.length &&
-              list.indexOf(
-                value
-              ) ===
-                index
-          );
+        affiliationAncestry
+          .ancestorUserIds;
 
-
-      const now =
-        FieldValue
-          .serverTimestamp();
+      const ancestorPersonIds =
+        affiliationAncestry
+          .ancestorPersonIds;
 
 
       await db.runTransaction(
@@ -1403,6 +1395,8 @@ exports.createQuickAffiliation =
                 caller.uid,
 
               ancestorUserIds,
+
+              ancestorPersonIds,
 
               source:
                 'quick_affiliation',

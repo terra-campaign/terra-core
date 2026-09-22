@@ -44,8 +44,8 @@ const canonicalCalls =
 
 assert.equal(
   canonicalCalls.length,
-  3,
-  'Coordinador Municipal, Coordinador Municipal, Integrante y Participante deben usar membershipId canonico.'
+  4,
+  'Coordinador Municipal, Jefe de Estructura, Integrante y Participante deben usar membershipId canonico.'
 );
 
 
@@ -56,8 +56,8 @@ const canonicalRefs =
 
 assert.equal(
   canonicalRefs.length,
-  3,
-  'Deben existir tres referencias canonicas a territorialMemberships.'
+  4,
+  'Deben existir cuatro referencias canonicas a territorialMemberships.'
 );
 
 
@@ -73,5 +73,5 @@ assert.match(
 
 
 console.log(
-  'OK: BUILD-123C5 index.js uses canonical membership IDs for Integrante and Participante.'
+  'OK: BUILD-123C5 index.js uses canonical membership IDs for Coordinador, Jefe, Integrante y Participante.'
 );

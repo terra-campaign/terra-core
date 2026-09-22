@@ -33,6 +33,12 @@ const {
   './territorial-membership-id.cjs'
 );
 
+const {
+  canonicalChildAncestry
+} = require(
+  './territorial-ancestry.cjs'
+);
+
 
 const OPTIONS = {
   region: 'us-central1',
@@ -453,27 +459,23 @@ exports.createBaseCollaborator =
           .doc();
 
 
+      const collaboratorAncestry =
+        canonicalChildAncestry({
+          parentUid:
+            creatorUid,
+          parentPersonId:
+            creatorPersonId,
+          parentProfile:
+            creatorProfile
+        });
+
       const ancestorIds =
-        [
-          creatorUid,
-          ...(
-            Array.isArray(
-              creatorProfile.ancestorIds
-            )
-              ? creatorProfile.ancestorIds
-              : []
-          )
-        ]
-          .filter(
-            (
-              value,
-              index,
-              list
-            ) =>
-              typeof value === 'string' &&
-              value.length > 0 &&
-              list.indexOf(value) === index
-          );
+        collaboratorAncestry
+          .ancestorUserIds;
+
+      const ancestorPersonIds =
+        collaboratorAncestry
+          .ancestorPersonIds;
 
 
       const commonTerritory = {
@@ -564,6 +566,8 @@ exports.createBaseCollaborator =
           '',
 
         ancestorIds,
+
+        ancestorPersonIds,
 
         createdBy:
           creatorUid,
@@ -725,6 +729,8 @@ exports.createBaseCollaborator =
 
         ancestorUserIds:
           ancestorIds,
+
+        ancestorPersonIds,
 
         source:
           'hierarchy_registration',

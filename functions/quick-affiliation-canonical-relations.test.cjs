@@ -83,13 +83,13 @@ assert.equal(
 
 const parentPersonMatches =
   source.match(
-    /parentPersonId:\s*callerPersonId/g
+    /parentUserId:\s*caller\.uid,\s*parentPersonId:\s*callerPersonId/g
   ) || [];
 
 assert.equal(
   parentPersonMatches.length,
   1,
-  'La membresía debe guardar parentPersonId.'
+  'La membresía debe persistir la relación canónica parentUserId + parentPersonId.'
 );
 
 
@@ -122,6 +122,28 @@ assert.match(
 assert.doesNotMatch(
   source,
   /['"]territorial-membership['"]/
+);
+
+
+
+assert.match(
+  source,
+  /require\(\s*['"]\.\/territorial-ancestry\.cjs['"]\s*\)/
+);
+
+assert.match(
+  source,
+  /const affiliationAncestry\s*=\s*canonicalChildAncestry\s*\(/
+);
+
+assert.match(
+  source,
+  /const ancestorPersonIds\s*=\s*affiliationAncestry\s*\.ancestorPersonIds/
+);
+
+assert.match(
+  source,
+  /ancestorUserIds,\s*ancestorPersonIds,/
 );
 
 

@@ -150,6 +150,28 @@ assert.match(
 );
 
 
+
+assert.match(
+  source,
+  /require\(\s*['"]\.\/territorial-ancestry\.cjs['"]\s*\)/
+);
+
+assert.match(
+  source,
+  /const registrationAncestry\s*=\s*canonicalChildAncestry\s*\(/
+);
+
+assert.match(
+  source,
+  /const ancestorPersonIds\s*=\s*registrationAncestry\s*\.ancestorPersonIds/
+);
+
+assert.match(
+  source,
+  /ancestorUserIds,\s*ancestorPersonIds,/
+);
+
+
 console.log(
   'OK: BUILD-123B3 door registration canonical relations contract passed.'
 );

@@ -59,6 +59,12 @@ const {
     './territorial-membership-id.cjs'
   );
 
+const {
+  canonicalChildAncestry
+} = require(
+  './territorial-ancestry.cjs'
+);
+
 
 const OPTIONS = {
   region:
@@ -1671,16 +1677,23 @@ exports.completeDoorRegistrationHandoff =
             FieldValue.serverTimestamp();
 
 
-          const ancestorUserIds = [
-            caller.uid,
-            ...(
-              Array.isArray(
-                caller.ancestorIds
-              )
-                ? caller.ancestorIds
-                : []
-            )
-          ];
+          const registrationAncestry =
+            canonicalChildAncestry({
+              parentUid:
+                caller.uid,
+              parentPersonId:
+                callerPersonId,
+              parentProfile:
+                caller
+            });
+
+          const ancestorUserIds =
+            registrationAncestry
+              .ancestorUserIds;
+
+          const ancestorPersonIds =
+            registrationAncestry
+              .ancestorPersonIds;
 
 
           tx.create(
@@ -1824,6 +1837,8 @@ exports.completeDoorRegistrationHandoff =
                 inviterPersonId,
 
               ancestorUserIds,
+
+              ancestorPersonIds,
 
               originHandoffId:
                 handoff.id,

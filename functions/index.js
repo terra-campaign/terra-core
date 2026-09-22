@@ -30,6 +30,12 @@ const {
 );
 
 const {
+  canonicalChildAncestry
+} = require(
+  "./territorial-ancestry.cjs"
+);
+
+const {
   validId: validAdminCampaignId,
   adminCanAccessCampaign
 } = require(
@@ -2033,6 +2039,17 @@ exports.createMunicipalCoordinator = onCall(
       principalLeaderIdentity.personId;
 
 
+    const coordinatorAncestry =
+      canonicalChildAncestry({
+        parentUid:
+          principalLeaderUid,
+        parentPersonId:
+          principalLeaderPersonId,
+        parentProfile:
+          principalLeaderProfile
+      });
+
+
     // ==================================================
     // INPUT
     // ==================================================
@@ -2271,6 +2288,14 @@ exports.createMunicipalCoordinator = onCall(
         parentPersonId:
           principalLeaderPersonId,
 
+        ancestorIds:
+          coordinatorAncestry
+            .ancestorUserIds,
+
+        ancestorPersonIds:
+          coordinatorAncestry
+            .ancestorPersonIds,
+
         introducedByUserId:
           principalLeaderUid,
 
@@ -2425,6 +2450,14 @@ exports.createMunicipalCoordinator = onCall(
 
         parentUserName:
           principalLeaderProfile.name || "",
+
+        ancestorUserIds:
+          coordinatorAncestry
+            .ancestorUserIds,
+
+        ancestorPersonIds:
+          coordinatorAncestry
+            .ancestorPersonIds,
 
         introducedByUserId:
           principalLeaderUid,
@@ -3515,6 +3548,44 @@ const structureDocumentId =
 
 
     // ==================================================
+    // BUILD-123D4I-B2I
+    // PADRE TERRITORIAL CANONICO
+    // ==================================================
+
+    const creatorIdentity =
+      await resolveCanonicalPersonForAccount({
+        db,
+        accountUid:
+          creatorUid,
+        profile:
+          creatorProfile,
+        campaignId
+      });
+
+    const creatorPersonId =
+      creatorIdentity.personId;
+
+    const chiefAncestry =
+      canonicalChildAncestry({
+        parentUid:
+          creatorUid,
+        parentPersonId:
+          creatorPersonId,
+        parentProfile:
+          creatorProfile
+      });
+
+    const parentPersonId =
+      chiefAncestry.parentPersonId;
+
+    const ancestorIds =
+      chiefAncestry.ancestorUserIds;
+
+    const ancestorPersonIds =
+      chiefAncestry.ancestorPersonIds;
+
+
+    // ==================================================
     // 8. CREAR CUENTA EN FIREBASE AUTH
     // ==================================================
 
@@ -3602,10 +3673,43 @@ const structureDocumentId =
 
     try {
 
+      const personRef =
+        db
+          .collection("persons")
+          .doc();
+
+      const personId =
+        personRef.id;
+
+      const membershipId =
+        canonicalMembershipDocumentId(
+          campaignId,
+          personId
+        );
+
+      const membershipRef =
+        db
+          .collection(
+            "territorialMemberships"
+          )
+          .doc(
+            membershipId
+          );
+
+      const logRef =
+        db
+          .collection("logs")
+          .doc();
+
+
       const chiefProfile = {
 
         uid:
           authUser.uid,
+
+        personId,
+
+        membershipId,
 
         name,
 
@@ -3645,18 +3749,22 @@ const structureDocumentId =
           structure.name || "",
 
         parentUserId:
-  creatorUid,
+          creatorUid,
 
-ancestorIds: [
-  creatorUid,
-  ...(
-    creatorProfile.ancestorIds ||
-    []
-  )
-],
+        parentPersonId,
 
-createdBy:
-  creatorUid,
+        ancestorIds,
+
+        ancestorPersonIds,
+
+        introducedByUserId:
+          creatorUid,
+
+        introducedByPersonId:
+          creatorPersonId,
+
+        createdBy:
+          creatorUid,
 
         createdByRole:
           creatorProfile.role,
@@ -3675,86 +3783,265 @@ createdBy:
       };
 
 
-      await chiefRef.set(
-        chiefProfile
-      );
+      const canonicalPerson = {
 
+        personId,
 
-      // ==================================================
-      // 10. ACTUALIZAR ESTRUCTURA
-      // ==================================================
-
-      await structureRef.update({
-
-        chiefId:
+        accountUid:
           authUser.uid,
 
-        chiefName:
-          name,
+        name,
+
+        email,
+
+        phone,
+
+        hasWhatsApp,
+
+        active:
+          true,
+
+        campaignId,
+
+        municipalityId:
+          structure.municipalityId,
+
+        municipalityName:
+          structure.municipalityName || "",
+
+        structureId:
+          structure.id,
+
+        structureDocumentId:
+          structureSnapshot.id,
+
+        structureName:
+          structure.name || "",
+
+        identityStatus:
+          "digital",
+
+        source:
+          "hierarchy_registration",
+
+        introducedByUserId:
+          creatorUid,
+
+        introducedByPersonId:
+          creatorPersonId,
+
+        referredByUserId:
+          creatorUid,
+
+        referredByPersonId:
+          creatorPersonId,
+
+        mentorUserId:
+          creatorUid,
+
+        mentorPersonId:
+          creatorPersonId,
+
+        createdByUserId:
+          creatorUid,
+
+        createdByRole:
+          creatorProfile.role,
+
+        createdAt:
+          FieldValue.serverTimestamp(),
 
         updatedAt:
           FieldValue.serverTimestamp(),
 
-        updatedBy:
+        version:
+          1
+      };
+
+
+      const territorialMembership = {
+
+        membershipId,
+
+        personId,
+
+        accountUid:
+          authUser.uid,
+
+        campaignId,
+
+        municipalityId:
+          structure.municipalityId,
+
+        municipalityName:
+          structure.municipalityName || "",
+
+        structureId:
+          structure.id,
+
+        structureDocumentId:
+          structureSnapshot.id,
+
+        structureName:
+          structure.name || "",
+
+        role:
+          "jefe_estructura",
+
+        active:
+          true,
+
+        parentUserId:
           creatorUid,
 
+        parentPersonId,
+
+        parentUserName:
+          creatorProfile.name || "",
+
+        mentorUserId:
+          creatorUid,
+
+        mentorPersonId:
+          creatorPersonId,
+
+        introducedByUserId:
+          creatorUid,
+
+        introducedByPersonId:
+          creatorPersonId,
+
+        referredByUserId:
+          creatorUid,
+
+        referredByPersonId:
+          creatorPersonId,
+
+        ancestorUserIds:
+          ancestorIds,
+
+        ancestorPersonIds,
+
+        source:
+          "hierarchy_registration",
+
+        activityPreferences: {
+          eventos_mitines:
+            true
+        },
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        updatedAt:
+          FieldValue.serverTimestamp(),
+
         version:
-          FieldValue.increment(1)
-      });
+          1
+      };
 
 
-      // ==================================================
-      // 11. AUDITORÍA
-      // ==================================================
+      const auditRecord = {
 
-      await db
-        .collection("logs")
-        .add({
+        action:
+          "CREATE_STRUCTURE_CHIEF",
 
-          action:
-            "CREATE_STRUCTURE_CHIEF",
+        campaignId,
 
-          campaignId,
+        municipalityId:
+          structure.municipalityId,
 
-          municipalityId:
-            structure.municipalityId,
+        municipalityName:
+          structure.municipalityName || "",
 
-          municipalityName:
-            structure.municipalityName || "",
+        coordinatorId:
+          structure.coordinatorId,
 
-          coordinatorId:
-            structure.coordinatorId,
+        coordinatorName:
+          structure.coordinatorName || "",
 
-          coordinatorName:
-            structure.coordinatorName || "",
+        structureId:
+          structure.id,
 
-          structureId:
-            structure.id,
+        structureDocumentId:
+          structureSnapshot.id,
 
-          structureDocumentId:
-            structureSnapshot.id,
+        structureName:
+          structure.name || "",
 
-          structureName:
-            structure.name || "",
+        targetUserId:
+          authUser.uid,
 
-          targetUserId:
+        targetUserName:
+          name,
+
+        targetUserEmail:
+          email,
+
+        parentUserId:
+          creatorUid,
+
+        parentPersonId,
+
+        personId,
+
+        membershipId,
+
+        createdBy:
+          creatorUid,
+
+        createdByRole:
+          creatorProfile.role,
+
+        createdAt:
+          FieldValue.serverTimestamp()
+      };
+
+
+      const batch =
+        db.batch();
+
+      batch.create(
+        chiefRef,
+        chiefProfile
+      );
+
+      batch.create(
+        personRef,
+        canonicalPerson
+      );
+
+      batch.create(
+        membershipRef,
+        territorialMembership
+      );
+
+      batch.update(
+        structureRef,
+        {
+          chiefId:
             authUser.uid,
 
-          targetUserName:
+          chiefName:
             name,
 
-          targetUserEmail:
-            email,
+          updatedAt:
+            FieldValue.serverTimestamp(),
 
-          createdBy:
+          updatedBy:
             creatorUid,
 
-          createdByRole:
-            creatorProfile.role,
+          version:
+            FieldValue.increment(1)
+        }
+      );
 
-          createdAt:
-            FieldValue.serverTimestamp()
-        });
+      batch.create(
+        logRef,
+        auditRecord
+      );
+
+      await batch.commit();
 
 
       // ==================================================
@@ -3770,6 +4057,10 @@ createdBy:
 
           uid:
             authUser.uid,
+
+          personId,
+
+          membershipId,
 
           name,
 
@@ -3807,6 +4098,11 @@ createdBy:
 
           structureName:
             structure.name || "",
+
+          parentUserId:
+            creatorUid,
+
+          parentPersonId,
 
           mustChangePassword:
             true
@@ -4204,6 +4500,47 @@ const password =
 
 
     // ==================================================
+    // BUILD-123D4I-B2I
+    // PADRE TERRITORIAL CANONICO
+    // ==================================================
+
+    const parentUserId =
+      creatorUid;
+
+    const creatorIdentity =
+      await resolveCanonicalPersonForAccount({
+        db,
+        accountUid:
+          creatorUid,
+        profile:
+          creatorProfile,
+        campaignId
+      });
+
+    const creatorPersonId =
+      creatorIdentity.personId;
+
+    const memberAncestry =
+      canonicalChildAncestry({
+        parentUid:
+          parentUserId,
+        parentPersonId:
+          creatorPersonId,
+        parentProfile:
+          creatorProfile
+      });
+
+    const parentPersonId =
+      memberAncestry.parentPersonId;
+
+    const ancestorIds =
+      memberAncestry.ancestorUserIds;
+
+    const ancestorPersonIds =
+      memberAncestry.ancestorPersonIds;
+
+
+    // ==================================================
     // 7. CREAR USUARIO EN FIREBASE AUTH
     // ==================================================
 
@@ -4269,22 +4606,6 @@ const password =
       );
     }
 
-
-   // ==================================================
-// 8. DEFINIR JERARQUÍA
-// BUILD-116A
-// ==================================================
-
-const parentUserId =
-  creatorUid;
-
-const ancestorIds = [
-  creatorUid,
-  ...(
-    creatorProfile.ancestorIds ||
-    []
-  )
-];
 
 
     // ==================================================
@@ -4354,7 +4675,11 @@ const ancestorIds = [
 
         parentUserId,
 
-ancestorIds,
+        parentPersonId,
+
+        ancestorIds,
+
+        ancestorPersonIds,
 
 createdBy:
   creatorUid,
@@ -4476,6 +4801,9 @@ createdBy:
         introducedByUserId:
           creatorUid,
 
+        introducedByPersonId:
+          creatorPersonId,
+
         referredByUserId:
           creatorUid,
 
@@ -4535,6 +4863,8 @@ createdBy:
 
         parentUserId,
 
+        parentPersonId,
+
         parentUserName:
           creatorProfile.name ||
           "",
@@ -4545,11 +4875,16 @@ createdBy:
         introducedByUserId:
           creatorUid,
 
+        introducedByPersonId:
+          creatorPersonId,
+
         referredByUserId:
           creatorUid,
 
         ancestorUserIds:
           ancestorIds,
+
+        ancestorPersonIds,
 
         source:
           "hierarchy_registration",
@@ -4929,13 +5264,6 @@ const password =
 const parentUserId =
   creatorUid;
 
-    const ancestorIds = [
-  creatorUid,
-  ...(
-    creatorProfile.ancestorIds ||
-    []
-  )
-];
 
 
    // ==================================================
@@ -5113,6 +5441,41 @@ if (!parentUserId) {
 
 
     // ==================================================
+    // BUILD-123D4I-B2I
+    // PADRE TERRITORIAL CANONICO
+    // ==================================================
+
+    const parentIdentity =
+      await resolveCanonicalPersonForAccount({
+        db,
+        accountUid:
+          parentUserId,
+        profile:
+          parentProfile,
+        campaignId
+      });
+
+    const parentPersonId =
+      parentIdentity.personId;
+
+    const participantAncestry =
+      canonicalChildAncestry({
+        parentUid:
+          parentUserId,
+        parentPersonId,
+        parentProfile
+      });
+
+    const ancestorIds =
+      participantAncestry
+        .ancestorUserIds;
+
+    const ancestorPersonIds =
+      participantAncestry
+        .ancestorPersonIds;
+
+
+    // ==================================================
     // 7. CREAR USUARIO EN FIREBASE AUTH
     // ==================================================
 
@@ -5246,10 +5609,14 @@ if (!parentUserId) {
 
         parentUserId,
 
-parentUserName:
+        parentPersonId,
+
+        parentUserName:
   parentProfile.name || "",
 
 ancestorIds,
+
+        ancestorPersonIds,
 
 createdBy:
   creatorUid,
@@ -5373,6 +5740,9 @@ createdBy:
         introducedByUserId:
           creatorUid,
 
+        introducedByPersonId:
+          parentPersonId,
+
         referredByUserId:
           creatorUid,
 
@@ -5435,6 +5805,8 @@ createdBy:
 
         parentUserId,
 
+        parentPersonId,
+
         parentUserName:
           parentProfile.name ||
           "",
@@ -5445,11 +5817,16 @@ createdBy:
         introducedByUserId:
           creatorUid,
 
+        introducedByPersonId:
+          parentPersonId,
+
         referredByUserId:
           creatorUid,
 
         ancestorUserIds:
           ancestorIds,
+
+        ancestorPersonIds,
 
         source:
           "hierarchy_registration",
