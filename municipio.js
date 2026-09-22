@@ -46,6 +46,12 @@ const municipalityNameElement =
 const municipalityIdElement =
   document.querySelector("#municipalityId");
 
+const campaignContextMessage =
+  document.querySelector("#campaignContextMessage");
+
+const municipalitiesBackLink =
+  document.querySelector("#municipalitiesBackLink");
+
 const municipalityStatus =
   document.querySelector("#municipalityStatus");
 
@@ -154,6 +160,15 @@ const municipalityId =
     urlParams.get("id") || ""
   ).trim();
 
+const requestedCampaignId =
+  String(
+    urlParams.get("campaignId") ||
+    ""
+  )
+    .trim();
+
+let currentCampaignId = "";
+
 
 // ======================================================
 // CLOUD FUNCTIONS
@@ -175,6 +190,12 @@ const createStructureFunction =
   httpsCallable(
     functions,
     "createStructure"
+  );
+
+const listAdminCampaignsFunction =
+  httpsCallable(
+    functions,
+    "listAdminCampaigns"
   );
 
 
@@ -360,6 +381,7 @@ if (
 
 
  if (
+    profile.role === "coordinador_municipal" &&
   !profile.campaignId
 ) {
 
@@ -370,6 +392,98 @@ if (
 
 
   return profile;
+}
+
+
+// ======================================================
+// CONTEXTO DE CAMPAÑA
+// ======================================================
+
+async function resolveCampaignContext() {
+
+  if (currentUserProfile.role === "admin") {
+
+    if (!requestedCampaignId) {
+      throw new Error(
+        "No se especificó la campaña para administrar este municipio."
+      );
+    }
+
+
+    const result =
+      await listAdminCampaignsFunction({});
+
+    const campaigns =
+      Array.isArray(
+        result?.data?.campaigns
+      )
+        ? result.data.campaigns
+        : [];
+
+
+    const authorized =
+      campaigns.some(
+        (campaign) =>
+          campaign?.campaignId ===
+          requestedCampaignId
+      );
+
+
+    if (!authorized) {
+      throw new Error(
+        "No tienes autorización para administrar esta campaña."
+      );
+    }
+
+
+    currentCampaignId =
+      requestedCampaignId;
+
+  } else {
+
+    currentCampaignId =
+      String(
+        currentUserProfile.campaignId ||
+        ""
+      )
+        .trim();
+
+
+    if (!currentCampaignId) {
+      throw new Error(
+        "El usuario no tiene campaña asignada."
+      );
+    }
+
+
+    if (
+      requestedCampaignId &&
+      requestedCampaignId !==
+        currentCampaignId
+    ) {
+      throw new Error(
+        "El municipio solicitado no pertenece a tu campaña."
+      );
+    }
+  }
+
+
+  if (
+    municipalitiesBackLink &&
+    currentUserProfile.role === "admin"
+  ) {
+
+    municipalitiesBackLink.href =
+      `./municipios.html?campaignId=${encodeURIComponent(
+        currentCampaignId
+      )}`;
+  }
+
+
+  if (campaignContextMessage) {
+    campaignContextMessage.textContent =
+      `Campaña ${currentCampaignId}`;
+  }
 }
 
 
@@ -420,7 +534,7 @@ async function loadMunicipality() {
 
   if (
     municipality.campaignId !==
-    currentUserProfile.campaignId
+    currentCampaignId
   ) {
 
     throw new Error(
@@ -778,7 +892,7 @@ function listenCoordinators() {
       where(
         "campaignId",
         "==",
-        currentUserProfile.campaignId
+        currentCampaignId
       ),
 
       where(
@@ -982,7 +1096,9 @@ async function handleCreateCoordinator(
 
         password,
 
-        municipalityId
+        municipalityId,
+        campaignId:
+          currentCampaignId
       });
 
 
@@ -1221,7 +1337,7 @@ function listenStructures() {
       where(
         "campaignId",
         "==",
-        currentUserProfile.campaignId
+        currentCampaignId
       ),
 
       where(
@@ -1375,7 +1491,9 @@ async function handleCreateStructure(
 
         municipalityId,
 
-        coordinatorId
+        coordinatorId,
+        campaignId:
+          currentCampaignId
       });
 
 
@@ -1587,6 +1705,8 @@ onAuthStateChanged(
   currentUserProfile.role !== "admin";
 
 
+      await resolveCampaignContext();
+
       await loadMunicipality();
 
 
@@ -1611,7 +1731,13 @@ onAuthStateChanged(
 
 
       window.location.href =
-        "./municipios.html";
+        currentUserProfile?.role ===
+          "admin" &&
+        currentCampaignId
+          ? `./municipios.html?campaignId=${encodeURIComponent(
+              currentCampaignId
+            )}`
+          : "./municipios.html";
     }
   }
 );

@@ -63,6 +63,12 @@ const saveMunicipalityButton =
 const formStatus =
   document.querySelector("#formStatus");
 
+const adminCampaignSelect =
+  document.querySelector("#adminCampaignSelect");
+
+const adminCampaignMessage =
+  document.querySelector("#adminCampaignMessage");
+
 
 // ======================================================
 // ESTADO
@@ -70,6 +76,20 @@ const formStatus =
 
 let currentUser = null;
 let currentUserProfile = null;
+
+let adminCampaigns = [];
+let selectedAdminCampaignId = "";
+
+const requestedAdminCampaignId =
+  String(
+    new URLSearchParams(
+      window.location.search
+    ).get(
+      "campaignId"
+    ) ||
+    ""
+  )
+    .trim();
 let stopMunicipalitiesListener = null;
 
 
@@ -87,6 +107,12 @@ const createMunicipalityFunction =
   httpsCallable(
     functions,
     "createMunicipality"
+  );
+
+const listAdminCampaignsFunction =
+  httpsCallable(
+    functions,
+    "listAdminCampaigns"
   );
 
 
@@ -224,15 +250,188 @@ async function loadCurrentUserProfile(
     );
   }
 
-  if (
-    !profile.campaignId
-  ) {
-    throw new Error(
-      "El administrador no tiene una campaña asignada."
-    );
-  }
 
   return profile;
+}
+
+
+// ======================================================
+// CONTEXTO MULTI-CAMPAÑA DEL ADMIN
+// ======================================================
+
+function syncAdminCampaignUrl(
+  campaignId
+) {
+
+  if (!campaignId) {
+    return;
+  }
+
+
+  const url =
+    new URL(
+      window.location.href
+    );
+
+  url.searchParams.set(
+    "campaignId",
+    campaignId
+  );
+
+  window.history.replaceState(
+    {},
+    "",
+    `${url.pathname}${url.search}${url.hash}`
+  );
+}
+
+
+function adminCampaignLabel(
+  campaign
+) {
+
+  return (
+    campaign?.name ||
+    campaign?.displayName ||
+    campaign?.campaignName ||
+    campaign?.title ||
+    campaign?.campaignId ||
+    "Campaña"
+  );
+}
+
+
+async function loadAdminCampaigns() {
+
+  if (adminCampaignSelect) {
+    adminCampaignSelect.disabled =
+      true;
+
+    adminCampaignSelect.innerHTML =
+      "";
+  }
+
+  if (newMunicipalityButton) {
+    newMunicipalityButton.disabled =
+      true;
+  }
+
+  showStatus(
+    adminCampaignMessage,
+    "Consultando campañas autorizadas..."
+  );
+
+
+  const result =
+    await listAdminCampaignsFunction({});
+
+  adminCampaigns =
+    Array.isArray(
+      result?.data?.campaigns
+    )
+      ? result.data.campaigns
+      : [];
+
+
+  const requestedDefault =
+    String(
+      result?.data?.selectedCampaignId ||
+      ""
+    )
+      .trim();
+
+
+  const requestedFromUrlIsAuthorized =
+    Boolean(
+      requestedAdminCampaignId &&
+      adminCampaigns.some(
+        (campaign) =>
+          campaign.campaignId ===
+          requestedAdminCampaignId
+      )
+    );
+
+
+  const requestedDefaultIsAuthorized =
+    Boolean(
+      requestedDefault &&
+      adminCampaigns.some(
+        (campaign) =>
+          campaign.campaignId ===
+          requestedDefault
+      )
+    );
+
+
+  selectedAdminCampaignId =
+    requestedFromUrlIsAuthorized
+      ? requestedAdminCampaignId
+      : requestedDefaultIsAuthorized
+        ? requestedDefault
+        : (
+            adminCampaigns[0]?.campaignId ||
+            ""
+          );
+
+
+  syncAdminCampaignUrl(
+    selectedAdminCampaignId
+  );
+
+
+  if (adminCampaignSelect) {
+
+    for (
+      const campaign
+      of adminCampaigns
+    ) {
+
+      const option =
+        document.createElement(
+          "option"
+        );
+
+      option.value =
+        campaign.campaignId;
+
+      option.textContent =
+        `${adminCampaignLabel(
+          campaign
+        )} · ${campaign.campaignId}`;
+
+      adminCampaignSelect.append(
+        option
+      );
+    }
+
+    adminCampaignSelect.value =
+      selectedAdminCampaignId;
+
+    adminCampaignSelect.disabled =
+      !selectedAdminCampaignId;
+  }
+
+
+  if (newMunicipalityButton) {
+    newMunicipalityButton.disabled =
+      !selectedAdminCampaignId;
+  }
+
+
+  showStatus(
+    adminCampaignMessage,
+    selectedAdminCampaignId
+      ? `Administrando municipios de ${selectedAdminCampaignId}.`
+      : "No hay campañas activas autorizadas para esta cuenta.",
+    selectedAdminCampaignId
+      ? ""
+      : "error"
+  );
+
+
+  return Boolean(
+    selectedAdminCampaignId
+  );
 }
 
 
@@ -241,6 +440,17 @@ async function loadCurrentUserProfile(
 // ======================================================
 
 function openMunicipalityModal() {
+
+  if (!selectedAdminCampaignId) {
+
+    showStatus(
+      municipalityStatus,
+      "Seleccione una campaña autorizada.",
+      "error"
+    );
+
+    return;
+  }
 
   municipalityForm?.reset();
 
@@ -357,6 +567,9 @@ function renderMunicipalities(
           class="button button--secondary"
           href="./municipio.html?id=${encodeURIComponent(
             municipality.id
+          )}&campaignId=${encodeURIComponent(
+            municipality.campaignId ||
+            selectedAdminCampaignId
           )}"
         >
           Administrar
@@ -384,6 +597,23 @@ function listenMunicipalities() {
     stopMunicipalitiesListener
   ) {
     stopMunicipalitiesListener();
+
+    stopMunicipalitiesListener =
+      null;
+  }
+
+
+  if (!selectedAdminCampaignId) {
+
+    renderMunicipalities([]);
+
+    showStatus(
+      municipalityStatus,
+      "Seleccione una campaña autorizada.",
+      "error"
+    );
+
+    return;
   }
 
   const municipalitiesQuery =
@@ -396,7 +626,7 @@ function listenMunicipalities() {
       where(
         "campaignId",
         "==",
-        currentUserProfile.campaignId
+        selectedAdminCampaignId
       ),
 
       orderBy(
@@ -465,6 +695,18 @@ async function handleCreateMunicipality(
 
   event.preventDefault();
 
+
+  if (!selectedAdminCampaignId) {
+
+    showStatus(
+      formStatus,
+      "Seleccione una campaña autorizada.",
+      "error"
+    );
+
+    return;
+  }
+
   const name =
     String(
       municipalityNameInput?.value ||
@@ -505,7 +747,9 @@ async function handleCreateMunicipality(
 
     const result =
       await createMunicipalityFunction({
-        name
+        name,
+        campaignId:
+          selectedAdminCampaignId
       });
 
     const municipality =
@@ -587,6 +831,49 @@ municipalityModal
   );
 
 
+adminCampaignSelect
+  ?.addEventListener(
+    "change",
+    () => {
+
+      const campaignId =
+        String(
+          adminCampaignSelect.value ||
+          ""
+        )
+          .trim();
+
+
+      if (
+        !adminCampaigns.some(
+          (campaign) =>
+            campaign.campaignId ===
+            campaignId
+        )
+      ) {
+        return;
+      }
+
+
+      selectedAdminCampaignId =
+        campaignId;
+
+      syncAdminCampaignUrl(
+        selectedAdminCampaignId
+      );
+
+
+      showStatus(
+        adminCampaignMessage,
+        `Administrando municipios de ${selectedAdminCampaignId}.`
+      );
+
+
+      listenMunicipalities();
+    }
+  );
+
+
 logoutButton?.addEventListener(
   "click",
   async () => {
@@ -633,6 +920,18 @@ onAuthStateChanged(
         await loadCurrentUserProfile(
           user
         );
+
+      const hasCampaign =
+        await loadAdminCampaigns();
+
+
+      if (!hasCampaign) {
+
+        renderMunicipalities([]);
+
+        return;
+      }
+
 
       listenMunicipalities();
 

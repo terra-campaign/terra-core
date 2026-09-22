@@ -62,6 +62,39 @@
 
   <main class="workspace">
 
+    <section
+      id="adminCampaignContext"
+      class="card"
+    >
+      <p class="eyebrow">
+        CONTEXTO ADMINISTRATIVO
+      </p>
+
+      <h2>
+        Campaña
+      </h2>
+
+      <p class="muted">
+        Selecciona la campaña cuyos municipios deseas administrar.
+      </p>
+
+      <label>
+        Campaña autorizada
+
+        <select
+          id="adminCampaignSelect"
+          disabled
+        ></select>
+      </label>
+
+      <div
+        id="adminCampaignMessage"
+        class="status"
+        hidden
+      ></div>
+    </section>
+
+
     <section class="card">
 
       <div class="section-header">
@@ -210,7 +243,7 @@
 
  <script
   type="module"
-  src="./municipios.js?v=003"
+  src="./municipios.js?v=005"
 ></script>
 
 </body>
