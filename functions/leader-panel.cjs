@@ -2,6 +2,7 @@ const {onCall,HttpsError}=require('firebase-functions/v2/https');
 const {getFirestore}=require('firebase-admin/firestore');
 const {getAuth}=require('firebase-admin/auth');
 const {validId,adminCampaignAccessDocumentPath,adminCanAccessCampaign}=require('./admin-campaign-access.cjs');
+const {canonicalMembershipDocumentId}=require('./territorial-membership-id.cjs');
 const options={region:'us-central1',timeoutSeconds:60};
 function deny(){throw new HttpsError('permission-denied','Acceso no autorizado.');}
 async function activeProfile(tx,db,request){
@@ -29,28 +30,330 @@ async function authorizeAdminCampaign(tx,db,request,campaignId){
 }
 exports.assignPrincipalLeader=onCall(options,async request=>{
  const db=getFirestore(), campaignId=requestedCampaignId(request);
- // Authorize target campaign before looking up any Auth account.
- await db.runTransaction(tx=>authorizeAdminCampaign(tx,db,request,campaignId));
+
+ // Autorizar la campaña antes de consultar Auth.
+ await db.runTransaction(
+  tx=>authorizeAdminCampaign(
+   tx,
+   db,
+   request,
+   campaignId
+  )
+ );
+
  const uid=request.data?.uid;
- if(typeof uid!=='string'||!uid||uid.includes('/')||uid.length>128||uid===request.auth.uid) throw new HttpsError('invalid-argument','UID inválido. Use una cuenta nueva del líder.');
+
+ if(
+  typeof uid!=='string'||
+  !uid||
+  uid.includes('/')||
+  uid.length>128||
+  uid===request.auth.uid
+ ){
+  throw new HttpsError(
+   'invalid-argument',
+   'UID inválido. Use una cuenta nueva del líder.'
+  );
+ }
+
  const account=await getAuth().getUser(uid);
- if(account.disabled||!account.email) throw new HttpsError('failed-precondition','La cuenta debe estar habilitada y tener correo.');
- const name=String(request.data?.name||'').trim().replace(/\s+/g,' ');
- if(name.length<2||name.length>120) throw new HttpsError('invalid-argument','Indique el nombre completo.');
+
+ if(account.disabled||!account.email){
+  throw new HttpsError(
+   'failed-precondition',
+   'La cuenta debe estar habilitada y tener correo.'
+  );
+ }
+
+ const name=String(
+  request.data?.name||''
+ )
+  .trim()
+  .replace(/\s+/g,' ');
+
+ if(name.length<2||name.length>120){
+  throw new HttpsError(
+   'invalid-argument',
+   'Indique el nombre completo.'
+  );
+ }
+
  return db.runTransaction(async tx=>{
-  await authorizeAdminCampaign(tx,db,request,campaignId);
-  const ref=db.doc('principalLeaders/'+campaignId), userRef=db.doc('usuarios/'+uid);
-  const lock=await tx.get(ref), existing=await tx.get(userRef);
+
+  const adminProfile=
+   await authorizeAdminCampaign(
+    tx,
+    db,
+    request,
+    campaignId
+   );
+
+  const ref=
+   db.doc(
+    'principalLeaders/'+campaignId
+   );
+
+  const userRef=
+   db.doc(
+    'usuarios/'+uid
+   );
+
+  const lock=
+   await tx.get(ref);
+
+  const existing=
+   await tx.get(userRef);
+
   if(lock.exists){
-   if(lock.data().uid===uid&&existing.data()?.role==='lider_principal'&&existing.data()?.campaignId===campaignId)return {ok:true,campaignId,uid,alreadyAssigned:true};
-   throw new HttpsError('already-exists','La campaña ya tiene un líder asignado.');
+
+   if(
+    lock.data().uid===uid&&
+    existing.data()?.role==='lider_principal'&&
+    existing.data()?.campaignId===campaignId
+   ){
+    return {
+     ok:true,
+     campaignId,
+     uid,
+     alreadyAssigned:true
+    };
+   }
+
+   throw new HttpsError(
+    'already-exists',
+    'La campaña ya tiene un líder asignado.'
+   );
   }
-  if(existing.exists) throw new HttpsError('failed-precondition','Esta cuenta ya tiene perfil. Utilice una cuenta nueva para conservar la jerarquía actual.');
-  tx.create(ref,{uid,createdBy:request.auth.uid,createdAt:new Date()});
-  tx.create(userRef,{name,email:account.email,role:'lider_principal',campaignId,active:true,createdBy:request.auth.uid,createdAt:new Date()});
-  return {ok:true,campaignId,uid,alreadyAssigned:false};
+
+  if(existing.exists){
+   throw new HttpsError(
+    'failed-precondition',
+    'Esta cuenta ya tiene perfil. Utilice una cuenta nueva para conservar la jerarquía actual.'
+   );
+  }
+
+
+  // Evitar residuos parciales previos para la misma cuenta.
+  const existingPersons=
+   await tx.get(
+    db
+     .collection('persons')
+     .where(
+      'accountUid',
+      '==',
+      uid
+     )
+     .limit(2)
+   );
+
+  const existingMemberships=
+   await tx.get(
+    db
+     .collection(
+      'territorialMemberships'
+     )
+     .where(
+      'accountUid',
+      '==',
+      uid
+     )
+     .limit(2)
+   );
+
+  if(
+   !existingPersons.empty||
+   !existingMemberships.empty
+  ){
+   throw new HttpsError(
+    'failed-precondition',
+    'La cuenta ya tiene identidad territorial parcial o preexistente.'
+   );
+  }
+
+
+  // ====================================================
+  // IDENTIDAD CANONICA RAIZ DE LA CAMPAÑA
+  // ====================================================
+
+  const personRef=
+   db
+    .collection('persons')
+    .doc();
+
+  const personId=
+   personRef.id;
+
+  const membershipId=
+   canonicalMembershipDocumentId(
+    campaignId,
+    personId
+   );
+
+  const membershipRef=
+   db
+    .collection(
+     'territorialMemberships'
+    )
+    .doc(
+     membershipId
+    );
+
+  const now=
+   new Date();
+
+
+  const leaderProfile={
+
+   name,
+
+   email:
+    account.email,
+
+   role:
+    'lider_principal',
+
+   campaignId,
+
+   active:
+    true,
+
+   personId,
+
+   membershipId,
+
+   createdBy:
+    request.auth.uid,
+
+   createdAt:
+    now,
+
+   updatedAt:
+    now,
+
+   version:
+    1
+  };
+
+
+  const canonicalPerson={
+
+   personId,
+
+   accountUid:
+    uid,
+
+   name,
+
+   email:
+    account.email,
+
+   active:
+    true,
+
+   campaignId,
+
+   identityStatus:
+    'digital',
+
+   source:
+    'principal_leader_assignment',
+
+   createdByUserId:
+    request.auth.uid,
+
+   createdByRole:
+    adminProfile.role,
+
+   createdAt:
+    now,
+
+   updatedAt:
+    now,
+
+   version:
+    1
+  };
+
+
+  // El Líder Principal es la raíz territorial de la campaña.
+  // Deliberadamente no existe superior territorial aquí.
+  const territorialMembership={
+
+   membershipId,
+
+   personId,
+
+   accountUid:
+    uid,
+
+   campaignId,
+
+   role:
+    'lider_principal',
+
+   active:
+    true,
+
+   source:
+    'principal_leader_assignment',
+
+   createdByUserId:
+    request.auth.uid,
+
+   createdByRole:
+    adminProfile.role,
+
+   createdAt:
+    now,
+
+   updatedAt:
+    now,
+
+   version:
+    1
+  };
+
+
+  tx.create(
+   ref,
+   {
+    uid,
+    personId,
+    membershipId,
+    createdBy:
+     request.auth.uid,
+    createdAt:
+     now
+   }
+  );
+
+  tx.create(
+   userRef,
+   leaderProfile
+  );
+
+  tx.create(
+   personRef,
+   canonicalPerson
+  );
+
+  tx.create(
+   membershipRef,
+   territorialMembership
+  );
+
+
+  return {
+   ok:true,
+   campaignId,
+   uid,
+   personId,
+   membershipId,
+   alreadyAssigned:false
+  };
  });
 });
+
 function panelCampaignId(request,p){
  if(p.role==='lider_principal'){
   try{return validId(p.campaignId,'campaignId');}

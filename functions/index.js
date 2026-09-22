@@ -1881,11 +1881,13 @@ exports.createMunicipalCoordinator = onCall(
 
 
     // ==================================================
-    // ADMIN PROFILE
+    // PERFIL DEL ACTOR
     // ==================================================
 
     const adminRef =
-      db.collection("usuarios").doc(adminUid);
+      db
+        .collection("usuarios")
+        .doc(adminUid);
 
     const adminSnapshot =
       await adminRef.get();
@@ -1900,7 +1902,6 @@ exports.createMunicipalCoordinator = onCall(
     const adminProfile =
       adminSnapshot.data();
 
-
     if (adminProfile.active !== true) {
       throw new HttpsError(
         "permission-denied",
@@ -1908,12 +1909,13 @@ exports.createMunicipalCoordinator = onCall(
       );
     }
 
-
     if (
       ![
         "admin",
         "lider_principal"
-      ].includes(adminProfile.role)
+      ].includes(
+        adminProfile.role
+      )
     ) {
       throw new HttpsError(
         "permission-denied",
@@ -1936,73 +1938,99 @@ exports.createMunicipalCoordinator = onCall(
 
 
     // ==================================================
-    // VALIDAR LÍDER PRINCIPAL OFICIAL
+    // LIDER PRINCIPAL OFICIAL / PADRE TERRITORIAL
     // ==================================================
+
+    const principalLeaderSnapshot =
+      await db
+        .collection(
+          "principalLeaders"
+        )
+        .doc(
+          campaignId
+        )
+        .get();
+
+    const principalLeaderUid =
+      principalLeaderSnapshot.exists
+        ? cleanText(
+            principalLeaderSnapshot
+              .data()?.uid || ""
+          )
+        : "";
+
+    if (!principalLeaderUid) {
+      throw new HttpsError(
+        "failed-precondition",
+        "La campaña no tiene Líder principal asignado."
+      );
+    }
 
     if (
       adminProfile.role ===
-      "lider_principal"
+        "lider_principal" &&
+      principalLeaderUid !==
+        adminUid
     ) {
-
-      const leaderSnapshot =
-        await db
-          .collection("principalLeaders")
-          .doc(campaignId)
-          .get();
-
-
-      if (
-        !leaderSnapshot.exists ||
-        leaderSnapshot.data()?.uid !==
-          adminUid
-      ) {
-        throw new HttpsError(
-          "permission-denied",
-          "El Líder principal no está registrado para esta campaña."
-        );
-      }
+      throw new HttpsError(
+        "permission-denied",
+        "El Líder principal no está registrado para esta campaña."
+      );
     }
 
 
-    // ==================================================
-    // PADRE TERRITORIAL OFICIAL
-    //
-    // El Administrador puede ejecutar el alta,
-    // pero no se convierte en superior territorial.
-    //
-    // Jerarquia:
-    // Lider Principal -> Coordinador Municipal
-    // ==================================================
-
-    let principalLeaderUid =
-      adminUid;
-
-    if (
-      adminProfile.role ===
-      "admin"
-    ) {
-
-      const principalLeaderSnapshot =
-        await db
-          .collection("principalLeaders")
-          .doc(campaignId)
-          .get();
-
-      principalLeaderUid =
-        principalLeaderSnapshot.exists
-          ? cleanText(
-              principalLeaderSnapshot
-                .data()?.uid || ""
+    const principalLeaderProfileSnapshot =
+      principalLeaderUid ===
+        adminUid
+        ? adminSnapshot
+        : await db
+            .collection(
+              "usuarios"
             )
-          : "";
+            .doc(
+              principalLeaderUid
+            )
+            .get();
 
-      if (!principalLeaderUid) {
-        throw new HttpsError(
-          "failed-precondition",
-          "La campaña no tiene Líder principal asignado."
-        );
-      }
+    if (
+      !principalLeaderProfileSnapshot.exists
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El perfil del Líder principal no existe."
+      );
     }
+
+    const principalLeaderProfile =
+      principalLeaderProfileSnapshot.data();
+
+    if (
+      principalLeaderProfile.active !==
+        true ||
+      principalLeaderProfile.role !==
+        "lider_principal" ||
+      principalLeaderProfile.campaignId !==
+        campaignId
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El perfil del Líder principal no es compatible con esta campaña."
+      );
+    }
+
+
+    const principalLeaderIdentity =
+      await resolveCanonicalPersonForAccount({
+        db,
+        accountUid:
+          principalLeaderUid,
+        profile:
+          principalLeaderProfile,
+        campaignId
+      });
+
+    const principalLeaderPersonId =
+      principalLeaderIdentity.personId;
 
 
     // ==================================================
@@ -2012,36 +2040,31 @@ exports.createMunicipalCoordinator = onCall(
     const data =
       request.data || {};
 
-
     const name =
       cleanText(
         data.name || ""
       );
-
 
     const email =
       normalizeEmail(
         data.email || ""
       );
 
-
     const phone =
       normalizePhone(
         data.phone || ""
       );
 
-
     const hasWhatsApp =
-      typeof data.hasWhatsApp === "boolean"
+      typeof data.hasWhatsApp ===
+        "boolean"
         ? data.hasWhatsApp
         : null;
-
 
     const password =
       String(
         data.password || ""
       );
-
 
     const municipalityId =
       cleanText(
@@ -2063,14 +2086,12 @@ exports.createMunicipalCoordinator = onCall(
       );
     }
 
-
     if (!isValidEmail(email)) {
       throw new HttpsError(
         "invalid-argument",
         "Ingrese un correo electrónico válido."
       );
     }
-
 
     if (
       hasWhatsApp === null
@@ -2080,7 +2101,6 @@ exports.createMunicipalCoordinator = onCall(
         "Debe indicar si el teléfono tiene WhatsApp."
       );
     }
-
 
     if (
       hasWhatsApp === true &&
@@ -2092,14 +2112,14 @@ exports.createMunicipalCoordinator = onCall(
       );
     }
 
-
-    if (password.length < 6) {
+    if (
+      password.length < 6
+    ) {
       throw new HttpsError(
         "invalid-argument",
         "La contraseña temporal debe tener al menos 6 caracteres."
       );
     }
-
 
     if (!municipalityId) {
       throw new HttpsError(
@@ -2118,10 +2138,8 @@ exports.createMunicipalCoordinator = onCall(
         .collection("municipios")
         .doc(municipalityId);
 
-
     const municipalitySnapshot =
       await municipalityRef.get();
-
 
     if (!municipalitySnapshot.exists) {
       throw new HttpsError(
@@ -2130,13 +2148,12 @@ exports.createMunicipalCoordinator = onCall(
       );
     }
 
-
     const municipality =
       municipalitySnapshot.data();
 
-
     if (
-      municipality.campaignId !== campaignId
+      municipality.campaignId !==
+        campaignId
     ) {
       throw new HttpsError(
         "permission-denied",
@@ -2144,9 +2161,9 @@ exports.createMunicipalCoordinator = onCall(
       );
     }
 
-
     if (
-      municipality.active !== true
+      municipality.active !==
+        true
     ) {
       throw new HttpsError(
         "failed-precondition",
@@ -2175,10 +2192,9 @@ exports.createMunicipalCoordinator = onCall(
         .limit(100)
         .get();
 
-
     const existingCoordinator =
       coordinatorSnapshot.docs.find(
-        (document) => {
+        document => {
 
           const profile =
             document.data();
@@ -2191,7 +2207,6 @@ exports.createMunicipalCoordinator = onCall(
         }
       );
 
-
     if (existingCoordinator) {
       throw new HttpsError(
         "already-exists",
@@ -2201,11 +2216,11 @@ exports.createMunicipalCoordinator = onCall(
 
 
     // ==================================================
-    // CREAR USUARIO AUTH
+    // CREAR CUENTA AUTH
     // ==================================================
 
-    let authUser = null;
-
+    let authUser =
+      null;
 
     try {
 
@@ -2213,13 +2228,15 @@ exports.createMunicipalCoordinator = onCall(
         await auth.createUser({
           email,
           password,
-          displayName: name,
-          disabled: false
+          displayName:
+            name,
+          disabled:
+            false
         });
 
 
       // ================================================
-      // PERFIL FIRESTORE
+      // PERFIL OPERACIONAL
       // ================================================
 
       const userProfile = {
@@ -2251,6 +2268,15 @@ exports.createMunicipalCoordinator = onCall(
         parentUserId:
           principalLeaderUid,
 
+        parentPersonId:
+          principalLeaderPersonId,
+
+        introducedByUserId:
+          principalLeaderUid,
+
+        introducedByPersonId:
+          principalLeaderPersonId,
+
         createdBy:
           adminUid,
 
@@ -2268,48 +2294,234 @@ exports.createMunicipalCoordinator = onCall(
       };
 
 
-      await db
-        .collection("usuarios")
-        .doc(authUser.uid)
-        .set(userProfile);
-
-
       // ================================================
-      // LOG
+      // IDENTIDAD CANONICA + MEMBRESIA
       // ================================================
 
-      await db
-        .collection("logs")
-        .add({
+      const personRef =
+        db
+          .collection("persons")
+          .doc();
 
-          action:
-            "CREATE_MUNICIPAL_COORDINATOR",
+      const personId =
+        personRef.id;
 
+      const membershipId =
+        canonicalMembershipDocumentId(
           campaignId,
+          personId
+        );
 
-          municipalityId,
+      const membershipRef =
+        db
+          .collection(
+            "territorialMemberships"
+          )
+          .doc(
+            membershipId
+          );
 
-          municipalityName:
-            municipality.name || "",
+      const userRef =
+        db
+          .collection("usuarios")
+          .doc(
+            authUser.uid
+          );
 
-          targetUserId:
-            authUser.uid,
+      const logRef =
+        db
+          .collection("logs")
+          .doc();
 
-          targetUserName:
-            name,
 
-          targetUserEmail:
-            email,
+      userProfile.personId =
+        personId;
 
-          createdBy:
-            adminUid,
+      userProfile.membershipId =
+        membershipId;
 
-          createdByRole:
-            adminProfile.role,
 
-          createdAt:
-            FieldValue.serverTimestamp()
-        });
+      const canonicalPerson = {
+
+        personId,
+
+        accountUid:
+          authUser.uid,
+
+        name,
+
+        email,
+
+        phone,
+
+        hasWhatsApp,
+
+        active:
+          true,
+
+        campaignId,
+
+        municipalityId,
+
+        municipalityName:
+          municipality.name || "",
+
+        identityStatus:
+          "digital",
+
+        source:
+          "hierarchy_registration",
+
+        introducedByUserId:
+          principalLeaderUid,
+
+        introducedByPersonId:
+          principalLeaderPersonId,
+
+        createdByUserId:
+          adminUid,
+
+        createdByRole:
+          adminProfile.role,
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        updatedAt:
+          FieldValue.serverTimestamp(),
+
+        version:
+          1
+      };
+
+
+      const territorialMembership = {
+
+        membershipId,
+
+        personId,
+
+        accountUid:
+          authUser.uid,
+
+        campaignId,
+
+        municipalityId,
+
+        municipalityName:
+          municipality.name || "",
+
+        role:
+          "coordinador_municipal",
+
+        active:
+          true,
+
+        parentUserId:
+          principalLeaderUid,
+
+        parentPersonId:
+          principalLeaderPersonId,
+
+        parentUserName:
+          principalLeaderProfile.name || "",
+
+        introducedByUserId:
+          principalLeaderUid,
+
+        introducedByPersonId:
+          principalLeaderPersonId,
+
+        source:
+          "hierarchy_registration",
+
+        createdByUserId:
+          adminUid,
+
+        createdByRole:
+          adminProfile.role,
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        updatedAt:
+          FieldValue.serverTimestamp(),
+
+        version:
+          1
+      };
+
+
+      const auditRecord = {
+
+        action:
+          "CREATE_MUNICIPAL_COORDINATOR",
+
+        campaignId,
+
+        municipalityId,
+
+        municipalityName:
+          municipality.name || "",
+
+        targetUserId:
+          authUser.uid,
+
+        targetUserName:
+          name,
+
+        targetUserEmail:
+          email,
+
+        parentUserId:
+          principalLeaderUid,
+
+        parentPersonId:
+          principalLeaderPersonId,
+
+        personId,
+
+        membershipId,
+
+        createdBy:
+          adminUid,
+
+        createdByRole:
+          adminProfile.role,
+
+        createdAt:
+          FieldValue.serverTimestamp()
+      };
+
+
+      // ================================================
+      // ESCRITURAS FIRESTORE ATOMICAS
+      // ================================================
+
+      const batch =
+        db.batch();
+
+      batch.set(
+        userRef,
+        userProfile
+      );
+
+      batch.create(
+        personRef,
+        canonicalPerson
+      );
+
+      batch.create(
+        membershipRef,
+        territorialMembership
+      );
+
+      batch.create(
+        logRef,
+        auditRecord
+      );
+
+      await batch.commit();
 
 
       // ================================================
@@ -2344,6 +2556,16 @@ exports.createMunicipalCoordinator = onCall(
           municipalityName:
             municipality.name || "",
 
+          parentUserId:
+            principalLeaderUid,
+
+          parentPersonId:
+            principalLeaderPersonId,
+
+          personId,
+
+          membershipId,
+
           active:
             true,
 
@@ -2356,10 +2578,12 @@ exports.createMunicipalCoordinator = onCall(
     } catch (error) {
 
       // ================================================
-      // ROLLBACK
+      // ROLLBACK AUTH
       // ================================================
 
-      if (authUser?.uid) {
+      if (
+        authUser?.uid
+      ) {
 
         try {
 
@@ -2386,7 +2610,8 @@ exports.createMunicipalCoordinator = onCall(
 
 
       if (
-        error instanceof HttpsError
+        error instanceof
+          HttpsError
       ) {
         throw error;
       }
@@ -2394,22 +2619,11 @@ exports.createMunicipalCoordinator = onCall(
 
       if (
         error?.code ===
-        "auth/email-already-exists"
+          "auth/email-already-exists"
       ) {
         throw new HttpsError(
           "already-exists",
-          "Ya existe un usuario registrado con ese correo."
-        );
-      }
-
-
-      if (
-        error?.code ===
-        "auth/invalid-password"
-      ) {
-        throw new HttpsError(
-          "invalid-argument",
-          "La contraseña temporal no es válida."
+          "Ya existe una cuenta con ese correo electrónico."
         );
       }
 
@@ -2422,11 +2636,6 @@ exports.createMunicipalCoordinator = onCall(
   }
 );
 
-
-
-// ======================================================
-// CREATE STRUCTURE
-// ======================================================
 
 exports.createStructure = onCall(
   {

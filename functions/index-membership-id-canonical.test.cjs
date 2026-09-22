@@ -44,8 +44,8 @@ const canonicalCalls =
 
 assert.equal(
   canonicalCalls.length,
-  2,
-  'Integrante y Participante deben usar membershipId canonico.'
+  3,
+  'Coordinador Municipal, Coordinador Municipal, Integrante y Participante deben usar membershipId canonico.'
 );
 
 
@@ -56,8 +56,8 @@ const canonicalRefs =
 
 assert.equal(
   canonicalRefs.length,
-  2,
-  'Deben existir dos referencias canonicas a territorialMemberships.'
+  3,
+  'Deben existir tres referencias canonicas a territorialMemberships.'
 );
 
 
