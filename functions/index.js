@@ -2628,6 +2628,17 @@ exports.createMunicipalCoordinator = onCall(
       }
 
 
+      if (
+        error?.code ===
+          "auth/invalid-password"
+      ) {
+        throw new HttpsError(
+          "invalid-argument",
+          "La contraseña temporal no es válida."
+        );
+      }
+
+
       throw new HttpsError(
         "internal",
         "No fue posible crear el coordinador municipal."

@@ -184,3 +184,32 @@ test(
     );
   }
 );
+
+test(
+  'createMunicipalCoordinator preserves Firebase Auth invalid-password mapping',
+  () => {
+
+    const block =
+      callableBlock(
+        'createMunicipalCoordinator'
+      );
+
+    assert.match(
+      block,
+      /auth\/invalid-password/,
+      'Debe conservar el manejo explícito de auth/invalid-password.'
+    );
+
+    assert.match(
+      block,
+      /La contraseña temporal no es válida\./,
+      'Debe mapear la contraseña rechazada por Firebase Auth a invalid-argument.'
+    );
+
+    assert.match(
+      block,
+      /auth\.deleteUser/,
+      'Debe conservar rollback de la cuenta Auth si falla la persistencia posterior.'
+    );
+  }
+);
