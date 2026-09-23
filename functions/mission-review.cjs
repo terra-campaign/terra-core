@@ -7,6 +7,12 @@ const {
   actions,
   canSuperiorAccessReview
 } = require('./mission-review-policy.cjs');
+const {
+  resolveCanonicalPersonForAccount
+} = require('./person-identity.cjs');
+const {
+  deriveMissionContributionCandidateSafely
+} = require('./contribution-verified-fact-bridge.cjs');
 const options = {region:'us-central1',timeoutSeconds:60};
 const fail = (code,message) => {throw new HttpsError(code,message);};
 const validId = x => typeof x === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(x);
@@ -65,6 +71,23 @@ function reviewActions(c, now) {
   if (c.leaderDirect) result.canRequest = false;
   return result;
 }
+
+function missionContributionFact(c,review,evidenceId) {
+  return {
+    mission: {
+      ...c.m,
+      id: c.e.missionId
+    },
+    evidence: {
+      ...c.e,
+      id: evidenceId,
+      evidenceId
+    },
+    review,
+    reviewId: evidenceId,
+    subjectProfile: c.subject
+  };
+}
 function images(e) {
   const prefix = `missions/${e.campaignId}/${e.missionId}/evidence/`;
   return (Array.isArray(e.imagePaths) ? e.imagePaths : [e.imagePath]).filter(x =>
@@ -121,14 +144,17 @@ exports.decideMissionReview = onCall(options,async request => {
       !['decide','request','resolve'].includes(d.action) || typeof d.reason !== 'string' || !d.reason.trim() || d.reason.length > 1000 ||
       (d.action !== 'request' && !['validated','rejected','correction_requested'].includes(d.status))) fail('invalid-argument','Selecciona una decisión y explica el motivo (máximo 1000 caracteres).');
   const db = getFirestore();
-  return db.runTransaction(async tx => {
+  const transactionResult = await db.runTransaction(async tx => {
     const c = await context(tx,db,request.auth.uid,d.evidenceId);
     const now = Date.now();
     const rights = reviewActions(c,now);
     const fingerprint = JSON.stringify([d.action,d.status || null,d.reason.trim(),d.expectedRevision]);
     if (c.r?.lastRequestId === d.requestId && c.r?.lastActor === request.auth.uid) {
       if (c.r.lastFingerprint !== fingerprint) fail('already-exists','Este intento tiene otros datos. Actualiza el reporte.');
-      return {revision:c.r.revision};
+      return {
+        revision:c.r.revision,
+        contributionFact:missionContributionFact(c,c.r,d.evidenceId)
+      };
     }
     if ((c.r?.revision || 0) !== d.expectedRevision) fail('aborted','Otra revisión cambió este reporte. Actualiza antes de decidir.');
     if (!(d.action === 'decide' && rights.canDecide || d.action === 'request' && rights.canRequest || d.action === 'resolve' && rights.canResolve)) fail('permission-denied','La acción no está permitida o el plazo de tres horas terminó.');
@@ -150,8 +176,34 @@ exports.decideMissionReview = onCall(options,async request => {
       actorId:c.p.uid,actorName:r.lastActorName,reason:r.reason,at:now};
     tx.set(c.ref,r);
     tx.create(c.ref.collection('history').doc(String(revision).padStart(8,'0')),event);
-    return {revision};
+    return {
+      revision,
+      contributionFact:missionContributionFact(c,r,d.evidenceId)
+    };
   });
+
+  // The authoritative review transaction has already committed.
+  // Candidate derivation is intentionally best-effort and
+  // cannot invalidate or roll back the operational review.
+  try {
+    await deriveMissionContributionCandidateSafely({
+      db,
+      ...transactionResult.contributionFact,
+      resolveCanonicalIdentity:resolveCanonicalPersonForAccount
+    });
+  } catch (error) {
+    console.error(
+      'MISSION_CONTRIBUTION_BRIDGE_UNEXPECTED_FAILURE',
+      {
+        evidenceId:d.evidenceId
+      }
+    );
+  }
+
+  // Preserve the public callable contract.
+  return {
+    revision:transactionResult.revision
+  };
 });
 
 // Authenticated image transfer for the superior's pending appeal. No public URLs or broader Storage rules.
