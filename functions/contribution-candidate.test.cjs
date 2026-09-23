@@ -18,6 +18,11 @@ const {
 } =
   require("./contribution-candidate.cjs");
 
+const {
+  CATALOG_VERSION,
+} =
+  require("./activity-catalog-v1.cjs");
+
 function attendanceId(
   eventId,
   personId
@@ -35,6 +40,10 @@ function attendanceId(
 
 function missionInput({
   activityCode = null,
+  activityCatalogVersion =
+    activityCode
+      ? CATALOG_VERSION
+      : null,
 } = {}) {
   const mission = {
     id:
@@ -53,6 +62,13 @@ function missionInput({
   if (activityCode) {
     mission.activityCode =
       activityCode;
+  }
+
+  if (
+    activityCatalogVersion != null
+  ) {
+    mission.activityCatalogVersion =
+      activityCatalogVersion;
   }
 
   return {
@@ -113,6 +129,10 @@ function missionInput({
 
 function attendanceInput({
   activityCode = null,
+  activityCatalogVersion =
+    activityCode
+      ? CATALOG_VERSION
+      : null,
 } = {}) {
   const eventId =
     "EVT-001";
@@ -134,6 +154,13 @@ function attendanceInput({
   if (activityCode) {
     event.activityCode =
       activityCode;
+  }
+
+  if (
+    activityCatalogVersion != null
+  ) {
+    event.activityCatalogVersion =
+      activityCatalogVersion;
   }
 
   return {
@@ -620,6 +647,130 @@ test(
           input
         ),
       /INVALID_PERSON_ID/
+    );
+  }
+);
+
+
+test(
+  "classified mission requires activity catalog version",
+  () => {
+    const input =
+      missionInput({
+        activityCode:
+          "TERRITORIAL_BRIGADE",
+
+        activityCatalogVersion:
+          null,
+      });
+
+    assert.throws(
+      () =>
+        buildMissionContributionCandidate(
+          input
+        ),
+      /ACTIVITY_CATALOG_VERSION_MISSING/
+    );
+  }
+);
+
+test(
+  "classified mission rejects foreign activity catalog version",
+  () => {
+    const input =
+      missionInput({
+        activityCode:
+          "TERRITORIAL_BRIGADE",
+
+        activityCatalogVersion:
+          "0.9.0",
+      });
+
+    assert.throws(
+      () =>
+        buildMissionContributionCandidate(
+          input
+        ),
+      /ACTIVITY_CATALOG_VERSION_MISMATCH/
+    );
+  }
+);
+
+test(
+  "classified attendance requires activity catalog version",
+  () => {
+    const input =
+      attendanceInput({
+        activityCode:
+          "EVENT_GENERAL_ATTENDANCE",
+
+        activityCatalogVersion:
+          null,
+      });
+
+    assert.throws(
+      () =>
+        buildAttendanceContributionCandidate(
+          input
+        ),
+      /ACTIVITY_CATALOG_VERSION_MISSING/
+    );
+  }
+);
+
+test(
+  "classified attendance rejects foreign activity catalog version",
+  () => {
+    const input =
+      attendanceInput({
+        activityCode:
+          "EVENT_GENERAL_ATTENDANCE",
+
+        activityCatalogVersion:
+          "0.9.0",
+      });
+
+    assert.throws(
+      () =>
+        buildAttendanceContributionCandidate(
+          input
+        ),
+      /ACTIVITY_CATALOG_VERSION_MISMATCH/
+    );
+  }
+);
+
+test(
+  "unclassified historical facts remain compatible without catalog version",
+  () => {
+    const missionCandidate =
+      buildMissionContributionCandidate(
+        missionInput()
+      );
+
+    const attendanceCandidate =
+      buildAttendanceContributionCandidate(
+        attendanceInput()
+      );
+
+    assert.equal(
+      missionCandidate.candidateStatus,
+      CANDIDATE_STATUSES.UNCLASSIFIED
+    );
+
+    assert.equal(
+      attendanceCandidate.candidateStatus,
+      CANDIDATE_STATUSES.UNCLASSIFIED
+    );
+
+    assert.equal(
+      missionCandidate.runtimePostingEnabled,
+      false
+    );
+
+    assert.equal(
+      attendanceCandidate.runtimePostingEnabled,
+      false
     );
   }
 );

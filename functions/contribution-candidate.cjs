@@ -6,6 +6,7 @@ const {
   require("node:crypto");
 
 const {
+  CATALOG_VERSION,
   SOURCE_TYPES,
   POINT_MODES,
 } =
@@ -68,6 +69,30 @@ function optionalActivityCode(
   }
 
   return value.trim();
+}
+
+function assertActivityCatalogVersion(
+  value
+) {
+  if (
+    typeof value !== "string" ||
+    !value.trim()
+  ) {
+    throw new Error(
+      "ACTIVITY_CATALOG_VERSION_MISSING"
+    );
+  }
+
+  if (
+    value.trim() !==
+    CATALOG_VERSION
+  ) {
+    throw new Error(
+      "ACTIVITY_CATALOG_VERSION_MISMATCH"
+    );
+  }
+
+  return CATALOG_VERSION;
 }
 
 function makeCandidateId({
@@ -474,6 +499,10 @@ function buildMissionContributionCandidate({
     });
   }
 
+  assertActivityCatalogVersion(
+    mission.activityCatalogVersion
+  );
+
   return buildClassifiedCandidate({
     campaignId,
 
@@ -640,6 +669,10 @@ function buildAttendanceContributionCandidate({
       evidenceRef,
     });
   }
+
+  assertActivityCatalogVersion(
+    event.activityCatalogVersion
+  );
 
   return buildClassifiedCandidate({
     campaignId,
