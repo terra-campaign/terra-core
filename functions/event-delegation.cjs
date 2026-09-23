@@ -16,9 +16,10 @@ const {
   FieldValue
 } = require('firebase-admin/firestore');
 
+const {createHash} = require('node:crypto');
 const {
-  createHash
-} = require('node:crypto');
+  classifyEventAttendanceActivity
+} = require('./activity-classification.cjs');
 
 
 const OPTIONS = {
@@ -1394,6 +1395,23 @@ exports.createEventInvitations =
             );
 
 
+      let activityClassification =
+        null;
+
+      if (!parentInvitationId) {
+        try {
+          activityClassification =
+            classifyEventAttendanceActivity(
+              data.activityCode
+            );
+        } catch {
+          fail(
+            'invalid-argument',
+            'El tipo de actividad no es v?lido para este evento.'
+          );
+        }
+      }
+
       const newEvent =
         parentInvitationId
           ? null
@@ -1433,7 +1451,17 @@ exports.createEventInvitations =
                 confirmationLeadMinutes(
                   data.confirmationLeadMinutes ??
                   60
-                )
+                ),
+
+              ...(activityClassification
+                ? {
+                    activityCode:
+                      activityClassification.activityCode,
+
+                    activityCatalogVersion:
+                      activityClassification.activityCatalogVersion
+                  }
+                : {})
             };
 
 
@@ -1509,6 +1537,18 @@ exports.createEventInvitations =
             return saved.result;
           }
 
+
+
+          if (
+            !parentInvitationId &&
+            !activityClassification
+          ) {
+
+            fail(
+              'invalid-argument',
+              'Selecciona el tipo de actividad del evento.'
+            );
+          }
 
 
           let eventId;

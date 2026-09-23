@@ -33,6 +33,12 @@ const {
   'node:crypto'
 );
 
+const {
+  classifyEventAttendanceActivity
+} = require(
+  './activity-classification.cjs'
+);
+
 
 const OPTIONS = {
   region:
@@ -297,7 +303,11 @@ function buildGeneralMunicipalEvent({
   recordMode =
     'production',
   confirmationLeadMinutes:
-    leadMinutes
+    leadMinutes,
+  activityCode =
+    '',
+  activityCatalogVersion =
+    ''
 }) {
 
   const startsAtMillis =
@@ -335,6 +345,13 @@ function buildGeneralMunicipalEvent({
     locality,
 
     recordMode,
+
+    ...(activityCode
+      ? {
+          activityCode,
+          activityCatalogVersion
+        }
+      : {}),
 
     startsAt,
 
@@ -541,6 +558,21 @@ exports.createGeneralEvent =
           input.recordMode
         );
 
+      let activityClassification =
+        null;
+
+      try {
+        activityClassification =
+          classifyEventAttendanceActivity(
+            input.activityCode
+          );
+      } catch {
+        fail(
+          'invalid-argument',
+          'El tipo de actividad no es v?lido para este evento.'
+        );
+      }
+
 
       const startsAt =
         eventDate(
@@ -644,7 +676,15 @@ exports.createGeneralEvent =
           recordMode,
           startsAt,
           endsAt,
-          leadMinutes
+          leadMinutes,
+          ...(
+            activityClassification
+              ? [
+                  activityClassification.activityCode,
+                  activityClassification.activityCatalogVersion
+                ]
+              : []
+          )
         );
 
 
@@ -660,7 +700,15 @@ exports.createGeneralEvent =
           endsAt,
           recordMode,
           confirmationLeadMinutes:
-            leadMinutes
+            leadMinutes,
+          activityCode:
+            activityClassification
+              ?.activityCode ||
+            '',
+          activityCatalogVersion:
+            activityClassification
+              ?.activityCatalogVersion ||
+            ''
         });
 
 
@@ -708,6 +756,15 @@ exports.createGeneralEvent =
 
 
             return saved.result;
+          }
+
+
+          if (!activityClassification) {
+
+            fail(
+              'invalid-argument',
+              'Selecciona el tipo de actividad del evento.'
+            );
           }
 
 

@@ -2,6 +2,9 @@
 const {onCall, HttpsError} = require('firebase-functions/v2/https');
 const {getFirestore, FieldValue} = require('firebase-admin/firestore');
 const {createHash} = require('node:crypto');
+const {
+  classifyMissionActivity
+} = require('./activity-classification.cjs');
 const NEXT = {lider_principal:'coordinador_municipal', admin:'coordinador_municipal', coordinador_municipal:'jefe_estructura', jefe_estructura:'integrante', integrante:'participante', participante:'colaborador_base'};
 const OPTIONS = {region:'us-central1', timeoutSeconds:60};
 const fail = (code, message) => { throw new HttpsError(code, message); };
@@ -42,9 +45,32 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
   if (!Array.isArray(d.assigneeIds) || !d.assigneeIds.length || d.assigneeIds.length > 50) fail('invalid-argument','Selecciona entre 1 y 50 personas.');
   const ids = [...new Set(d.assigneeIds.map(id))].sort();
   const parentId = d.parentMissionId == null ? null : id(d.parentMissionId);
+
+  let activityClassification = null;
+
+  if (!parentId) {
+    try {
+      activityClassification =
+        classifyMissionActivity(
+          d.activityCode
+        );
+    } catch {
+      fail(
+        'invalid-argument',
+        'El tipo de actividad no es v?lido para esta misi?n.'
+      );
+    }
+  }
+
   const fields = parentId ? null : {
     title:text(d.title,150,true), description:text(d.description,1500),
-    locality:text(d.locality,120), missionDate:text(d.missionDate,10) || null, deadlineAt:deadline(d.deadlineAt)
+    locality:text(d.locality,120), missionDate:text(d.missionDate,10) || null, deadlineAt:deadline(d.deadlineAt),
+    ...(activityClassification ? {
+      activityCode:
+        activityClassification.activityCode,
+      activityCatalogVersion:
+        activityClassification.activityCatalogVersion
+    } : {})
   };
   if (fields?.missionDate && (!/^\d{4}-\d{2}-\d{2}$/.test(fields.missionDate) || !Number.isFinite(Date.parse(fields.missionDate)) || new Date(fields.missionDate).toISOString().slice(0,10) !== fields.missionDate)) fail('invalid-argument','Fecha inválida.');
   const fingerprint = hash(parentId,ids,fields);
@@ -59,6 +85,13 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
       if (receipt.data().fingerprint !== fingerprint || receipt.data().campaignId !== p.campaignId) fail('already-exists','Este intento ya se usó con otros datos. Cierra y abre el formulario.');
       return receipt.data().result;
     }
+    if (!parentId && !activityClassification) {
+      fail(
+        'invalid-argument',
+        'Selecciona el tipo de actividad de la mision.'
+      );
+    }
+
     if (fields?.deadlineAt && Date.parse(fields.deadlineAt) <= Date.now()) fail('invalid-argument','La fecha límite debe ser futura.');
     let parent = null;
     if (parentId) {

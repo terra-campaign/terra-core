@@ -595,6 +595,31 @@
         </label>
 
         <label>
+          Tipo de actividad *
+
+          <select
+            id="eventActivityCode"
+            required
+          >
+            <option value="">
+              Selecciona el tipo de actividad
+            </option>
+
+            <option value="EVENT_GENERAL_ATTENDANCE">
+              Evento / mitin / reuni&oacute;n municipal o general
+            </option>
+
+            <option value="LOCAL_MEETING_ATTENDANCE">
+              Reuni&oacute;n local
+            </option>
+          </select>
+
+          <small>
+            Selecciona la categor&iacute;a operativa del evento.
+          </small>
+        </label>
+
+        <label>
           Descripción / objetivo
           <textarea
             id="eventDescription"
@@ -1386,7 +1411,7 @@
 
   <script
     type="module"
-    src="./eventos.js?v=build-118d1f2-archive-restore"
+    src="./eventos.js?v=build-124-a4-b1b-001"
   ></script>
 
 </body>

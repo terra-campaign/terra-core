@@ -9331,6 +9331,10 @@ $("newEventForm")
             .value
             .trim(),
 
+        activityCode:
+          $("eventActivityCode")
+            .value,
+
         description:
           $("eventDescription")
             .value

@@ -42,7 +42,48 @@ button.button-whatsapp {
 <a class="direction-button" href="./direccion.html">Inicio</a><p id="status" role="status">Validando acceso…</p>
 <div id="workspace" hidden><button id="refresh">Actualizar misiones</button>
 <section><h2>Resumen de misiones</h2><div id="missionSummary"></div><p id="reviewSummary" role="status">Reportes: pendientes de consultar.</p><small>Los estados de misión indican vigencia. Los reportes validados indican decisiones sobre entregas; son conteos distintos. El resumen de reportes corresponde a toda tu bandeja autorizada.</small></section>
+<section><h2>Nueva misión</h2><form id="create"><label>
+<section><h2>Nueva misión</h2><form id="create">  Tipo de actividad *
+
+<section><h2>Nueva misión</h2><form id="create">  <select
+<section><h2>Nueva misión</h2><form id="create">    id="activityCode"
+<section><h2>Nueva misión</h2><form id="create">    required
+<section><h2>Nueva misión</h2><form id="create">  >
+<section><h2>Nueva misión</h2><form id="create">    <option value="">
+<section><h2>Nueva misión</h2><form id="create">      Selecciona el tipo de actividad
+<section><h2>Nueva misión</h2><form id="create">    </option>
+
+<section><h2>Nueva misión</h2><form id="create">    <option value="TERRITORIAL_BRIGADE">
+<section><h2>Nueva misión</h2><form id="create">      Brigadeo / actividad territorial intensiva
+<section><h2>Nueva misión</h2><form id="create">    </option>
+
+<section><h2>Nueva misión</h2><form id="create">    <option value="OPERATIONAL_ACCOMPANIMENT">
+<section><h2>Nueva misión</h2><form id="create">      Acompa&ntilde;amiento operativo en misi&oacute;n
+<section><h2>Nueva misión</h2><form id="create">    </option>
+
+<section><h2>Nueva misión</h2><form id="create">    <option value="WALL_PAINTING">
+<section><h2>Nueva misión</h2><form id="create">      Pinta de bardas
+<section><h2>Nueva misión</h2><form id="create">    </option>
+
+<section><h2>Nueva misión</h2><form id="create">    <option value="EVENT_SUPPORT_LOGISTICS">
+<section><h2>Nueva misión</h2><form id="create">      Log&iacute;stica de apoyo / en eventos
+<section><h2>Nueva misión</h2><form id="create">    </option>
+
+<section><h2>Nueva misión</h2><form id="create">    <option value="MATERIAL_DISTRIBUTION">
+<section><h2>Nueva misión</h2><form id="create">      Volanteo / distribuci&oacute;n de materiales
+<section><h2>Nueva misión</h2><form id="create">    </option>
+
+<section><h2>Nueva misión</h2><form id="create">    <option value="DIGITAL_ACTIVITY">
+<section><h2>Nueva misión</h2><form id="create">      Actividad digital / redes sociales
+<section><h2>Nueva misión</h2><form id="create">    </option>
+<section><h2>Nueva misión</h2><form id="create">  </select>
+
+<section><h2>Nueva misión</h2><form id="create">  <small>
+<section><h2>Nueva misión</h2><form id="create">    Selecciona la categor&iacute;a operativa que describe esta misi&oacute;n.
+<section><h2>Nueva misión</h2><form id="create">  </small>
+<section><h2>Nueva misión</h2><form id="create"></label>
+
 <section><h2>Nueva misión</h2><form id="create"><label>Título<input id="title" required maxlength="150"></label><label>Instrucciones<textarea id="description" maxlength="1500"></textarea></label><label>Lugar<input id="locality" maxlength="120"></label><label>Fecha y hora límite<input id="deadline" type="datetime-local" required></label><fieldset><legend>Coordinadores municipales (máximo 50)</legend><div id="people"></div></fieldset><button id="save">Guardar misión</button><p id="saveStatus" role="status"></p></form></section>
 <section><h2>Misiones asignadas</h2><p>Después de guardar, comunica cada asignación por WhatsApp. El envío se completa dentro de WhatsApp.</p><div class="mission-filters"><label>Municipio actual del coordinador<select id="filterMunicipality"><option value="">Todos</option></select></label><label>Coordinador<select id="filterCoordinator"><option value="">Todos</option></select></label><label>Estado<select id="filterState"><option value="">Todos</option><option value="active">Activa</option><option value="expired">Vencida</option><option value="inactive">Inactiva</option><option value="undated">Sin fecha válida</option></select></label></div><button type="button" id="clearFilters">Limpiar filtros</button><p id="filterStatus"></p><div id="missions"></div></section>
 <section id="communication" hidden><h2>Comunicar misión por WhatsApp</h2><p id="recipient"></p><label>País del teléfono<select id="phoneCountry"><option value="mx">México (+52)</option><option value="international">Otro país · número completo</option></select></label><label>Teléfono<input id="phone" type="tel" inputmode="tel" placeholder="Ejemplo: 3221234567" aria-describedby="phoneHelp phonePreview"></label><p id="phoneHelp">México: escribe 10 dígitos. Si ya incluye +52, no se duplicará.</p><p id="phonePreview" role="status"></p><label>Mensaje preparado<textarea id="message"></textarea></label><button id="send" class="button-whatsapp">Abrir WhatsApp con este número</button><button id="choose" class="button-whatsapp">Elegir contacto en WhatsApp</button><p id="communicationStatus" role="status"></p><p>Revisa el destinatario y completa el envío. Abrir WhatsApp no confirma que el mensaje se haya enviado.</p></section>
-</div></main><script type="module" src="./direccion-misiones.js?v=build-117d-003"></script></body></html>
+</div></main><script type="module" src="./direccion-misiones.js?v=build-124-a4-b1b-001"></script></body></html>

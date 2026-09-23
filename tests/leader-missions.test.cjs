@@ -25,6 +25,7 @@ function fixture() {
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../functions/mission-delegation.cjs'),'utf8'),{exports:api,require(name){
     if (name === 'firebase-functions/v2/https') return {onCall:(opts,fn)=>fn,HttpsError};
     if (name === 'firebase-admin/firestore') return {getFirestore:()=>db,FieldValue:{serverTimestamp:()=>({toMillis:()=>100})}};
+    if (name === './activity-classification.cjs') return require(path.join(__dirname,'../functions/activity-classification.cjs'));
     return require(name);
   }});
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../functions/leader-missions.cjs'),'utf8'),{exports:api,require(name){
@@ -36,7 +37,7 @@ function fixture() {
   user('admin','admin',null); user('coord','coordinador_municipal','admin'); user('head','jefe_estructura','coord');
   user('member','integrante','head'); user('member2','integrante','head'); user('part','participante','member'); user('other','jefe_estructura','coord');
   const call=(uid,data)=>api.createLinkedMissions({auth:uid ? {uid}:null,data});
-  const create=(uid,assigneeIds,requestId,parentMissionId=null)=>call(uid,{assigneeIds,requestId,parentMissionId,title:'Misión',description:'Objetivo'});
+  const create=(uid,assigneeIds,requestId,parentMissionId=null)=>call(uid,{assigneeIds,requestId,parentMissionId,title:'Misi\u00f3n',description:'Objetivo',...(parentMissionId ? {} : {activityCode:'TERRITORIAL_BRIGADE'})});
   const find=(uid)=>[...docs].find(([k,v])=>k.startsWith('missionLinks/') && v.assignedTo === uid)?.[0].split('/')[1];
   return {docs,user,create,call,find,list:(uid)=>api.getPrincipalLeaderMissions({auth:uid?{uid}:null}),manage:(uid,data)=>api.manageMissionLifecycle({auth:{uid},data}),total:(uid)=>api.getMissionEvidenceTotal({auth:uid ? {uid}:null,data:{}}),progress:(uid,missionId)=>api.getMissionBranchProgress({auth:{uid},data:{missionId}})};
 }
@@ -92,7 +93,7 @@ test('Full chain preserves objective and stops at participant',async()=>{
 });
 test('Invalid dates and inactive profiles fail',async()=>{
   const f=fixture();
-  await assert.rejects(f.call('coord',{requestId:'date',assigneeIds:['head'],title:'X',missionDate:'2026-99-99'}),{code:'invalid-argument'});
+  await assert.rejects(f.call('coord',{requestId:'date',assigneeIds:['head'],title:'X',missionDate:'2026-99-99',activityCode:'TERRITORIAL_BRIGADE'}),{code:'invalid-argument'});
   f.docs.get('usuarios/coord').active=false;
   await assert.rejects(f.create('coord',['head'],'blocked'),{code:'permission-denied'});
 });
@@ -144,17 +145,17 @@ test('Deadline is inherited; cancellation closes descendants, preserves evidence
 });
 test('New deadline validates, inherits and rejects new delegation after expiry',async()=>{
  const f=fixture();
- await assert.rejects(f.call('coord',{requestId:'bad',assigneeIds:['head'],title:'x',deadlineAt:'yesterday'}),{code:'invalid-argument'});
- await assert.rejects(f.call('coord',{requestId:'past',assigneeIds:['head'],title:'x',deadlineAt:'2020-01-01T00:00:00.000Z'}),{code:'invalid-argument'});
+ await assert.rejects(f.call('coord',{requestId:'bad',assigneeIds:['head'],title:'x',deadlineAt:'yesterday',activityCode:'TERRITORIAL_BRIGADE'}),{code:'invalid-argument'});
+ await assert.rejects(f.call('coord',{requestId:'past',assigneeIds:['head'],title:'x',deadlineAt:'2020-01-01T00:00:00.000Z',activityCode:'TERRITORIAL_BRIGADE'}),{code:'invalid-argument'});
  const due=new Date(Date.now()+86400000).toISOString();
- await f.call('coord',{requestId:'ok',assigneeIds:['head'],title:'x',deadlineAt:due});
+ await f.call('coord',{requestId:'ok',assigneeIds:['head'],title:'x',deadlineAt:due,activityCode:'TERRITORIAL_BRIGADE'});
  assert.equal(f.docs.get('misiones/'+f.find('head')).deadlineAt,due);
  f.docs.get('missionLinks/'+f.find('head')).content.deadlineAt='2020-01-01T00:00:00.000Z';
  await assert.rejects(f.create('head',['member'],'late',f.find('head')),{code:'failed-precondition'});
 });
 
 function leaderFixture(){const f=fixture();f.user('leader','lider_principal',null,{municipalityId:'',structureId:''});f.docs.set('principalLeaders/C',{uid:'leader'});return f;}
-const leaderData=(extra={})=>({requestId:'leader-root',assigneeIds:['coord'],title:'Actividad',deadlineAt:new Date(Date.now()+86400000).toISOString(),...extra});
+const leaderData=(extra={})=>({requestId:'leader-root',assigneeIds:['coord'],title:'Actividad',deadlineAt:new Date(Date.now()+86400000).toISOString(),activityCode:'TERRITORIAL_BRIGADE',...extra});
 test('registered leader assigns coordinator without changing parent; retry and full chain',async()=>{
  const f=leaderFixture(),data=leaderData();await f.call('leader',data);await f.call('leader',data);
  assert.equal(f.docs.get('usuarios/coord').parentUserId,'admin');
@@ -188,4 +189,89 @@ test('leader list enforces identity and exposes only own campaign assignments an
  f.docs.set('misiones/foreign',{createdBy:'leader',campaignId:'OTHER',assignedToRole:'coordinador_municipal',linkedVersion:1});
  const r=await f.list('leader');assert.equal(r.coordinators.length,1);assert.equal(r.coordinators[0].uid,'coord');assert.equal(r.missions.length,1);
  f.docs.set('principalLeaders/C',{uid:'other'});await assert.rejects(f.list('leader'),{code:'permission-denied'});
+});
+
+
+test('New root mission requires explicit activity classification',async()=>{
+ const f=fixture();
+ await assert.rejects(
+   f.call('coord',{
+     requestId:'missing-activity',
+     assigneeIds:['head'],
+     title:'Mision sin clasificacion'
+   }),
+   {code:'invalid-argument'}
+ );
+});
+
+test('Historical unclassified mission can still delegate without synthesized classification',async()=>{
+ const f=fixture();
+
+ await f.create(
+   'coord',
+   ['head'],
+   'legacy-root'
+ );
+
+ const root=
+   f.find('head');
+
+ const mission=
+   f.docs.get(
+     'misiones/'+root
+   );
+
+ const link=
+   f.docs.get(
+     'missionLinks/'+root
+   );
+
+ delete mission.activityCode;
+ delete mission.activityCatalogVersion;
+ delete link.content.activityCode;
+ delete link.content.activityCatalogVersion;
+
+ await f.create(
+   'head',
+   ['member'],
+   'legacy-child',
+   root
+ );
+
+ const childId=
+   f.find('member');
+
+ const child=
+   f.docs.get(
+     'misiones/'+childId
+   );
+
+ const childLink=
+   f.docs.get(
+     'missionLinks/'+childId
+   );
+
+ assert.equal(
+   Object.prototype.hasOwnProperty.call(
+     child,
+     'activityCode'
+   ),
+   false
+ );
+
+ assert.equal(
+   Object.prototype.hasOwnProperty.call(
+     child,
+     'activityCatalogVersion'
+   ),
+   false
+ );
+
+ assert.equal(
+   Object.prototype.hasOwnProperty.call(
+     childLink.content,
+     'activityCode'
+   ),
+   false
+ );
 });

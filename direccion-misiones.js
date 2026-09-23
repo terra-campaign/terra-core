@@ -61,7 +61,7 @@ $('create').onsubmit=async event=>{
  const ids=[...$('people').querySelectorAll('input:checked')].map(e=>e.value).sort();
  if(!ids.length||ids.length>50){$('saveStatus').textContent='Selecciona entre 1 y 50 coordinadores.';return;}
  const due=new Date($('deadline').value);if(!Number.isFinite(due.getTime())||due.getTime()<=Date.now()){$('saveStatus').textContent='Elige una fecha límite futura.';return;}
- const payload={assigneeIds:ids,title:$('title').value.trim(),description:$('description').value.trim(),locality:$('locality').value.trim(),deadlineAt:due.toISOString()};
+ const payload={assigneeIds:ids,title:$('title').value.trim(),description:$('description').value.trim(),locality:$('locality').value.trim(),deadlineAt:due.toISOString(),activityCode:$('activityCode').value};
  const fingerprint=JSON.stringify(payload);if(attempt?.fingerprint!==fingerprint)attempt={fingerprint,requestId:crypto.randomUUID()};
  const g=generation;busy=true;$('save').disabled=true;$('saveStatus').textContent='Guardando…';
  try{const {data}=await create({...payload,requestId:attempt.requestId});if(g!==generation)return;attempt=null;$('create').reset();$('saveStatus').textContent=`Guardadas: ${data.created}. Ya existentes: ${data.alreadyAssigned}. Comunica cada misión con su botón de WhatsApp.`;await reload();}

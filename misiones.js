@@ -86,6 +86,12 @@ const missionForm =
 const missionTitleInput =
   document.querySelector("#missionTitle");
 
+const missionActivityCodeInput =
+  document.querySelector("#missionActivityCode");
+
+const missionActivityCodeField =
+  missionActivityCodeInput.closest("label");
+
 const missionDescriptionInput =
   document.querySelector("#missionDescription");
 
@@ -704,6 +710,11 @@ function openMissionModal(parent = null) {
   dispatchRequestId = crypto.randomUUID();
   missionForm.reset();
   missionFormMessage.textContent = "";
+
+  missionActivityCodeInput.value = "";
+  missionActivityCodeInput.disabled = !!parent;
+  missionActivityCodeInput.required = !parent;
+  missionActivityCodeField.hidden = !!parent;
   document.querySelector("#missionModalTitle").textContent = parent ? "Delegar misión recibida" : "Nueva misión";
   deadlineInput.value = deadlineInputValue(parentMission?.deadlineAt);
   deadlineInput.disabled = !!parentMission;
@@ -738,7 +749,8 @@ missionForm.addEventListener("submit", async event => {
   }
   const payload = {requestId:dispatchRequestId, parentMissionId:parentMission?.id || null, assigneeIds,
     title:missionTitleInput.value.trim(), description:missionDescriptionInput.value.trim(),
-    deadlineAt:inputDeadline(deadlineInput.value), missionDate:missionDateInput.value || null, locality:missionLocalityInput.value.trim()};
+    deadlineAt:inputDeadline(deadlineInput.value), missionDate:missionDateInput.value || null, locality:missionLocalityInput.value.trim(),
+    ...(parentMission ? {} : {activityCode:missionActivityCodeInput.value})};
   submitting = true;
   const controls = Array.from(missionForm.elements);
   controls.forEach(el => el.disabled = true);
