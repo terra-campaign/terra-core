@@ -20,6 +20,9 @@ const {createHash} = require('node:crypto');
 const {
   classifyEventAttendanceActivity
 } = require('./activity-classification.cjs');
+const {
+  deriveAttendanceContributionCandidateSafely
+} = require('./contribution-verified-fact-bridge.cjs');
 
 
 const OPTIONS = {
@@ -625,6 +628,74 @@ const EVENT_ATTENDANCE_EARLY_MINUTES =
 const EVENT_ATTENDANCE_LATE_MINUTES =
   90;
 
+
+
+async function deriveAttendanceContributionAfterCommitSafely({
+  db,
+  eventId,
+  attendanceId
+}) {
+  try {
+    const [
+      eventSnapshot,
+      attendanceSnapshot
+    ] = await Promise.all([
+      db.collection(
+        'events'
+      ).doc(
+        eventId
+      ).get(),
+
+      db.collection(
+        'eventAttendance'
+      ).doc(
+        attendanceId
+      ).get()
+    ]);
+
+    if (
+      !eventSnapshot.exists ||
+      !attendanceSnapshot.exists
+    ) {
+      console.error(
+        'ATTENDANCE_CONTRIBUTION_BRIDGE_SOURCE_MISSING',
+        {
+          eventId,
+          attendanceId
+        }
+      );
+
+      return null;
+    }
+
+    return deriveAttendanceContributionCandidateSafely({
+      attendance: {
+        ...attendanceSnapshot.data()
+      },
+
+      attendanceId:
+        attendanceSnapshot.id,
+
+      event: {
+        ...eventSnapshot.data(),
+
+        id:
+          eventSnapshot.id
+      }
+    });
+
+  } catch (error) {
+    console.error(
+      'ATTENDANCE_CONTRIBUTION_BRIDGE_UNEXPECTED_FAILURE',
+      {
+        eventId,
+        attendanceId
+      }
+    );
+
+    return null;
+  }
+}
 
 function eventAttendanceWindow(
   event
@@ -3441,7 +3512,7 @@ exports.recordDoorEventAttendance =
         );
 
 
-      return db.runTransaction(
+      const transactionResult = await db.runTransaction(
         async tx => {
 
           // ==============================================
@@ -3863,6 +3934,18 @@ exports.recordDoorEventAttendance =
 
             return {
 
+
+              __contributionFact: {
+
+
+                attendanceId,
+
+
+                eventId: event.id
+
+
+              },
+
               success:
                 true,
 
@@ -3962,6 +4045,18 @@ exports.recordDoorEventAttendance =
 
           return {
 
+
+            __contributionFact: {
+
+
+              attendanceId,
+
+
+              eventId: event.id
+
+
+            },
+
             success:
               true,
 
@@ -3986,6 +4081,42 @@ exports.recordDoorEventAttendance =
           };
         }
       );
+
+      // The authoritative attendance transaction has already
+      // committed. Re-read committed Firestore values because
+      // a newly-created attendance uses serverTimestamp().
+      const contributionFact =
+        transactionResult &&
+        typeof transactionResult ===
+          'object'
+          ? transactionResult
+              .__contributionFact ||
+            null
+          : null;
+
+      if (
+        transactionResult &&
+        typeof transactionResult ===
+          'object'
+      ) {
+        delete transactionResult
+          .__contributionFact;
+      }
+
+      if (contributionFact) {
+        await deriveAttendanceContributionAfterCommitSafely({
+          db,
+
+          eventId:
+            contributionFact.eventId,
+
+          attendanceId:
+            contributionFact.attendanceId
+        });
+      }
+
+      // Preserve the original public callable contract.
+      return transactionResult;
     }
   );
 
@@ -5133,7 +5264,7 @@ exports.recordEventAttendance =
         );
 
 
-      return db.runTransaction(
+      const transactionResult = await db.runTransaction(
         async tx => {
 
           // ==============================================
@@ -5503,6 +5634,14 @@ exports.recordEventAttendance =
 
             return {
 
+              __contributionFact: {
+
+                attendanceId,
+
+                eventId: event.id
+
+              },
+
               success:
                 true,
 
@@ -5576,6 +5715,18 @@ exports.recordEventAttendance =
 
           return {
 
+
+            __contributionFact: {
+
+
+              attendanceId,
+
+
+              eventId: event.id
+
+
+            },
+
             success:
               true,
 
@@ -5618,6 +5769,42 @@ exports.recordEventAttendance =
           };
         }
       );
+
+      // The authoritative attendance transaction has already
+      // committed. Re-read committed Firestore values because
+      // a newly-created attendance uses serverTimestamp().
+      const contributionFact =
+        transactionResult &&
+        typeof transactionResult ===
+          'object'
+          ? transactionResult
+              .__contributionFact ||
+            null
+          : null;
+
+      if (
+        transactionResult &&
+        typeof transactionResult ===
+          'object'
+      ) {
+        delete transactionResult
+          .__contributionFact;
+      }
+
+      if (contributionFact) {
+        await deriveAttendanceContributionAfterCommitSafely({
+          db,
+
+          eventId:
+            contributionFact.eventId,
+
+          attendanceId:
+            contributionFact.attendanceId
+        });
+      }
+
+      // Preserve the original public callable contract.
+      return transactionResult;
     }
   );
 
