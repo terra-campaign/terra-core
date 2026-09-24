@@ -6,6 +6,11 @@ const {
   require("node:crypto");
 
 const {
+  validateCompletedOnboardingFact,
+} =
+  require("./onboarding-fact.cjs");
+
+const {
   SOURCE_TYPES,
 } =
   require("./activity-catalog-v1.cjs");
@@ -417,10 +422,51 @@ function validateGrowthMilestoneFact(
     milestone ===
     GROWTH_MILESTONES.ONBOARDING
   ) {
-    requireTrue(
-      growthValidation.onboardingCompleted,
-      "GROWTH_ONBOARDING_NOT_COMPLETED"
-    );
+    if (
+      typeof growthValidation.onboardingFactId !==
+        "string" ||
+      growthValidation.onboardingFactId.trim() ===
+        "" ||
+      !growthValidation.onboardingFact ||
+      typeof growthValidation.onboardingFact !==
+        "object"
+    ) {
+      throw new Error(
+        "GROWTH_ONBOARDING_NOT_COMPLETED"
+      );
+    }
+
+    const growthCampaignId =
+      requireToken(
+        growthValidation.campaignId,
+        "CAMPAIGN_ID"
+      );
+
+    const growthPersonId =
+      requireToken(
+        growthValidation.personId,
+        "PERSON_ID"
+      );
+
+    const onboardingFact =
+      validateCompletedOnboardingFact({
+        onboardingFactId:
+          growthValidation.onboardingFactId,
+
+        onboardingFact:
+          growthValidation.onboardingFact,
+      });
+
+    if (
+      onboardingFact.campaignId !==
+        growthCampaignId ||
+      onboardingFact.personId !==
+        growthPersonId
+    ) {
+      throw new Error(
+        "GROWTH_ONBOARDING_FACT_SUBJECT_MISMATCH"
+      );
+    }
   }
 
   if (

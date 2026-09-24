@@ -1,5 +1,15 @@
 "use strict";
 
+const {
+  ONBOARDING_PROGRAM_VERSION,
+  ONBOARDING_STATUSES,
+  ONBOARDING_DELIVERY_MODES,
+  ONBOARDING_CRITERIA,
+  canonicalOnboardingFactDocumentId,
+} =
+  require("./onboarding-fact.cjs");
+
+
 const test =
   require("node:test");
 
@@ -29,6 +39,64 @@ const {
   buildGrowthContributionCandidate,
 } =
   require("./contribution-candidate.cjs");
+
+function onboardingProof({
+  campaignId =
+    "CAM-001",
+
+  personId =
+    "PER-NEW",
+
+  completedByPersonId =
+    "PER-RESPONSIBLE",
+} = {}) {
+  const onboardingFactId =
+    canonicalOnboardingFactDocumentId({
+      campaignId,
+      personId,
+    });
+
+  const criteria =
+    Object.fromEntries(
+      ONBOARDING_CRITERIA.map(
+        criterion => [
+          criterion,
+          true,
+        ]
+      )
+    );
+
+  return {
+    onboardingFactId,
+
+    onboardingFact: {
+      id:
+        onboardingFactId,
+
+      campaignId,
+
+      personId,
+
+      completedByPersonId,
+
+      status:
+        ONBOARDING_STATUSES
+          .COMPLETED,
+
+      deliveryMode:
+        ONBOARDING_DELIVERY_MODES
+          .ASSISTED,
+
+      programVersion:
+        ONBOARDING_PROGRAM_VERSION,
+
+      completedAt:
+        "2026-09-24T00:00:00.000Z",
+
+      criteria,
+    },
+  };
+}
 
 function growthInput(
   overrides = {}
@@ -129,8 +197,7 @@ test(
           milestone:
             GROWTH_MILESTONES.ONBOARDING,
 
-          onboardingCompleted:
-            true,
+          ...onboardingProof(),
 
           personUnique:
             undefined,
@@ -366,8 +433,7 @@ test(
           milestone:
             GROWTH_MILESTONES.ONBOARDING,
 
-          onboardingCompleted:
-            true,
+          ...onboardingProof(),
 
           personUnique:
             undefined,
@@ -414,6 +480,32 @@ test(
       onboarding.points +
       activity.points,
       18
+    );
+  }
+);
+
+test(
+  "bare onboarding boolean cannot derive growth candidate",
+  () => {
+    assert.throws(
+      () =>
+        buildGrowthContributionCandidate(
+          growthInput({
+            milestone:
+              GROWTH_MILESTONES
+                .ONBOARDING,
+
+            onboardingCompleted:
+              true,
+
+            personUnique:
+              undefined,
+
+            membershipCorrect:
+              undefined,
+          })
+        ),
+      /GROWTH_ONBOARDING_NOT_COMPLETED/
     );
   }
 );

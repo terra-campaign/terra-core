@@ -1,5 +1,15 @@
 "use strict";
 
+const {
+  ONBOARDING_PROGRAM_VERSION,
+  ONBOARDING_STATUSES,
+  ONBOARDING_DELIVERY_MODES,
+  ONBOARDING_CRITERIA,
+  canonicalOnboardingFactDocumentId,
+} =
+  require("./onboarding-fact.cjs");
+
+
 const test =
   require("node:test");
 
@@ -27,6 +37,65 @@ const {
   validateGrowthMilestoneFact,
 } =
   require("./growth-validation.cjs");
+
+
+function onboardingProof({
+  campaignId =
+    "CAM-001",
+
+  personId =
+    "PER-NEW",
+
+  completedByPersonId =
+    "PER-RESPONSIBLE",
+} = {}) {
+  const onboardingFactId =
+    canonicalOnboardingFactDocumentId({
+      campaignId,
+      personId,
+    });
+
+  const criteria =
+    Object.fromEntries(
+      ONBOARDING_CRITERIA.map(
+        criterion => [
+          criterion,
+          true,
+        ]
+      )
+    );
+
+  return {
+    onboardingFactId,
+
+    onboardingFact: {
+      id:
+        onboardingFactId,
+
+      campaignId,
+
+      personId,
+
+      completedByPersonId,
+
+      status:
+        ONBOARDING_STATUSES
+          .COMPLETED,
+
+      deliveryMode:
+        ONBOARDING_DELIVERY_MODES
+          .ASSISTED,
+
+      programVersion:
+        ONBOARDING_PROGRAM_VERSION,
+
+      completedAt:
+        "2026-09-24T00:00:00.000Z",
+
+      criteria,
+    },
+  };
+}
 
 test(
   "growth milestones equal 5 + 5 + 8 = 18",
@@ -392,8 +461,13 @@ test(
         milestone:
           GROWTH_MILESTONES.ONBOARDING,
 
-        onboardingCompleted:
-          true,
+        campaignId:
+          "CAM-001",
+
+        personId:
+          "PER-NEW",
+
+        ...onboardingProof(),
       });
 
     assert.equal(
@@ -411,6 +485,59 @@ test(
             false,
         }),
       /GROWTH_ONBOARDING_NOT_COMPLETED/
+    );
+  }
+);
+
+test(
+  "bare onboarding completion boolean is not authoritative",
+  () => {
+    assert.throws(
+      () =>
+        validateGrowthMilestoneFact({
+          campaignId:
+            "CAM-001",
+
+          personId:
+            "PER-NEW",
+
+          milestone:
+            GROWTH_MILESTONES
+              .ONBOARDING,
+
+          onboardingCompleted:
+            true,
+        }),
+      /GROWTH_ONBOARDING_NOT_COMPLETED/
+    );
+  }
+);
+
+test(
+  "onboarding fact must belong to growth subject",
+  () => {
+    const foreignProof =
+      onboardingProof({
+        personId:
+          "PER-OTHER",
+      });
+
+    assert.throws(
+      () =>
+        validateGrowthMilestoneFact({
+          campaignId:
+            "CAM-001",
+
+          personId:
+            "PER-NEW",
+
+          milestone:
+            GROWTH_MILESTONES
+              .ONBOARDING,
+
+          ...foreignProof,
+        }),
+      /GROWTH_ONBOARDING_FACT_SUBJECT_MISMATCH/
     );
   }
 );
