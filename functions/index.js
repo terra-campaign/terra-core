@@ -6360,3 +6360,12 @@ exports.createCampaign =
 exports.listAdminCampaigns =
   require("./admin-campaign-list.cjs")
     .listAdminCampaigns;
+
+// ======================================================
+// BUILD-124 B4-B2B3
+// AUTHORITATIVE ONBOARDING FACT WRITER
+// ======================================================
+
+exports.completeOnboarding =
+  require("./onboarding-fact-writer.cjs")
+    .completeOnboarding;
