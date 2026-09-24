@@ -6369,3 +6369,8 @@ exports.listAdminCampaigns =
 exports.completeOnboarding =
   require("./onboarding-fact-writer.cjs")
     .completeOnboarding;
+
+// BUILD-124 B4-B2B5
+exports.completeGrowthValidation =
+  require("./growth-validation-writer.cjs")
+    .completeGrowthValidation;
