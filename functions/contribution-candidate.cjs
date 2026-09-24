@@ -15,6 +15,7 @@ const {
 const {
   buildMissionSourceId,
   buildAttendanceSourceId,
+  buildGrowthSourceId,
 } =
   require("./contribution-source.cjs");
 
@@ -28,6 +29,12 @@ const {
   buildContributionLedgerDraft,
 } =
   require("./contribution-ledger.cjs");
+
+const {
+  canonicalGrowthValidationDocumentId,
+  validateGrowthMilestoneFact,
+} =
+  require("./growth-validation.cjs");
 
 const CANDIDATE_SCHEMA_VERSION =
   "1.2.0";
@@ -692,9 +699,235 @@ function buildAttendanceContributionCandidate({
   });
 }
 
+
+function buildGrowthContributionCandidate({
+  growthValidation,
+  growthValidationId,
+}) {
+  if (
+    !growthValidation ||
+    typeof growthValidation !== "object"
+  ) {
+    throw new Error(
+      "INVALID_GROWTH_VALIDATION"
+    );
+  }
+
+  const campaignId =
+    requireToken(
+      growthValidation.campaignId,
+      "CAMPAIGN_ID"
+    );
+
+  const subjectPersonId =
+    requireToken(
+      growthValidation.personId,
+      "GROWTH_SUBJECT_PERSON_ID"
+    );
+
+  const contributorPersonId =
+    requireToken(
+      growthValidation.introducedByPersonId,
+      "INTRODUCED_BY_PERSON_ID"
+    );
+
+  if (
+    subjectPersonId ===
+    contributorPersonId
+  ) {
+    throw new Error(
+      "GROWTH_SELF_ATTRIBUTION_NOT_ALLOWED"
+    );
+  }
+
+  if (
+    growthValidation.status !==
+    "validated"
+  ) {
+    throw new Error(
+      "GROWTH_VALIDATION_NOT_FINAL"
+    );
+  }
+
+  requireToken(
+    growthValidation.validatedByPersonId,
+    "GROWTH_VALIDATOR_PERSON_ID"
+  );
+
+  assertActivityCatalogVersion(
+    growthValidation.activityCatalogVersion
+  );
+
+  const milestone =
+    validateGrowthMilestoneFact(
+      growthValidation
+    );
+
+  const canonicalValidationId =
+    canonicalGrowthValidationDocumentId({
+      campaignId,
+
+      personId:
+        subjectPersonId,
+
+      introducedByPersonId:
+        contributorPersonId,
+
+      milestone:
+        milestone.milestone,
+    });
+
+  const validationDocumentId =
+    requireToken(
+      growthValidationId,
+      "GROWTH_VALIDATION_ID"
+    );
+
+  if (
+    validationDocumentId !==
+    canonicalValidationId
+  ) {
+    throw new Error(
+      "GROWTH_VALIDATION_ID_NOT_CANONICAL"
+    );
+  }
+
+  const embeddedValidationId =
+    growthValidation.id ||
+    growthValidation.growthValidationId ||
+    null;
+
+  if (
+    embeddedValidationId != null &&
+    requireToken(
+      embeddedValidationId,
+      "EMBEDDED_GROWTH_VALIDATION_ID"
+    ) !== validationDocumentId
+  ) {
+    throw new Error(
+      "GROWTH_VALIDATION_DOCUMENT_ID_MISMATCH"
+    );
+  }
+
+  const activityCode =
+    "ORGANIZATIONAL_GROWTH";
+
+  const rule =
+    getContributionRule(
+      activityCode
+    );
+
+  if (
+    rule.pointMode !==
+    POINT_MODES.MAXIMUM
+  ) {
+    throw new Error(
+      "GROWTH_RULE_MUST_BE_MAXIMUM"
+    );
+  }
+
+  assertRuleSourceCompatibility({
+    rule,
+
+    sourceType:
+      SOURCE_TYPES.GROWTH_VALIDATION,
+
+    scoreDimension:
+      rule.scoreDimension,
+  });
+
+  const sourceId =
+    buildGrowthSourceId({
+      growthValidationId:
+        validationDocumentId,
+
+      personId:
+        contributorPersonId,
+    });
+
+  const occurredAt =
+    growthValidation.validatedAt ??
+    growthValidation.updatedAt ??
+    growthValidation.createdAt ??
+    null;
+
+  const evidenceRef =
+    "growthValidations/" +
+    validationDocumentId;
+
+  const ledgerDraft =
+    buildContributionLedgerDraft({
+      campaignId,
+
+      personId:
+        contributorPersonId,
+
+      activityCode,
+
+      sourceType:
+        SOURCE_TYPES.GROWTH_VALIDATION,
+
+      sourceId,
+
+      scoreDimension:
+        rule.scoreDimension,
+
+      points:
+        milestone.points,
+
+      occurredAt,
+      evidenceRef,
+    });
+
+  return Object.freeze({
+    candidateId:
+      makeCandidateId({
+        sourceType:
+          SOURCE_TYPES.GROWTH_VALIDATION,
+
+        sourceId,
+      }),
+
+    schemaVersion:
+      CANDIDATE_SCHEMA_VERSION,
+
+    candidateStatus:
+      CANDIDATE_STATUSES.ELIGIBLE_DRAFT,
+
+    campaignId,
+
+    personId:
+      contributorPersonId,
+
+    activityCode,
+
+    sourceType:
+      SOURCE_TYPES.GROWTH_VALIDATION,
+
+    sourceId,
+    occurredAt,
+    evidenceRef,
+
+    points:
+      milestone.points,
+
+    scoreDimension:
+      rule.scoreDimension,
+
+    ledgerDraft,
+
+    classificationRequired:
+      false,
+
+    runtimePostingEnabled:
+      false,
+  });
+}
+
 module.exports = {
   CANDIDATE_SCHEMA_VERSION,
   CANDIDATE_STATUSES,
   buildMissionContributionCandidate,
   buildAttendanceContributionCandidate,
+  buildGrowthContributionCandidate,
 };
