@@ -166,7 +166,7 @@ assert.match(
 
 assert.match(
   html,
-  /build-118d1f2-archive-restore/
+  /data-event-filter="archived"/
 );
 
 

@@ -47,6 +47,9 @@ const block =
   source.slice(
     start,
     end
+  ).replace(
+    /\r\n/g,
+    '\n'
   );
 
 
