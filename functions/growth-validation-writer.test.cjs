@@ -63,8 +63,10 @@ const {
 const {
   personMatchesSubject,
   membershipMatchesSubject,
+  membershipIntroducerConsistent,
   actorCanValidateTarget,
   missionVerifiedActivityProof,
+  canonicalEventAttendanceDocumentId,
   attendanceVerifiedActivityProof,
   buildGrowthValidationRecord,
   validateReusableExistingValidation,
@@ -284,6 +286,74 @@ test(
       }),
 
       false
+    );
+  }
+);
+
+
+test(
+  'membership introducer cannot contradict canonical person history',
+  () => {
+
+    assert.equal(
+      membershipIntroducerConsistent({
+        membership:
+          membership(
+            'PER-TARGET',
+            {
+              introducedByPersonId:
+                'PER-INTRODUCER',
+            }
+          ),
+
+        introducedByPersonId:
+          'PER-INTRODUCER',
+      }),
+      true
+    );
+
+    assert.equal(
+      membershipIntroducerConsistent({
+        membership:
+          membership(
+            'PER-TARGET',
+            {
+              introducedByPersonId:
+                'PER-OTHER',
+            }
+          ),
+
+        introducedByPersonId:
+          'PER-INTRODUCER',
+      }),
+      false
+    );
+
+    assert.equal(
+      membershipIntroducerConsistent({
+        membership:
+          membership(
+            'PER-TARGET'
+          ),
+
+        introducedByPersonId:
+          'PER-INTRODUCER',
+      }),
+      true
+    );
+
+    const source =
+      fs.readFileSync(
+        path.join(
+          __dirname,
+          'growth-validation-writer.cjs'
+        ),
+        'utf8'
+      );
+
+    assert.match(
+      source,
+      /membershipIntroducerConsistent\(\{\s*membership:\s*targetMembership,\s*introducedByPersonId,/s
     );
   }
 );
@@ -587,7 +657,10 @@ test(
     const proof =
       attendanceVerifiedActivityProof({
         sourceDocumentId:
-          'ATT-001',
+          canonicalEventAttendanceDocumentId(
+            'EVT-001',
+            'PER-TARGET'
+          ),
 
         attendance: {
           campaignId:
@@ -637,6 +710,49 @@ test(
 
 
 test(
+  'attendance document id must be canonical',
+  () => {
+
+    assert.throws(
+      () =>
+        attendanceVerifiedActivityProof({
+          sourceDocumentId:
+            'ATT-ARBITRARY',
+
+          attendance: {
+            campaignId:
+              'CAM-001',
+
+            eventId:
+              'EVT-001',
+
+            personId:
+              'PER-TARGET',
+
+            attended:
+              true,
+
+            checkedInAt:
+              '2026-09-24T02:00:00.000Z',
+
+            validatedByUserId:
+              'UID-VALIDATOR',
+          },
+
+          campaignId:
+            'CAM-001',
+
+          subjectPersonId:
+            'PER-TARGET',
+        }),
+
+      /GROWTH_ATTENDANCE_SOURCE_DOCUMENT_ID_MISMATCH/
+    );
+  }
+);
+
+
+test(
   'attendance without real attendance is rejected',
   () => {
 
@@ -644,7 +760,10 @@ test(
       () =>
         attendanceVerifiedActivityProof({
           sourceDocumentId:
-            'ATT-001',
+          canonicalEventAttendanceDocumentId(
+            'EVT-001',
+            'PER-TARGET'
+          ),
 
           attendance: {
             campaignId:

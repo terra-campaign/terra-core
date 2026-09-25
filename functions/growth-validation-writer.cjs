@@ -301,6 +301,30 @@ function membershipMatchesSubject({
 }
 
 
+function membershipIntroducerConsistent({
+  membership,
+  introducedByPersonId,
+}) {
+
+  if (
+    !membership ||
+    membership.introducedByPersonId == null ||
+    membership.introducedByPersonId === ''
+  ) {
+    return true;
+  }
+
+  return (
+    cleanId(
+      membership.introducedByPersonId
+    ) ===
+    cleanId(
+      introducedByPersonId
+    )
+  );
+}
+
+
 function actorCanValidateTarget({
   actorPersonId,
   actorMembership,
@@ -517,6 +541,24 @@ function missionVerifiedActivityProof({
 }
 
 
+function canonicalEventAttendanceDocumentId(
+  eventId,
+  personId
+) {
+
+  return require('node:crypto')
+    .createHash('sha256')
+    .update(
+      JSON.stringify([
+        'event-attendance',
+        eventId,
+        personId,
+      ])
+    )
+    .digest('hex');
+}
+
+
 function attendanceVerifiedActivityProof({
   sourceDocumentId,
   attendance,
@@ -581,6 +623,23 @@ function attendanceVerifiedActivityProof({
       'GROWTH_ATTENDANCE_SOURCE_SUBJECT_MISMATCH'
     );
   }
+
+  const canonicalAttendanceId =
+    canonicalEventAttendanceDocumentId(
+      eventId,
+      person
+    );
+
+  if (
+    attendanceId !==
+      canonicalAttendanceId
+  ) {
+
+    throw new Error(
+      'GROWTH_ATTENDANCE_SOURCE_DOCUMENT_ID_MISMATCH'
+    );
+  }
+
 
   return Object.freeze({
     verifiedActivitySourceType:
@@ -1074,6 +1133,21 @@ exports.completeGrowthValidation =
               targetMembershipSnapshot.exists
                 ? targetMembershipSnapshot.data()
                 : null;
+
+            if (
+              !membershipIntroducerConsistent({
+                membership:
+                  targetMembership,
+
+                introducedByPersonId,
+              })
+            ) {
+
+              fail(
+                'failed-precondition',
+                'La membresía territorial contradice al incorporador histórico.'
+              );
+            }
 
             if (
               !actorCanValidateTarget({
@@ -1722,8 +1796,10 @@ exports._test = {
   cleanId,
   personMatchesSubject,
   membershipMatchesSubject,
+  membershipIntroducerConsistent,
   actorCanValidateTarget,
   missionVerifiedActivityProof,
+  canonicalEventAttendanceDocumentId,
   attendanceVerifiedActivityProof,
   buildGrowthValidationRecord,
   validateReusableExistingValidation,
