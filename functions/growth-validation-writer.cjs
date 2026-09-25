@@ -325,6 +325,125 @@ function membershipIntroducerConsistent({
 }
 
 
+async function resolveHistoricalIntroducerPersonId({
+  db,
+  tx,
+  targetPerson,
+  campaignId,
+}) {
+
+  const directPersonId =
+    cleanId(
+      targetPerson
+        .introducedByPersonId
+    );
+
+  const introducedByUserId =
+    cleanId(
+      targetPerson
+        .introducedByUserId
+    );
+
+  if (directPersonId) {
+    return {
+      personId:
+        directPersonId,
+
+      introducedByUserId,
+
+      source:
+        'introducedByPersonId',
+    };
+  }
+
+  if (!introducedByUserId) {
+    fail(
+      'failed-precondition',
+      'El incorporador histórico no está disponible en los datos canónicos.'
+    );
+  }
+
+  const legacyIntroducerUserSnapshot =
+    await tx.get(
+      db.collection(
+        'usuarios'
+      ).doc(
+        introducedByUserId
+      )
+    );
+
+  if (!legacyIntroducerUserSnapshot.exists) {
+    fail(
+      'failed-precondition',
+      'El incorporador histórico legado no puede verificarse.'
+    );
+  }
+
+  const legacyIntroducerUser =
+    legacyIntroducerUserSnapshot
+      .data() || {};
+
+  if (
+    cleanId(
+      legacyIntroducerUser
+        .campaignId
+    ) !==
+      cleanId(
+        campaignId
+      )
+  ) {
+    fail(
+      'failed-precondition',
+      'El incorporador histórico legado pertenece a otra campaña.'
+    );
+  }
+
+  const personId =
+    requiredStoredId(
+      legacyIntroducerUser
+        .personId,
+      'La persona del incorporador histórico legado'
+    );
+
+  return {
+    personId,
+
+    introducedByUserId,
+
+    source:
+      'introducedByUserId',
+  };
+}
+
+
+function membershipLegacyIntroducerConsistent({
+  membership,
+  introducedByUserId,
+}) {
+
+  const expectedUserId =
+    cleanId(
+      introducedByUserId
+    );
+
+  if (
+    !membership ||
+    !expectedUserId ||
+    membership.introducedByUserId == null ||
+    membership.introducedByUserId === ''
+  ) {
+    return true;
+  }
+
+  return (
+    cleanId(
+      membership
+        .introducedByUserId
+    ) ===
+      expectedUserId
+  );
+}
+
 function actorCanValidateTarget({
   actorPersonId,
   actorMembership,
@@ -1048,11 +1167,25 @@ exports.completeGrowthValidation =
               );
             }
 
+            const introducerResolution =
+              await resolveHistoricalIntroducerPersonId({
+                db,
+                tx,
+                targetPerson,
+                campaignId,
+              });
+
             const introducedByPersonId =
               requiredStoredId(
-                targetPerson
-                  .introducedByPersonId,
+                introducerResolution
+                  .personId,
                 'El incorporador histórico'
+              );
+
+            const introducedByUserId =
+              cleanId(
+                introducerResolution
+                  .introducedByUserId
               );
 
             if (
@@ -1148,6 +1281,20 @@ exports.completeGrowthValidation =
                 'La membresía territorial contradice al incorporador histórico.'
               );
             }
+            if (
+              !membershipLegacyIntroducerConsistent({
+                membership:
+                  targetMembership,
+
+                introducedByUserId,
+              })
+            ) {
+              fail(
+                'failed-precondition',
+                'La membresía territorial contradice al incorporador histórico legado.'
+              );
+            }
+
 
             if (
               !actorCanValidateTarget({
@@ -1797,6 +1944,8 @@ exports._test = {
   personMatchesSubject,
   membershipMatchesSubject,
   membershipIntroducerConsistent,
+  resolveHistoricalIntroducerPersonId,
+  membershipLegacyIntroducerConsistent,
   actorCanValidateTarget,
   missionVerifiedActivityProof,
   canonicalEventAttendanceDocumentId,

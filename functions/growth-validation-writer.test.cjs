@@ -64,6 +64,8 @@ const {
   personMatchesSubject,
   membershipMatchesSubject,
   membershipIntroducerConsistent,
+  resolveHistoricalIntroducerPersonId,
+  membershipLegacyIntroducerConsistent,
   actorCanValidateTarget,
   missionVerifiedActivityProof,
   canonicalEventAttendanceDocumentId,
@@ -358,6 +360,214 @@ test(
   }
 );
 
+
+test(
+  'direct canonical introducer remains authoritative without legacy lookup',
+  async () => {
+
+    let readCount = 0;
+
+    const result =
+      await resolveHistoricalIntroducerPersonId({
+        db: {},
+
+        tx: {
+          async get() {
+            readCount += 1;
+            throw new Error(
+              'LEGACY_LOOKUP_MUST_NOT_RUN'
+            );
+          },
+        },
+
+        targetPerson: {
+          introducedByPersonId:
+            'PER-INTRODUCER',
+          introducedByUserId:
+            'UID-INTRODUCER',
+        },
+
+        campaignId:
+          'CAM-001',
+      });
+
+    assert.equal(
+      result.personId,
+      'PER-INTRODUCER'
+    );
+
+    assert.equal(
+      result.source,
+      'introducedByPersonId'
+    );
+
+    assert.equal(
+      readCount,
+      0
+    );
+  }
+);
+
+
+test(
+  'legacy introducer resolves server-side through canonical user mapping',
+  async () => {
+
+    const db = {
+      collection(name) {
+        assert.equal(
+          name,
+          'usuarios'
+        );
+
+        return {
+          doc(id) {
+            assert.equal(
+              id,
+              'UID-INTRODUCER'
+            );
+
+            return {
+              path:
+                'usuarios/' + id,
+            };
+          },
+        };
+      },
+    };
+
+    const tx = {
+      async get(ref) {
+        assert.equal(
+          ref.path,
+          'usuarios/UID-INTRODUCER'
+        );
+
+        return {
+          exists:
+            true,
+
+          data() {
+            return {
+              campaignId:
+                'CAM-001',
+              personId:
+                'PER-INTRODUCER',
+            };
+          },
+        };
+      },
+    };
+
+    const result =
+      await resolveHistoricalIntroducerPersonId({
+        db,
+        tx,
+
+        targetPerson: {
+          introducedByUserId:
+            'UID-INTRODUCER',
+        },
+
+        campaignId:
+          'CAM-001',
+      });
+
+    assert.deepEqual(
+      result,
+      {
+        personId:
+          'PER-INTRODUCER',
+        introducedByUserId:
+          'UID-INTRODUCER',
+        source:
+          'introducedByUserId',
+      }
+    );
+
+    assert.equal(
+      membershipLegacyIntroducerConsistent({
+        membership:
+          membership(
+            'PER-TARGET',
+            {
+              introducedByUserId:
+                'UID-INTRODUCER',
+            }
+          ),
+        introducedByUserId:
+          'UID-INTRODUCER',
+      }),
+      true
+    );
+
+    assert.equal(
+      membershipLegacyIntroducerConsistent({
+        membership:
+          membership(
+            'PER-TARGET',
+            {
+              introducedByUserId:
+                'UID-OTHER',
+            }
+          ),
+        introducedByUserId:
+          'UID-INTRODUCER',
+      }),
+      false
+    );
+  }
+);
+
+
+test(
+  'legacy introducer mapping from another campaign is rejected',
+  async () => {
+
+    const db = {
+      collection() {
+        return {
+          doc() {
+            return {};
+          },
+        };
+      },
+    };
+
+    const tx = {
+      async get() {
+        return {
+          exists:
+            true,
+
+          data() {
+            return {
+              campaignId:
+                'CAM-OTHER',
+              personId:
+                'PER-INTRODUCER',
+            };
+          },
+        };
+      },
+    };
+
+    await assert.rejects(
+      () =>
+        resolveHistoricalIntroducerPersonId({
+          db,
+          tx,
+          targetPerson: {
+            introducedByUserId:
+              'UID-INTRODUCER',
+          },
+          campaignId:
+            'CAM-001',
+        }),
+      /otra campaña/
+    );
+  }
+);
 
 test(
   'direct parent can validate target',
@@ -1112,6 +1322,21 @@ test(
     assert.match(
       source,
       /targetPerson\s*\.\s*introducedByPersonId/
+    );
+
+    assert.match(
+      source,
+      /targetPerson\s*\.\s*introducedByUserId/
+    );
+
+    assert.match(
+      source,
+      /db\.collection\(\s*'usuarios'\s*\)\.doc\(\s*introducedByUserId\s*\)/s
+    );
+
+    assert.match(
+      source,
+      /legacyIntroducerUser[\s\S]*?\.campaignId/
     );
 
     assert.doesNotMatch(
