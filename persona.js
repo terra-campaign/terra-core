@@ -36,6 +36,12 @@ const getPersonActivitySummary =
     "getPersonActivitySummary"
   );
 
+const getPersonPerformanceSummary =
+  httpsCallable(
+    functions,
+    "getPersonPerformanceSummary"
+  );
+
 
 // ======================================================
 // ELEMENTOS
@@ -128,6 +134,37 @@ const eventsCount =
 
 const activityStatus =
   document.getElementById("activityStatus");
+
+// ======================================================
+// DESEMPEÑO OPERATIVO
+// BUILD-124 B4-B2B16
+// ======================================================
+
+const performanceContributionCount =
+  document.getElementById(
+    "performanceContributionCount"
+  );
+
+const performancePoints =
+  document.getElementById("performancePoints");
+
+const performanceTerritorial =
+  document.getElementById("performanceTerritorial");
+
+const performanceAttendance =
+  document.getElementById("performanceAttendance");
+
+const performanceOrganization =
+  document.getElementById("performanceOrganization");
+
+const performanceLogistics =
+  document.getElementById("performanceLogistics");
+
+const performanceDigital =
+  document.getElementById("performanceDigital");
+
+const performanceStatus =
+  document.getElementById("performanceStatus");
 
 
 // ======================================================
@@ -333,6 +370,161 @@ async function loadPersonActivity(uid) {
 // CARGAR PERFIL
 // ======================================================
 
+// ======================================================
+// DESEMPEÑO OPERATIVO
+// BUILD-124 B4-B2B16
+// ======================================================
+
+function resetPerformanceValues() {
+
+  performanceContributionCount.textContent = "—";
+  performancePoints.textContent = "—";
+  performanceTerritorial.textContent = "—";
+  performanceAttendance.textContent = "—";
+  performanceOrganization.textContent = "—";
+  performanceLogistics.textContent = "—";
+  performanceDigital.textContent = "—";
+}
+
+
+function performanceNumber(value) {
+
+  return Number.isFinite(value)
+    ? String(value)
+    : "0";
+}
+
+
+async function loadPersonPerformance(personId) {
+
+  const canonicalPersonId =
+    cleanText(personId);
+
+  resetPerformanceValues();
+
+  if (!canonicalPersonId) {
+
+    performanceStatus.textContent =
+      "Desempeño no disponible: este registro todavía no tiene identidad canónica de persona.";
+
+    return;
+  }
+
+  performanceStatus.textContent =
+    "Consultando desempeño operativo…";
+
+  try {
+
+    const response =
+      await getPersonPerformanceSummary({
+        personId:
+          canonicalPersonId
+      });
+
+    const data =
+      response?.data;
+
+    const summary =
+      data?.summary;
+
+    if (
+      !data ||
+      data.personId !== canonicalPersonId ||
+      !summary ||
+      summary.personId !== canonicalPersonId
+    ) {
+
+      throw new Error(
+        "INVALID_PERFORMANCE_SUMMARY_RESPONSE"
+      );
+    }
+
+    if (
+      summary.runtimeScoringActivated !== true
+    ) {
+
+      performanceStatus.textContent =
+        "El desempeño operativo todavía no está activado. No se muestra una calificación ni un índice general.";
+
+      return;
+    }
+
+    const historical =
+      summary.contribution?.historical;
+
+    const dimensions =
+      historical?.byDimension;
+
+    if (
+      !historical ||
+      !dimensions ||
+      typeof dimensions !== "object"
+    ) {
+
+      throw new Error(
+        "INVALID_PERFORMANCE_DIMENSIONS"
+      );
+    }
+
+    performanceContributionCount.textContent =
+      performanceNumber(
+        historical.contributionCount
+      );
+
+    performancePoints.textContent =
+      performanceNumber(
+        historical.points
+      );
+
+    performanceTerritorial.textContent =
+      performanceNumber(
+        dimensions.TERRITORIAL_ACTIVITY
+      );
+
+    performanceAttendance.textContent =
+      performanceNumber(
+        dimensions.ATTENDANCE
+      );
+
+    performanceOrganization.textContent =
+      performanceNumber(
+        dimensions.ORGANIZATION
+      );
+
+    performanceLogistics.textContent =
+      performanceNumber(
+        dimensions.LOGISTICS
+      );
+
+    performanceDigital.textContent =
+      performanceNumber(
+        dimensions.DIGITAL_ACTIVITY
+      );
+
+    performanceStatus.textContent =
+      summary.generalPerformanceIndex?.calculated === true
+        ? "Contribución operativa verificada."
+        : "Contribución operativa verificada. El índice general todavía no se calcula.";
+
+  } catch (error) {
+
+    console.error(
+      "Error al cargar desempeño operativo:",
+      error
+    );
+
+    resetPerformanceValues();
+
+    const code =
+      cleanText(error?.code);
+
+    performanceStatus.textContent =
+      code === "functions/permission-denied"
+        ? "No tienes autorización para consultar el desempeño de esta persona."
+        : "No fue posible consultar el desempeño operativo en este momento.";
+  }
+}
+
 async function loadPersonProfile(uid) {
 
   try {
@@ -504,6 +696,18 @@ async function loadPersonProfile(uid) {
 
     void loadPersonActivity(
       uid
+    );
+
+    // ==================================================
+    // DESEMPEÑO OPERATIVO
+    // BUILD-124 B4-B2B16
+    //
+    // person.personId es la identidad canónica.
+    // Nunca se sustituye con UID.
+    // ==================================================
+
+    void loadPersonPerformance(
+      person.personId
     );
 
   } catch (error) {
