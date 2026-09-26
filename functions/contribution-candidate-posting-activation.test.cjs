@@ -40,7 +40,6 @@ const {
 
 const {
   CANDIDATE_ACTIVATION_POLICY,
-  assertCandidateActivationPolicyInactive,
   activateContributionCandidateForPosting,
 } =
   require(
@@ -174,17 +173,17 @@ function activeWriterPolicy() {
 }
 
 test(
-  "production candidate activation policy remains inactive",
+  "production candidate activation policy is active only on server",
   () => {
     assert.equal(
-      assertCandidateActivationPolicyInactive(),
-      true
+      CANDIDATE_ACTIVATION_POLICY.status,
+      "ACTIVE"
     );
 
     assert.equal(
       CANDIDATE_ACTIVATION_POLICY
         .runtimeCandidateActivationEnabled,
-      false
+      true
     );
 
     assert.equal(
@@ -200,24 +199,33 @@ test(
     );
   }
 );
-
 test(
-  "canonical candidate is blocked by inactive activation policy",
+  "canonical candidate crosses active production activation policy",
   () => {
     const candidate =
       canonicalMissionCandidate();
 
-    assert.throws(
-      () =>
-        activateContributionCandidateForPosting({
-          candidate,
-        }),
+    const result =
+      activateContributionCandidateForPosting({
+        candidate,
+      });
 
-      /CANDIDATE_ACTIVATION_POLICY_NOT_ACTIVE/
+    assert.equal(
+      candidate.runtimePostingEnabled,
+      false
+    );
+
+    assert.equal(
+      result.candidate.runtimePostingEnabled,
+      true
+    );
+
+    assert.equal(
+      result.activation.persisted,
+      false
     );
   }
 );
-
 test(
   "activation creates a new frozen runtime view without mutating canonical candidate",
   () => {
@@ -396,7 +404,7 @@ test(
 );
 
 test(
-  "activated candidate still requires posting authorization gate",
+  "activated candidate passes active production posting authorization gate",
   () => {
     const canonical =
       canonicalMissionCandidate();
@@ -405,33 +413,40 @@ test(
       activateContributionCandidateForPosting({
         candidate:
           canonical,
-
-        activationPolicy:
-          activeActivationPolicy(),
       });
 
-    assert.throws(
-      () =>
-        assertContributionPostingAuthorized({
-          candidate:
-            activated.candidate,
+    const authorization =
+      assertContributionPostingAuthorized({
+        candidate:
+          activated.candidate,
 
-          rule:
-            getContributionRule(
-              canonical.activityCode
-            ),
+        rule:
+          getContributionRule(
+            canonical.activityCode
+          ),
 
-          policy:
-            LEDGER_WRITER_POLICY,
-        }),
+        policy:
+          LEDGER_WRITER_POLICY,
+      });
 
-      /CONTRIBUTION_RULE_NOT_ACTIVE/
+    assert.equal(
+      authorization.authorizationStatus,
+      AUTHORIZATION_STATUS.AUTHORIZED
+    );
+
+    assert.equal(
+      canonical.runtimePostingEnabled,
+      false
+    );
+
+    assert.equal(
+      activated.candidate.runtimePostingEnabled,
+      true
     );
   }
 );
-
 test(
-  "synthetic full activation can cross gate without activating production constants",
+  "explicit active fixtures remain compatible with active production constants",
   () => {
     const canonical =
       canonicalMissionCandidate();
@@ -477,24 +492,23 @@ test(
     assert.equal(
       CANDIDATE_ACTIVATION_POLICY
         .runtimeCandidateActivationEnabled,
-      false
+      true
     );
 
     assert.equal(
       LEDGER_WRITER_POLICY
         .runtimePostingEnabled,
-      false
+      true
     );
 
     assert.equal(
       getContributionRule(
         canonical.activityCode
       ).runtimeScoringEnabled,
-      false
+      true
     );
   }
 );
-
 test(
   "activation policy is immutable",
   () => {

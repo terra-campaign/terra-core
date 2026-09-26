@@ -13,6 +13,9 @@ const {
 const {
   deriveMissionContributionCandidateSafely
 } = require('./contribution-verified-fact-bridge.cjs');
+const {
+  reconcileContributionLifecycle
+} = require('./contribution-lifecycle-reconciler.cjs');
 const options = {region:'us-central1',timeoutSeconds:60};
 const fail = (code,message) => {throw new HttpsError(code,message);};
 const validId = x => typeof x === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(x);
@@ -153,7 +156,8 @@ exports.decideMissionReview = onCall(options,async request => {
       if (c.r.lastFingerprint !== fingerprint) fail('already-exists','Este intento tiene otros datos. Actualiza el reporte.');
       return {
         revision:c.r.revision,
-        contributionFact:missionContributionFact(c,c.r,d.evidenceId)
+        previousContributionFact:missionContributionFact(c,c.r,d.evidenceId),
+        currentContributionFact:missionContributionFact(c,c.r,d.evidenceId)
       };
     }
     if ((c.r?.revision || 0) !== d.expectedRevision) fail('aborted','Otra revisión cambió este reporte. Actualiza antes de decidir.');
@@ -178,7 +182,8 @@ exports.decideMissionReview = onCall(options,async request => {
     tx.create(c.ref.collection('history').doc(String(revision).padStart(8,'0')),event);
     return {
       revision,
-      contributionFact:missionContributionFact(c,r,d.evidenceId)
+      previousContributionFact:missionContributionFact(c,c.r,d.evidenceId),
+      currentContributionFact:missionContributionFact(c,r,d.evidenceId)
     };
   });
 
@@ -186,16 +191,37 @@ exports.decideMissionReview = onCall(options,async request => {
   // Candidate derivation is intentionally best-effort and
   // cannot invalidate or roll back the operational review.
   try {
-    await deriveMissionContributionCandidateSafely({
+    const previousContributionResult =
+      await deriveMissionContributionCandidateSafely({
+        db,
+        ...transactionResult.previousContributionFact,
+        resolveCanonicalIdentity:resolveCanonicalPersonForAccount
+      });
+
+    const currentContributionResult =
+      await deriveMissionContributionCandidateSafely({
+        db,
+        ...transactionResult.currentContributionFact,
+        resolveCanonicalIdentity:resolveCanonicalPersonForAccount
+      });
+
+    await reconcileContributionLifecycle({
       db,
-      ...transactionResult.contributionFact,
-      resolveCanonicalIdentity:resolveCanonicalPersonForAccount
+      actorUid:request.auth.uid,
+      operationId:
+        `mission-review:${d.evidenceId}:revision:${transactionResult.revision}`,
+      previousContributionResult,
+      currentContributionResult
     });
   } catch (error) {
     console.error(
-      'MISSION_CONTRIBUTION_BRIDGE_UNEXPECTED_FAILURE',
+      'MISSION_CONTRIBUTION_RECONCILIATION_UNEXPECTED_FAILURE',
       {
-        evidenceId:d.evidenceId
+        evidenceId:d.evidenceId,
+        code:
+          typeof error?.message === 'string'
+            ? error.message
+            : 'UNKNOWN'
       }
     );
   }

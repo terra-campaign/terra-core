@@ -35,7 +35,7 @@ test(
 
     assert.equal(
       RULE_SET_STATUS,
-      "DEFINED_NOT_ACTIVATED"
+      "ACTIVE"
     );
 
     assert.equal(
@@ -56,7 +56,7 @@ test(
 );
 
 test(
-  "every V1 rule is versioned and not activated",
+  "every V1 rule is versioned and runtime scoring activated",
   () => {
     for (
       const rule
@@ -75,12 +75,12 @@ test(
       assert.equal(
         rule.status,
         RULE_STATUSES
-          .DEFINED_NOT_ACTIVATED
+          .ACTIVE
       );
 
       assert.equal(
         rule.runtimeScoringEnabled,
-        false
+        true
       );
 
       assert.equal(
@@ -251,19 +251,18 @@ test(
 );
 
 test(
-  "inactive V1 rule cannot post contribution",
+  "active V1 rule can post contribution",
   () => {
     const rule =
       getContributionRule(
         "TERRITORIAL_BRIGADE"
       );
 
-    assert.throws(
-      () =>
-        assertRuleCanPost(
-          rule
-        ),
-      /CONTRIBUTION_RULE_NOT_ACTIVE/
+    assert.equal(
+      assertRuleCanPost(
+        rule
+      ),
+      true
     );
   }
 );

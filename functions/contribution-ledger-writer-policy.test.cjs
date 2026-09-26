@@ -14,14 +14,13 @@ const {
   LEDGER_COLLECTION,
   AUDIT_COLLECTION,
   LEDGER_WRITER_POLICY,
-  assertLedgerWriterPolicyInactive,
 } =
   require(
     "./contribution-ledger-writer-policy.cjs"
   );
 
 test(
-  "ledger writer policy is versioned and inactive",
+  "ledger writer policy is versioned and active",
   () => {
     assert.equal(
       LEDGER_WRITER_POLICY_VERSION,
@@ -30,21 +29,15 @@ test(
 
     assert.equal(
       LEDGER_WRITER_STATUS,
-      "DEFINED_NOT_ACTIVATED"
+      "ACTIVE"
     );
 
     assert.equal(
       LEDGER_WRITER_POLICY.status,
-      "DEFINED_NOT_ACTIVATED"
-    );
-
-    assert.equal(
-      assertLedgerWriterPolicyInactive(),
-      true
+      "ACTIVE"
     );
   }
 );
-
 test(
   "canonical future write set is ledger plus audit only",
   () => {
@@ -78,18 +71,18 @@ test(
 );
 
 test(
-  "runtime posting and scoring remain disabled",
+  "runtime posting and scoring are active with persistence boundaries preserved",
   () => {
     assert.equal(
       LEDGER_WRITER_POLICY
         .runtimePostingEnabled,
-      false
+      true
     );
 
     assert.equal(
       LEDGER_WRITER_POLICY
         .runtimeScoringEnabled,
-      false
+      true
     );
 
     assert.equal(
@@ -105,7 +98,6 @@ test(
     );
   }
 );
-
 test(
   "future writer requires authenticated canonical server actor",
   () => {

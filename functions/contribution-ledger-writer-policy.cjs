@@ -4,7 +4,7 @@ const LEDGER_WRITER_POLICY_VERSION =
   "1.0.0";
 
 const LEDGER_WRITER_STATUS =
-  "DEFINED_NOT_ACTIVATED";
+  "ACTIVE";
 
 const LEDGER_COLLECTION =
   "contributionLedger";
@@ -27,10 +27,10 @@ const LEDGER_WRITER_POLICY =
       AUDIT_COLLECTION,
 
     runtimePostingEnabled:
-      false,
+      true,
 
     runtimeScoringEnabled:
-      false,
+      true,
 
     contributionCandidatePersistenceEnabled:
       false,

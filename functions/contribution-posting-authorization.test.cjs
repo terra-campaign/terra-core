@@ -198,7 +198,7 @@ test(
 );
 
 test(
-  "candidate activation alone remains blocked by inactive rule",
+  "active production rule authorizes an activated candidate",
   () => {
     const fixture =
       activationFixture();
@@ -210,44 +210,71 @@ test(
           .activityCode
       );
 
-    assert.throws(
-      () =>
-        assertContributionPostingAuthorized({
-          candidate:
-            fixture.candidate,
+    const result =
+      assertContributionPostingAuthorized({
+        candidate:
+          fixture.candidate,
 
-          rule:
-            currentRule,
+        rule:
+          currentRule,
 
-          policy:
-            fixture.policy,
-        }),
+        policy:
+          fixture.policy,
+      });
 
-      /CONTRIBUTION_RULE_NOT_ACTIVE/
+    assert.equal(
+      result.authorizationStatus,
+      AUTHORIZATION_STATUS.AUTHORIZED
+    );
+
+    assert.equal(
+      currentRule.status,
+      RULE_STATUSES.ACTIVE
+    );
+
+    assert.equal(
+      currentRule.runtimeScoringEnabled,
+      true
     );
   }
 );
 
 test(
-  "candidate and rule activation remain blocked by inactive policy",
+  "active production writer policy authorizes active candidate and rule",
   () => {
     const fixture =
       activationFixture();
 
-    assert.throws(
-      () =>
-        assertContributionPostingAuthorized({
-          candidate:
-            fixture.candidate,
+    const result =
+      assertContributionPostingAuthorized({
+        candidate:
+          fixture.candidate,
 
-          rule:
-            fixture.rule,
+        rule:
+          fixture.rule,
 
-          policy:
-            LEDGER_WRITER_POLICY,
-        }),
+        policy:
+          LEDGER_WRITER_POLICY,
+      });
 
-      /LEDGER_WRITER_POLICY_NOT_ACTIVE/
+    assert.equal(
+      result.authorizationStatus,
+      AUTHORIZATION_STATUS.AUTHORIZED
+    );
+
+    assert.equal(
+      LEDGER_WRITER_POLICY.status,
+      "ACTIVE"
+    );
+
+    assert.equal(
+      LEDGER_WRITER_POLICY.runtimePostingEnabled,
+      true
+    );
+
+    assert.equal(
+      LEDGER_WRITER_POLICY.runtimeScoringEnabled,
+      true
     );
   }
 );

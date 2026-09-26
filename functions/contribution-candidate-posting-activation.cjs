@@ -19,7 +19,7 @@ const CANDIDATE_ACTIVATION_POLICY_VERSION =
   "1.0.0";
 
 const CANDIDATE_ACTIVATION_POLICY_STATUS =
-  "DEFINED_NOT_ACTIVATED";
+  "ACTIVE";
 
 const CANDIDATE_ACTIVATION_POLICY =
   Object.freeze({
@@ -30,7 +30,7 @@ const CANDIDATE_ACTIVATION_POLICY =
       CANDIDATE_ACTIVATION_POLICY_STATUS,
 
     runtimeCandidateActivationEnabled:
-      false,
+      true,
 
     clientActivationAllowed:
       false,

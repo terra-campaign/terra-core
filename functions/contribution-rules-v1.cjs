@@ -14,7 +14,7 @@ const RULE_SET_VERSION =
   "1.0.0";
 
 const RULE_SET_STATUS =
-  "DEFINED_NOT_ACTIVATED";
+  "ACTIVE";
 
 const RULE_STATUSES =
   Object.freeze({
@@ -173,7 +173,7 @@ const contributionRulesV1 =
 
           status:
             RULE_STATUSES
-              .DEFINED_NOT_ACTIVATED,
+              .ACTIVE,
 
           activityCode:
             activity.code,
@@ -213,7 +213,7 @@ const contributionRulesV1 =
             null,
 
           runtimeScoringEnabled:
-            false,
+            true,
         });
       }
     )

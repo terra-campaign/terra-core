@@ -96,18 +96,31 @@ test(
 );
 
 test(
-  "both retry and new-review paths carry contribution context",
+  "both retry and new-review paths carry previous and current contribution context",
   () => {
-    const occurrences =
+    const previousOccurrences =
       (
         source.match(
-          /contributionFact:missionContributionFact/g
+          /previousContributionFact:missionContributionFact/g
+        ) ||
+        []
+      ).length;
+
+    const currentOccurrences =
+      (
+        source.match(
+          /currentContributionFact:missionContributionFact/g
         ) ||
         []
       ).length;
 
     assert.equal(
-      occurrences,
+      previousOccurrences,
+      2
+    );
+
+    assert.equal(
+      currentOccurrences,
       2
     );
   }
@@ -138,7 +151,7 @@ test(
 
     assert.match(
       source,
-      /MISSION_CONTRIBUTION_BRIDGE_UNEXPECTED_FAILURE/
+      /MISSION_CONTRIBUTION_RECONCILIATION_UNEXPECTED_FAILURE/
     );
   }
 );
@@ -174,6 +187,132 @@ test(
     assert.doesNotMatch(
       source,
       /runtimeScoringActivated\s*:\s*true/
+    );
+  }
+);
+
+test(
+  "mission review delegates contribution lifecycle transitions to the canonical reconciler",
+  () => {
+    assert.match(
+      source,
+      /reconcileContributionLifecycle/
+    );
+
+    assert.match(
+      source,
+      /previousContributionResult/
+    );
+
+    assert.match(
+      source,
+      /currentContributionResult/
+    );
+
+    assert.doesNotMatch(
+      source,
+      /reverseContributionLedgerEntry/
+    );
+
+    assert.doesNotMatch(
+      source,
+      /buildMissionSourceId/
+    );
+
+    assert.doesNotMatch(
+      source,
+      /buildContributionLedgerId/
+    );
+  }
+);
+test(
+  "mission review preserves previous and current contribution facts for reconciliation",
+  () => {
+    assert.match(
+      source,
+      /previousContributionFact/
+    );
+
+    assert.match(
+      source,
+      /currentContributionFact/
+    );
+
+    assert.match(
+      source,
+      /missionContributionFact\s*\(\s*c\s*,\s*c\.r\s*,\s*d\.evidenceId\s*\)/
+    );
+
+    assert.match(
+      source,
+      /missionContributionFact\s*\(\s*c\s*,\s*r\s*,\s*d\.evidenceId\s*\)/
+    );
+  }
+);
+
+test(
+  "mission review derives previous and current contribution eligibility",
+  () => {
+    const source =
+      fs.readFileSync(
+        __dirname + "/mission-review.cjs",
+        "utf8"
+      );
+
+    assert.match(
+      source,
+      /previousContributionResult\s*=\s*[\s\S]*?deriveMissionContributionCandidateSafely/
+    );
+
+    assert.match(
+      source,
+      /transactionResult.previousContributionFact/
+    );
+
+    assert.match(
+      source,
+      /currentContributionResult\s*=\s*[\s\S]*?deriveMissionContributionCandidateSafely/
+    );
+
+    assert.match(
+      source,
+      /transactionResult.currentContributionFact/
+    );
+  }
+);
+
+
+test(
+  "mission review passes the complete contribution transition to lifecycle reconciliation",
+  () => {
+    assert.match(
+      source,
+      /reconcileContributionLifecycle\s*\(\s*\{[\s\S]*?previousContributionResult[\s\S]*?currentContributionResult[\s\S]*?\}\s*\)/
+    );
+
+    assert.match(
+      source,
+      /operationId\s*:/
+    );
+
+    assert.match(
+      source,
+      /mission-review/
+    );
+
+    assert.match(
+      source,
+      /transactionResult\.revision/
+    );
+
+    assert.doesNotMatch(
+      source,
+      /previousContributionResult\.status === ['"]DERIVED['"]/
+    );
+
+    assert.doesNotMatch(
+      source,
+      /currentContributionResult\.status === ['"]DERIVED['"]/
     );
   }
 );

@@ -112,7 +112,7 @@ function activeRuntime(
 
 
 test(
-  "current production posting policies remain inactive",
+  "current production posting policies are active server-side",
   () => {
     const readiness =
       inspectPostingReadiness({
@@ -124,208 +124,139 @@ test(
       });
 
     assert.equal(
-      readiness
-        .candidateActivationReady,
-      false
+      readiness.candidateActivationReady,
+      true
     );
 
     assert.equal(
-      readiness
-        .ledgerWriterReady,
-      false
+      readiness.ledgerWriterReady,
+      true
     );
 
     assert.equal(
       readiness.policiesReady,
-      false
+      true
     );
 
     assert.equal(
-      readiness
-        .activationPolicyStatus,
-      "DEFINED_NOT_ACTIVATED"
+      readiness.activationPolicyStatus,
+      "ACTIVE"
     );
 
     assert.equal(
-      readiness
-        .writerPolicyStatus,
-      "DEFINED_NOT_ACTIVATED"
+      readiness.writerPolicyStatus,
+      "ACTIVE"
     );
   }
 );
 
-
 test(
-  "production orchestrator blocks before touching database",
+  "production orchestrator reaches official writer when policies are active",
   async () => {
-    const db =
-      new Proxy(
-        {},
-        {
-          get() {
-            throw new Error(
-              "DATABASE_MUST_NOT_BE_TOUCHED"
-            );
-          },
-        }
-      );
+    await assert.rejects(
+      () =>
+        orchestrateContributionPosting({
+          db:
+            null,
 
-    const result =
-      await orchestrateContributionPosting({
-        db,
-        actorUid:
-          "ACTOR-UID-001",
-        candidate:
-          candidate(),
-      });
+          actorUid:
+            "ACTOR-UID-001",
 
-    assert.equal(
-      result.status,
-      ORCHESTRATION_STATUSES
-        .BLOCKED_NOT_ACTIVATED
-    );
+          candidate:
+            candidate(),
+        }),
 
-    assert.equal(
-      result.reasonCode,
-      "CONTRIBUTION_POSTING_NOT_ACTIVATED"
-    );
-
-    assert.equal(
-      result.postingAttempted,
-      false
-    );
-
-    assert.equal(
-      result.ledgerWritten,
-      false
-    );
-
-    assert.equal(
-      result.pointsPosted,
-      false
-    );
-
-    assert.equal(
-      result.runtimeScoringActivated,
-      false
+      /INVALID_LEDGER_WRITER_DATABASE/
     );
   }
 );
 
-
 test(
-  "blocked result preserves non-persistence guarantees",
+  "active production path does not manufacture a blocked non-persistence result",
   async () => {
-    const result =
-      await orchestrateContributionPosting({
-        db:
-          null,
+    await assert.rejects(
+      () =>
+        orchestrateContributionPosting({
+          db:
+            null,
 
-        actorUid:
-          "ACTOR-UID-001",
+          actorUid:
+            "ACTOR-UID-001",
 
-        candidate:
-          candidate(),
-      });
+          candidate:
+            candidate(),
+        }),
 
-    assert.equal(
-      result.orchestratorVersion,
-      ORCHESTRATOR_VERSION
-    );
-
-    assert.equal(
-      result.candidateId,
-      "candidate-test-001"
-    );
-
-    assert.equal(
-      result.campaignId,
-      "CAM-001"
-    );
-
-    assert.equal(
-      result.personId,
-      "PERSON-001"
-    );
-
-    assert.equal(
-      result
-        .contributionCandidatePersisted,
-      false
-    );
-
-    assert.equal(
-      result
-        .performanceSummaryWritten,
-      false
+      /INVALID_LEDGER_WRITER_DATABASE/
     );
   }
 );
 
-
 test(
-  "production caller cannot inject active policies or alternate writer",
+  "production caller cannot inject policies or alternate writer",
   async () => {
     let alternateWriterCalled =
       false;
 
-    const result =
-      await orchestrateContributionPosting({
-        db:
-          null,
+    await assert.rejects(
+      () =>
+        orchestrateContributionPosting({
+          db:
+            null,
 
-        actorUid:
-          "ACTOR-UID-001",
+          actorUid:
+            "ACTOR-UID-001",
 
-        candidate:
-          candidate(),
+          candidate:
+            candidate(),
 
-        activationPolicy:
-          {
-            status:
-              "ACTIVE",
+          activationPolicy:
+            {
+              status:
+                "INJECTED_POLICY",
+            },
 
-            runtimeCandidateActivationEnabled:
-              true,
-          },
+          writerPolicy:
+            {
+              status:
+                "INJECTED_POLICY",
+            },
 
-        writerPolicy:
-          {
-            status:
-              "ACTIVE",
+          postLedger:
+            async () => {
+              alternateWriterCalled =
+                true;
 
-            runtimePostingEnabled:
-              true,
+              return {
+                ok:
+                  true,
+              };
+            },
+        }),
 
-            runtimeScoringEnabled:
-              true,
-          },
-
-        postLedger:
-          async () => {
-            alternateWriterCalled =
-              true;
-
-            return {
-              ok:
-                true,
-            };
-          },
-      });
+      /INVALID_LEDGER_WRITER_DATABASE/
+    );
 
     assert.equal(
       alternateWriterCalled,
       false
     );
 
+    const readiness =
+      inspectPostingReadiness({
+        activationPolicy:
+          CANDIDATE_ACTIVATION_POLICY,
+
+        writerPolicy:
+          LEDGER_WRITER_POLICY,
+      });
+
     assert.equal(
-      result.status,
-      ORCHESTRATION_STATUSES
-        .BLOCKED_NOT_ACTIVATED
+      readiness.policiesReady,
+      true
     );
   }
 );
-
 
 test(
   "actor uid is mandatory even while posting is inactive",

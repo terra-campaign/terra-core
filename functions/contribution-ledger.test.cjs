@@ -111,7 +111,7 @@ test(
     assert.equal(
       draft.ruleSnapshot
         .runtimeScoringEnabled,
-      false
+      true
     );
 
     assert.deepEqual(
@@ -323,7 +323,7 @@ test(
 );
 
 test(
-  "runtime posting is blocked while V1 rules are inactive",
+  "runtime posting is enabled by active V1 rules",
   () => {
     const sourceId =
       buildAttendanceSourceId({
@@ -334,32 +334,44 @@ test(
           "PER-001",
       });
 
-    assert.throws(
-      () =>
-        buildPostableContribution({
-          campaignId:
-            "CAM-001",
+    const postable =
+      buildPostableContribution({
+        campaignId:
+          "CAM-001",
 
-          personId:
-            "PER-001",
+        personId:
+          "PER-001",
 
-          activityCode:
-            "EVENT_GENERAL_ATTENDANCE",
+        activityCode:
+          "EVENT_GENERAL_ATTENDANCE",
 
-          sourceType:
-            SOURCE_TYPES
-              .ATTENDANCE_RECORD,
+        sourceType:
+          SOURCE_TYPES
+            .ATTENDANCE_RECORD,
 
-          sourceId,
+        sourceId,
 
-          scoreDimension:
-            SCORE_DIMENSIONS
-              .ATTENDANCE,
+        scoreDimension:
+          SCORE_DIMENSIONS
+            .ATTENDANCE,
 
-          points:
-            30,
-        }),
-      /CONTRIBUTION_RULE_NOT_ACTIVE/
+        points:
+          30,
+      });
+
+    assert.equal(
+      postable.runtimeScoringEnabled,
+      true
+    );
+
+    assert.equal(
+      postable.points,
+      30
+    );
+
+    assert.equal(
+      postable.ledgerStatus,
+      LEDGER_STATUSES.POSTED
     );
   }
 );

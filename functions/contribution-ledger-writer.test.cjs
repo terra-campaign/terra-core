@@ -371,6 +371,40 @@ function createFakeDatabase({
 
                   campaignId:
                     "CAM-001",
+
+                  personId:
+                    "PERSON-ACTOR-001",
+                };
+              },
+            };
+          }
+
+          if (
+            reference.collection ===
+              "persons" &&
+            reference.id ===
+              "PERSON-ACTOR-001"
+          ) {
+            return {
+              exists:
+                true,
+
+              id:
+                "PERSON-ACTOR-001",
+
+              data() {
+                return {
+                  personId:
+                    "PERSON-ACTOR-001",
+
+                  active:
+                    true,
+
+                  campaignId:
+                    "CAM-001",
+
+                  accountUid:
+                    "ACTOR-UID-001",
                 };
               },
             };
@@ -475,58 +509,83 @@ function documentsByCollection(
 }
 
 test(
-  "production writer remains blocked before any database access",
+  "production writer posts through active official gates",
   async () => {
     const candidate =
       canonicalCandidate();
 
-    let databaseCalls = 0;
+    const database =
+      createFakeDatabase();
 
-    const db = {
-      collection() {
-        databaseCalls += 1;
+    const result =
+      await writer
+        .postContributionLedgerEntry({
+          db:
+            database.db,
 
-        throw new Error(
-          "DATABASE_MUST_NOT_BE_TOUCHED"
-        );
-      },
+          actorUid:
+            "ACTOR-UID-001",
 
-      async runTransaction() {
-        databaseCalls += 1;
+          candidate,
+        });
 
-        throw new Error(
-          "DATABASE_MUST_NOT_BE_TOUCHED"
-        );
-      },
-    };
-
-    await assert.rejects(
-      () =>
-        writer
-          .postContributionLedgerEntry({
-            db,
-
-            actorUid:
-              "ACTOR-UID-001",
-
-            candidate,
-          }),
-
-      /CANDIDATE_ACTIVATION_POLICY_NOT_ACTIVE/
+    assert.equal(
+      database.transactionCalls,
+      1
     );
 
     assert.equal(
-      databaseCalls,
-      0
+      database.createCalls,
+      2
+    );
+
+    assert.deepEqual(
+      [...database.createdCollections].sort(),
+      ["contributionLedger", "logs"].sort()
+    );
+
+    assert.equal(
+      documentsByCollection(
+        database,
+        "contributionLedger"
+      ).length,
+      1
+    );
+
+    assert.equal(
+      documentsByCollection(
+        database,
+        "logs"
+      ).length,
+      1
     );
 
     assert.equal(
       candidate.runtimePostingEnabled,
       false
     );
+
+    assert.equal(
+      result.ok,
+      true
+    );
+
+    assert.equal(
+      result.alreadyPosted,
+      false
+    );
+
+    assert.equal(
+      result.points,
+      candidate.points
+    );
+
+    assert.equal(
+      result.performanceSummaryWritten,
+      false
+    );
   }
 );
-
 test(
   "test seam is available only in test environment",
   () => {
