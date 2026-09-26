@@ -6053,6 +6053,9 @@ exports.getStructureProgress =
 exports.getPersonActivitySummary =
   require("./person-activity.cjs").getPersonActivitySummary;
 
+exports.getPersonPerformanceSummary =
+  require("./performance-summary-callable.cjs").getPersonPerformanceSummary;
+
 
 
 exports.createEventInvitations =
