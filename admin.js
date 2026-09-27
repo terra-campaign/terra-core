@@ -103,6 +103,9 @@ const brigadasAdminButton =
 const municipalitiesButton =
   document.querySelector("#municipalitiesButton");
 
+const campaignsButton =
+  document.querySelector("#campaignsButton");
+
 const missionsButton =
   document.querySelector("#missionsButton");
 
@@ -1057,6 +1060,10 @@ function applyRoleInterface() {
     municipalitiesButton.hidden = !isAdmin;
   }
 
+  if (campaignsButton) {
+    campaignsButton.hidden = !isAdmin;
+  }
+
   if (organizationButton) {
     organizationButton.hidden = !canAccessOrganization;
     organizationButton.textContent = "Mi organización";
@@ -1954,13 +1961,6 @@ onAuthStateChanged(auth, async (user) => {
       if (currentUserProfile.role === "lider_principal") {
         window.location.replace("./direccion.html");
         return;
-      }
-      if (currentUserProfile.role === "admin") {
-        const link = document.createElement("a");
-        link.href = "./direccion.html";
-        link.textContent = "Panel de dirección";
-        link.className = "button button--secondary";
-        document.querySelector("main").prepend(link);
       }
       applyRoleInterface();
 
