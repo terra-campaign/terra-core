@@ -739,3 +739,81 @@ test(
     );
   }
 );
+
+test(
+  "mission recovery record accepts null previous review for an initial decision",
+  () => {
+    const {
+      RECOVERY_STATUSES,
+      buildMissionReviewRecoveryRecord,
+    } = require("./contribution-reconciliation-recovery.cjs");
+
+    const record =
+      buildMissionReviewRecoveryRecord({
+        operationId:
+          "mission-review:EVID-INITIAL:revision:1",
+        campaignId:
+          "CAM-001",
+        evidenceId:
+          "EVID-INITIAL",
+        missionId:
+          "MIS-INITIAL",
+        reviewId:
+          "EVID-INITIAL",
+        revision:
+          1,
+        actorUid:
+          "REVIEWER-001",
+        subjectAccountUid:
+          "SUBJECT-001",
+        missionFact: {
+          id: "MIS-INITIAL",
+          campaignId: "CAM-001",
+          assignedTo: "SUBJECT-001",
+        },
+        evidenceFact: {
+          id: "EVID-INITIAL",
+          campaignId: "CAM-001",
+          missionId: "MIS-INITIAL",
+          uploadedBy: "SUBJECT-001",
+        },
+        previousReviewFact:
+          null,
+        currentReviewFact: {
+          campaignId: "CAM-001",
+          missionId: "MIS-INITIAL",
+          evidenceId: "EVID-INITIAL",
+          subjectId: "SUBJECT-001",
+          status: "validated",
+          pendingAppeal: false,
+          updatedAt: "CURRENT_REVIEW_TIME",
+        },
+        createdAt:
+          "SERVER_TIME",
+      });
+
+    assert.equal(
+      record.previousReviewFact,
+      null
+    );
+
+    assert.equal(
+      record.revision,
+      1
+    );
+
+    assert.equal(
+      record.status,
+      RECOVERY_STATUSES.PENDING
+    );
+
+    assert.equal(
+      record.currentReviewFact.status,
+      "validated"
+    );
+
+    assert.ok(
+      Object.isFrozen(record)
+    );
+  }
+);

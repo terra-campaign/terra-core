@@ -140,10 +140,12 @@ function buildMissionReviewRecoveryRecord({
     );
 
   const checkedPreviousReviewFact =
-    requireObject(
-      previousReviewFact,
-      "PREVIOUS_REVIEW_FACT"
-    );
+    previousReviewFact == null
+      ? null
+      : requireObject(
+          previousReviewFact,
+          "PREVIOUS_REVIEW_FACT"
+        );
 
   const checkedCurrentReviewFact =
     requireObject(
