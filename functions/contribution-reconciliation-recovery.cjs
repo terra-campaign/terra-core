@@ -64,6 +64,19 @@ function requireObject(
   return value;
 }
 
+function requireBoolean(
+  value,
+  fieldName
+) {
+  if (typeof value !== "boolean") {
+    throw new Error(
+      "INVALID_" + fieldName
+    );
+  }
+
+  return value;
+}
+
 function buildMissionReviewRecoveryRecord({
   operationId,
   campaignId,
@@ -332,6 +345,7 @@ function markRecoveryRetryRequired({
 
 function markRecoveryReconciled({
   record,
+  observability,
   updatedAt,
 }) {
   const checkedRecord =
@@ -347,6 +361,30 @@ function markRecoveryReconciled({
       "RECOVERY_ALREADY_RECONCILED"
     );
   }
+
+  const checkedObservability =
+    requireObject(
+      observability,
+      "RECOVERY_OBSERVABILITY"
+    );
+
+  const checkedLedgerWritten =
+    requireBoolean(
+      checkedObservability.ledgerWritten,
+      "RECOVERY_LEDGER_WRITTEN"
+    );
+
+  const checkedPointsPosted =
+    requireBoolean(
+      checkedObservability.pointsPosted,
+      "RECOVERY_POINTS_POSTED"
+    );
+
+  const checkedPerformanceSummaryWritten =
+    requireBoolean(
+      checkedObservability.performanceSummaryWritten,
+      "RECOVERY_PERFORMANCE_SUMMARY_WRITTEN"
+    );
 
   const checkedUpdatedAt =
     requireTransitionTimestamp(
@@ -364,6 +402,15 @@ function markRecoveryReconciled({
 
     lastError:
       null,
+
+    ledgerWritten:
+      checkedLedgerWritten,
+
+    pointsPosted:
+      checkedPointsPosted,
+
+    performanceSummaryWritten:
+      checkedPerformanceSummaryWritten,
 
     updatedAt:
       checkedUpdatedAt,

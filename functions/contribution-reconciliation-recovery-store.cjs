@@ -651,6 +651,7 @@ async function transitionRecoveryToRetryRequired({
 async function transitionRecoveryToReconciled({
   db,
   operationId,
+  observability,
   updatedAt,
 }) {
   const database =
@@ -749,6 +750,8 @@ async function transitionRecoveryToReconciled({
         markRecoveryReconciled({
           record:
             current,
+
+          observability,
 
           updatedAt,
         });

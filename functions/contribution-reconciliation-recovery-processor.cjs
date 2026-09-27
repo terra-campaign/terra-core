@@ -39,6 +39,54 @@ const {
 const RECOVERY_PROCESSOR_VERSION =
   "1.0.0-foundation";
 
+function deriveRecoveryObservability({
+  record,
+  lifecycleResult,
+}) {
+  const current =
+    Object.freeze({
+      ledgerWritten:
+        record.ledgerWritten === true,
+
+      pointsPosted:
+        record.pointsPosted === true,
+
+      performanceSummaryWritten:
+        record.performanceSummaryWritten === true,
+    });
+
+  if (
+    !lifecycleResult ||
+    lifecycleResult.action !== "POST" ||
+    !lifecycleResult.result ||
+    typeof lifecycleResult.result !== "object"
+  ) {
+    return current;
+  }
+
+  const result =
+    lifecycleResult.result;
+
+  if (
+    typeof result.ledgerWritten !== "boolean" ||
+    typeof result.pointsPosted !== "boolean" ||
+    typeof result.performanceSummaryWritten !== "boolean"
+  ) {
+    return current;
+  }
+
+  return Object.freeze({
+    ledgerWritten:
+      result.ledgerWritten,
+
+    pointsPosted:
+      result.pointsPosted,
+
+    performanceSummaryWritten:
+      result.performanceSummaryWritten,
+  });
+}
+
 async function processMissionContributionRecoveryCore({
   db,
   record,
@@ -228,20 +276,23 @@ async function processMissionContributionRecoveryCore({
     );
   }
 
+  let lifecycleResult;
+
   try {
-    await runtime.reconcileLifecycle({
-      db,
+    lifecycleResult =
+      await runtime.reconcileLifecycle({
+        db,
 
-      actorUid:
-        record.actorUid,
+        actorUid:
+          record.actorUid,
 
-      operationId:
-        record.operationId,
+        operationId:
+          record.operationId,
 
-      previousContributionResult,
+        previousContributionResult,
 
-      currentContributionResult,
-    });
+        currentContributionResult,
+      });
   } catch (error) {
     const errorCode =
       "RECOVERY_LIFECYCLE_ERROR:LIFECYCLE_EXECUTION_FAILED";
@@ -288,11 +339,19 @@ async function processMissionContributionRecoveryCore({
       ? runtime.now()
       : undefined;
 
+  const observability =
+    deriveRecoveryObservability({
+      record,
+      lifecycleResult,
+    });
+
   return runtime.markReconciled({
     db,
 
     operationId:
       record.operationId,
+
+    observability,
 
     updatedAt,
   });
@@ -376,11 +435,13 @@ const productionRuntime =
     async markReconciled({
       db,
       operationId,
+      observability,
       updatedAt,
     }) {
       return transitionRecoveryToReconciled({
         db,
         operationId,
+        observability,
         updatedAt,
       });
     },

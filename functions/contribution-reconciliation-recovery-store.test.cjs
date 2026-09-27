@@ -1056,6 +1056,18 @@ test(
         operationId:
           recovery.operationId,
 
+        observability:
+          Object.freeze({
+            ledgerWritten:
+              true,
+
+            pointsPosted:
+              true,
+
+            performanceSummaryWritten:
+              false,
+          }),
+
         updatedAt:
           "SERVER_TIME_3",
       });
@@ -1093,6 +1105,36 @@ test(
     assert.equal(
       calls.updates[0].data.reconciledAt,
       "SERVER_TIME_3"
+    );
+
+    assert.equal(
+      calls.updates[0].data.ledgerWritten,
+      true
+    );
+
+    assert.equal(
+      calls.updates[0].data.pointsPosted,
+      true
+    );
+
+    assert.equal(
+      calls.updates[0].data.performanceSummaryWritten,
+      false
+    );
+
+    assert.equal(
+      result.ledgerWritten,
+      true
+    );
+
+    assert.equal(
+      result.pointsPosted,
+      true
+    );
+
+    assert.equal(
+      result.performanceSummaryWritten,
+      false
     );
 
     assert.equal(

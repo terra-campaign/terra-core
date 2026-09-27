@@ -336,6 +336,19 @@ test(
       markRecoveryReconciled({
         record:
           failed,
+
+        observability:
+          Object.freeze({
+            ledgerWritten:
+              false,
+
+            pointsPosted:
+              false,
+
+            performanceSummaryWritten:
+              false,
+          }),
+
         updatedAt:
           "TIME-3",
       });

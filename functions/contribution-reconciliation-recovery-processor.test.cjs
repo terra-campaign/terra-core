@@ -1393,6 +1393,9 @@ test(
 
       reconciled:
         0,
+
+      markReconciledArgs:
+        null,
     };
 
     const runtime = {
@@ -1460,13 +1463,28 @@ test(
           action:
             "POST",
 
-          reconciled:
-            true,
+          ledgerId:
+            "LEDGER-E2E-001",
+
+          result:
+            Object.freeze({
+              ledgerWritten:
+                true,
+
+              pointsPosted:
+                true,
+
+              performanceSummaryWritten:
+                false,
+            }),
         });
       },
 
-      async markReconciled() {
+      async markReconciled(args) {
         calls.reconciled += 1;
+
+        calls.markReconciledArgs =
+          args;
 
         return Object.freeze({
           ...record,
@@ -1523,6 +1541,29 @@ test(
     assert.equal(
       calls.reconciled,
       1
+    );
+
+    assert.equal(
+      calls.markReconciledArgs.observability.ledgerWritten,
+      true
+    );
+
+    assert.equal(
+      calls.markReconciledArgs.observability.pointsPosted,
+      true
+    );
+
+    assert.equal(
+      calls.markReconciledArgs.observability.performanceSummaryWritten,
+      false
+    );
+
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(
+        calls.markReconciledArgs,
+        "lifecycleResult"
+      ),
+      false
     );
 
     assert.equal(
