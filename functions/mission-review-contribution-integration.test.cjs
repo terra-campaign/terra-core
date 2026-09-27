@@ -17,136 +17,228 @@ const source =
     .replace(/\r\n/g, "\n");
 
 test(
-  "mission review imports canonical identity resolver and safe contribution bridge",
+  "mission review uses the durable recovery processor instead of the direct contribution path",
   () => {
     assert.match(
+      source,
+      /contribution-reconciliation-recovery-processor\.cjs/
+    );
+
+    assert.match(
+      source,
+      /processMissionContributionRecovery/
+    );
+
+    assert.doesNotMatch(
       source,
       /resolveCanonicalPersonForAccount/
     );
 
-    assert.match(
+    assert.doesNotMatch(
       source,
       /deriveMissionContributionCandidateSafely/
     );
-  }
-);
 
-test(
-  "mission contribution fact is server internal and carries authoritative source objects",
-  () => {
-    assert.match(
+    assert.doesNotMatch(
       source,
-      /function\s+missionContributionFact\s*\(c,review,evidenceId\)/
-    );
-
-    assert.match(
-      source,
-      /mission:\s*\{[\s\S]*\.\.\.c\.m,[\s\S]*id:\s*c\.e\.missionId/
-    );
-
-    assert.match(
-      source,
-      /evidence:\s*\{[\s\S]*\.\.\.c\.e,[\s\S]*id:\s*evidenceId,[\s\S]*evidenceId/
-    );
-
-    assert.match(
-      source,
-      /subjectProfile:\s*c\.subject/
+      /reconcileContributionLifecycle/
     );
   }
 );
 
 test(
-  "authoritative transaction is awaited before candidate bridge executes",
+  "mission review atomically creates durable recovery with the authoritative review revision",
   () => {
-    const transactionIndex =
+    assert.match(
+      source,
+      /buildMissionReviewRecoveryRecord/
+    );
+
+    assert.match(
+      source,
+      /projectMissionContributionRecoveryFacts/
+    );
+
+    assert.match(
+      source,
+      /createRecoveryRecordInTransaction/
+    );
+
+    assert.match(
+      source,
+      /mission-review:\$\{d\.evidenceId\}:revision:\$\{revision\}/
+    );
+
+    const transactionStart =
       source.indexOf(
         "const transactionResult = await db.runTransaction"
       );
 
-    const bridgeIndex =
+    const recoveryCreate =
       source.indexOf(
-        "await deriveMissionContributionCandidateSafely"
+        "createRecoveryRecordInTransaction",
+        transactionStart
+      );
+
+    const processorCall =
+      source.indexOf(
+        "await processMissionContributionRecovery",
+        transactionStart
       );
 
     assert.ok(
-      transactionIndex >= 0
+      transactionStart >= 0
     );
 
     assert.ok(
-      bridgeIndex >
-        transactionIndex
-    );
-
-    const transactionCloseIndex =
-      source.indexOf(
-        "  });\n\n  // The authoritative review transaction has already committed."
-      );
-
-    assert.ok(
-      transactionCloseIndex >
-        transactionIndex
+      recoveryCreate >
+        transactionStart
     );
 
     assert.ok(
-      bridgeIndex >
-        transactionCloseIndex
+      processorCall >
+        recoveryCreate
     );
   }
 );
 
 test(
-  "both retry and new-review paths carry previous and current contribution context",
+  "mission recovery persists authoritative source facts and not contribution candidates",
   () => {
-    const previousOccurrences =
-      (
-        source.match(
-          /previousContributionFact:missionContributionFact/g
-        ) ||
-        []
-      ).length;
-
-    const currentOccurrences =
-      (
-        source.match(
-          /currentContributionFact:missionContributionFact/g
-        ) ||
-        []
-      ).length;
-
-    assert.equal(
-      previousOccurrences,
-      2
+    assert.match(
+      source,
+      /previousReview/
     );
 
-    assert.equal(
-      currentOccurrences,
-      2
+    assert.match(
+      source,
+      /currentReview/
+    );
+
+    assert.match(
+      source,
+      /subjectAccountUid/
+    );
+
+    assert.doesNotMatch(
+      source,
+      /buildMissionReviewRecoveryRecord\s*\(\s*\{[\s\S]*?candidate\s*:/
+    );
+
+    assert.doesNotMatch(
+      source,
+      /buildMissionReviewRecoveryRecord\s*\(\s*\{[\s\S]*?contributionCandidate\s*:/
+    );
+
+    assert.doesNotMatch(
+      source,
+      /buildMissionReviewRecoveryRecord\s*\(\s*\{[\s\S]*?canonicalIdentity\s*:/
+    );
+
+    assert.doesNotMatch(
+      source,
+      /buildMissionReviewRecoveryRecord\s*\(\s*\{[\s\S]*?subjectProfile\s*:/
     );
   }
 );
 
 test(
-  "unexpected bridge failure is contained after commit",
+  "duplicate mission review request returns the existing revision without creating another recovery",
   () => {
-    const bridgeCall =
+    assert.match(
+      source,
+      /c\.r\?\.lastRequestId === d\.requestId && c\.r\?\.lastActor === request\.auth\.uid/
+    );
+
+    assert.match(
+      source,
+      /return\s*\{\s*revision\s*:\s*c\.r\.revision,\s*recoveryRecord\s*:\s*null\s*\};/
+    );
+  }
+);
+
+test(
+  "new mission review revision returns its recovery record only to the server integration boundary",
+  () => {
+    assert.match(
+      source,
+      /return\s*\{\s*revision,\s*recoveryRecord\s*\};/
+    );
+
+    assert.match(
+      source,
+      /transactionResult\.recoveryRecord/
+    );
+  }
+);
+
+test(
+  "mission review invokes durable recovery only after the authoritative transaction completes",
+  () => {
+    const transactionStart =
       source.indexOf(
-        "await deriveMissionContributionCandidateSafely"
+        "const transactionResult = await db.runTransaction"
+      );
+
+    const recoveryCreate =
+      source.indexOf(
+        "createRecoveryRecordInTransaction",
+        transactionStart
+      );
+
+    const processorCall =
+      source.indexOf(
+        "await processMissionContributionRecovery",
+        transactionStart
+      );
+
+    assert.ok(
+      transactionStart >= 0
+    );
+
+    assert.ok(
+      recoveryCreate >
+        transactionStart
+    );
+
+    assert.ok(
+      processorCall >
+        recoveryCreate
+    );
+
+    assert.match(
+      source,
+      /if\s*\(\s*transactionResult\.recoveryRecord\s*\)/
+    );
+
+    assert.match(
+      source,
+      /processMissionContributionRecovery\s*\(\s*\{[\s\S]*?db[\s\S]*?record\s*:\s*transactionResult\.recoveryRecord[\s\S]*?\}\s*\)/
+    );
+  }
+);
+
+test(
+  "unexpected recovery processing failure is contained after the authoritative review commit",
+  () => {
+    const processorCall =
+      source.indexOf(
+        "await processMissionContributionRecovery"
       );
 
     const catchIndex =
       source.indexOf(
         "} catch (error) {",
-        bridgeCall
+        processorCall
       );
 
     assert.ok(
-      bridgeCall >= 0
+      processorCall >= 0
     );
 
     assert.ok(
       catchIndex >
-        bridgeCall
+        processorCall
     );
 
     assert.match(
@@ -166,13 +258,13 @@ test(
 
     assert.doesNotMatch(
       source,
-      /return\s*\{[^}]*candidate[^}]*\};/
+      /return\s*\{\s*revision:transactionResult\.revision\s*,[\s\S]*recoveryRecord/
     );
   }
 );
 
 test(
-  "mission review integration does not write contribution ledger or points",
+  "mission review integration does not directly write contribution ledger points or summaries",
   () => {
     assert.doesNotMatch(
       source,
@@ -188,25 +280,10 @@ test(
       source,
       /runtimeScoringActivated\s*:\s*true/
     );
-  }
-);
 
-test(
-  "mission review delegates contribution lifecycle transitions to the canonical reconciler",
-  () => {
-    assert.match(
+    assert.doesNotMatch(
       source,
-      /reconcileContributionLifecycle/
-    );
-
-    assert.match(
-      source,
-      /previousContributionResult/
-    );
-
-    assert.match(
-      source,
-      /currentContributionResult/
+      /performanceSummaryWritten\s*:\s*true/
     );
 
     assert.doesNotMatch(
@@ -216,103 +293,37 @@ test(
 
     assert.doesNotMatch(
       source,
-      /buildMissionSourceId/
-    );
-
-    assert.doesNotMatch(
-      source,
       /buildContributionLedgerId/
     );
   }
 );
-test(
-  "mission review preserves previous and current contribution facts for reconciliation",
-  () => {
-    assert.match(
-      source,
-      /previousContributionFact/
-    );
-
-    assert.match(
-      source,
-      /currentContributionFact/
-    );
-
-    assert.match(
-      source,
-      /missionContributionFact\s*\(\s*c\s*,\s*c\.r\s*,\s*d\.evidenceId\s*\)/
-    );
-
-    assert.match(
-      source,
-      /missionContributionFact\s*\(\s*c\s*,\s*r\s*,\s*d\.evidenceId\s*\)/
-    );
-  }
-);
 
 test(
-  "mission review derives previous and current contribution eligibility",
+  "mission review does not pass subject profile or canonical identity to the recovery processor",
   () => {
-    const source =
-      fs.readFileSync(
-        __dirname + "/mission-review.cjs",
-        "utf8"
+    const processorCall =
+      source.match(
+        /processMissionContributionRecovery\s*\(\s*\{[\s\S]*?\}\s*\)/
       );
 
-    assert.match(
-      source,
-      /previousContributionResult\s*=\s*[\s\S]*?deriveMissionContributionCandidateSafely/
-    );
-
-    assert.match(
-      source,
-      /transactionResult.previousContributionFact/
-    );
-
-    assert.match(
-      source,
-      /currentContributionResult\s*=\s*[\s\S]*?deriveMissionContributionCandidateSafely/
-    );
-
-    assert.match(
-      source,
-      /transactionResult.currentContributionFact/
-    );
-  }
-);
-
-
-test(
-  "mission review passes the complete contribution transition to lifecycle reconciliation",
-  () => {
-    assert.match(
-      source,
-      /reconcileContributionLifecycle\s*\(\s*\{[\s\S]*?previousContributionResult[\s\S]*?currentContributionResult[\s\S]*?\}\s*\)/
-    );
-
-    assert.match(
-      source,
-      /operationId\s*:/
-    );
-
-    assert.match(
-      source,
-      /mission-review/
-    );
-
-    assert.match(
-      source,
-      /transactionResult\.revision/
+    assert.ok(
+      processorCall,
+      "durable recovery processor invocation must exist"
     );
 
     assert.doesNotMatch(
-      source,
-      /previousContributionResult\.status === ['"]DERIVED['"]/
+      processorCall[0],
+      /subjectProfile/
     );
 
     assert.doesNotMatch(
-      source,
-      /currentContributionResult\.status === ['"]DERIVED['"]/
+      processorCall[0],
+      /canonicalIdentity/
+    );
+
+    assert.doesNotMatch(
+      processorCall[0],
+      /candidate/
     );
   }
 );

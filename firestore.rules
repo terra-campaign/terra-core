@@ -850,4 +850,13 @@ in get(
 
   }
 
+  // =====================================================
+  // CONTRIBUTION RECONCILIATION RECOVERY
+  // SERVER ONLY - NO CLIENT ACCESS
+  // =====================================================
+
+  match /contributionReconciliation/{recoveryId} {
+    allow read, write: if false;
+  }
+
 }

@@ -8,14 +8,15 @@ const {
   canSuperiorAccessReview
 } = require('./mission-review-policy.cjs');
 const {
-  resolveCanonicalPersonForAccount
-} = require('./person-identity.cjs');
+  processMissionContributionRecovery
+} = require('./contribution-reconciliation-recovery-processor.cjs');
 const {
-  deriveMissionContributionCandidateSafely
-} = require('./contribution-verified-fact-bridge.cjs');
+  buildMissionReviewRecoveryRecord,
+  projectMissionContributionRecoveryFacts
+} = require('./contribution-reconciliation-recovery.cjs');
 const {
-  reconcileContributionLifecycle
-} = require('./contribution-lifecycle-reconciler.cjs');
+  createRecoveryRecordInTransaction
+} = require('./contribution-reconciliation-recovery-store.cjs');
 const options = {region:'us-central1',timeoutSeconds:60};
 const fail = (code,message) => {throw new HttpsError(code,message);};
 const validId = x => typeof x === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(x);
@@ -75,22 +76,6 @@ function reviewActions(c, now) {
   return result;
 }
 
-function missionContributionFact(c,review,evidenceId) {
-  return {
-    mission: {
-      ...c.m,
-      id: c.e.missionId
-    },
-    evidence: {
-      ...c.e,
-      id: evidenceId,
-      evidenceId
-    },
-    review,
-    reviewId: evidenceId,
-    subjectProfile: c.subject
-  };
-}
 function images(e) {
   const prefix = `missions/${e.campaignId}/${e.missionId}/evidence/`;
   return (Array.isArray(e.imagePaths) ? e.imagePaths : [e.imagePath]).filter(x =>
@@ -156,8 +141,7 @@ exports.decideMissionReview = onCall(options,async request => {
       if (c.r.lastFingerprint !== fingerprint) fail('already-exists','Este intento tiene otros datos. Actualiza el reporte.');
       return {
         revision:c.r.revision,
-        previousContributionFact:missionContributionFact(c,c.r,d.evidenceId),
-        currentContributionFact:missionContributionFact(c,c.r,d.evidenceId)
+        recoveryRecord:null
       };
     }
     if ((c.r?.revision || 0) !== d.expectedRevision) fail('aborted','Otra revisión cambió este reporte. Actualiza antes de decidir.');
@@ -178,52 +162,78 @@ exports.decideMissionReview = onCall(options,async request => {
       lastRequestId:d.requestId,lastFingerprint:fingerprint};
     const event = {revision,action:d.action,previousStatus:c.r?.status || 'pending',status:r.status,
       actorId:c.p.uid,actorName:r.lastActorName,reason:r.reason,at:now};
+
+    const recoveryFacts = projectMissionContributionRecoveryFacts({
+      mission: {
+        ...c.m,
+        id: c.e.missionId
+      },
+      evidence: {
+        ...c.e,
+        id: d.evidenceId,
+        evidenceId: d.evidenceId
+      },
+      previousReview: c.r,
+      currentReview: r,
+      reviewId: d.evidenceId
+    });
+
+    const recoveryOperationId =
+      `mission-review:${d.evidenceId}:revision:${revision}`;
+
+    const recoveryRecord = buildMissionReviewRecoveryRecord({
+      operationId: recoveryOperationId,
+      campaignId: c.p.campaignId,
+      evidenceId: d.evidenceId,
+      missionId: c.e.missionId,
+      reviewId: d.evidenceId,
+      revision,
+      actorUid: request.auth.uid,
+      subjectAccountUid: c.subject.uid,
+      missionFact: recoveryFacts.mission,
+      evidenceFact: recoveryFacts.evidence,
+      previousReviewFact: recoveryFacts.previousReview,
+      currentReviewFact: recoveryFacts.currentReview,
+      createdAt: now
+    });
+
+    createRecoveryRecordInTransaction({
+      db,
+      tx,
+      record: recoveryRecord
+    });
+
     tx.set(c.ref,r);
     tx.create(c.ref.collection('history').doc(String(revision).padStart(8,'0')),event);
     return {
       revision,
-      previousContributionFact:missionContributionFact(c,c.r,d.evidenceId),
-      currentContributionFact:missionContributionFact(c,r,d.evidenceId)
+      recoveryRecord
     };
   });
 
-  // The authoritative review transaction has already committed.
-  // Candidate derivation is intentionally best-effort and
-  // cannot invalidate or roll back the operational review.
-  try {
-    const previousContributionResult =
-      await deriveMissionContributionCandidateSafely({
+  // The authoritative review and its durable recovery record
+  // have already committed atomically. Contribution recovery
+  // is best-effort here and cannot roll back the review.
+  if (transactionResult.recoveryRecord) {
+    try {
+      await processMissionContributionRecovery({
         db,
-        ...transactionResult.previousContributionFact,
-        resolveCanonicalIdentity:resolveCanonicalPersonForAccount
+        record:transactionResult.recoveryRecord
       });
-
-    const currentContributionResult =
-      await deriveMissionContributionCandidateSafely({
-        db,
-        ...transactionResult.currentContributionFact,
-        resolveCanonicalIdentity:resolveCanonicalPersonForAccount
-      });
-
-    await reconcileContributionLifecycle({
-      db,
-      actorUid:request.auth.uid,
-      operationId:
-        `mission-review:${d.evidenceId}:revision:${transactionResult.revision}`,
-      previousContributionResult,
-      currentContributionResult
-    });
-  } catch (error) {
-    console.error(
-      'MISSION_CONTRIBUTION_RECONCILIATION_UNEXPECTED_FAILURE',
-      {
-        evidenceId:d.evidenceId,
-        code:
-          typeof error?.message === 'string'
-            ? error.message
-            : 'UNKNOWN'
-      }
-    );
+    } catch (error) {
+      console.error(
+        'MISSION_CONTRIBUTION_RECONCILIATION_UNEXPECTED_FAILURE',
+        {
+          evidenceId:d.evidenceId,
+          operationId:
+            transactionResult.recoveryRecord.operationId,
+          code:
+            typeof error?.message === 'string'
+              ? error.message
+              : 'UNKNOWN'
+        }
+      );
+    }
   }
 
   // Preserve the public callable contract.

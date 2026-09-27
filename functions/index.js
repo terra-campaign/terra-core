@@ -10,6 +10,14 @@ const {
 } = require("firebase-functions/v2/https");
 
 const {
+  onSchedule
+} = require("firebase-functions/v2/scheduler");
+
+const {
+  runContributionRecoverySweep
+} = require("./contribution-reconciliation-recovery-scheduler.cjs");
+
+const {
   initializeApp
 } = require("firebase-admin/app");
 
@@ -6377,3 +6385,19 @@ exports.completeOnboarding =
 exports.completeGrowthValidation =
   require("./growth-validation-writer.cjs")
     .completeGrowthValidation;
+
+// ======================================================
+// CONTRIBUTION RECONCILIATION RECOVERY
+// SERVER-ONLY SCHEDULED WORKER
+// ======================================================
+
+exports.reconcileContributionRecovery = onSchedule(
+  {
+    schedule: "every 5 minutes",
+    region: "us-central1",
+    maxInstances: 1
+  },
+  async () => {
+    return runContributionRecoverySweep({ db });
+  }
+);
