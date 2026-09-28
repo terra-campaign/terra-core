@@ -44,6 +44,10 @@ const {
 );
 
 const {
+  resolveCanonicalPersonForAccount
+} = require("./person-identity.cjs");
+
+const {
   validId: validAdminCampaignId,
   adminCanAccessCampaign
 } = require(
