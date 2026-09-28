@@ -1526,7 +1526,7 @@ function showMemberWelcome(user) {
     "",
     `Hola, ${name}.`,
     "",
-    `Has sido registrado como Integrante${structureName ? " de " + structureName : ""}.`,
+    `Has sido registrado como Integrante${structureName ? " de la estructura " + structureName : ""}.`,
     municipalityName
       ? `Municipio: ${municipalityName}.`
       : "",
