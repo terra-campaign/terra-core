@@ -6385,6 +6385,19 @@ exports.completeOnboarding =
   require("./onboarding-fact-writer.cjs")
     .completeOnboarding;
 
+exports.getMyOnboardingStatus =
+  require("./onboarding-fact-writer.cjs")
+    .getMyOnboardingStatus;
+
+// BUILD-124 OPTIONAL ACTIVITY PREFERENCES
+exports.updateMyActivityPreferences =
+  require("./activity-preferences-writer.cjs")
+    .updateMyActivityPreferences;
+
+exports.getMyActivityPreferences =
+  require("./activity-preferences-writer.cjs")
+    .getMyActivityPreferences;
+
 // BUILD-124 B4-B2B5
 exports.completeGrowthValidation =
   require("./growth-validation-writer.cjs")

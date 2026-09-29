@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="es-MX">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
+
+  <meta name="theme-color" content="#17324d">
+
+  <title>Primer acceso | TERRA Campaign</title>
+
+  <link
+    rel="icon"
+    type="image/png"
+    href="./icons/icon-192.png"
+  >
+
+  <link
+    rel="stylesheet"
+    href="./styles.css?v=build-124-onboarding-001"
+  >
+</head>
+
+<body>
+
+  <header class="topbar">
+
+    <div class="topbar-title">
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1>
+        Primer acceso
+      </h1>
+    </div>
+
+    <div class="topbar-actions">
+      <button
+        id="logoutButton"
+        class="button button--small button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+    </div>
+
+  </header>
+
+  <main class="shell">
+
+    <section
+      id="onboardingCard"
+      class="card"
+      aria-labelledby="onboardingTitle"
+    >
+
+      <p
+        id="onboardingStep"
+        class="eyebrow"
+      >
+        PREPARANDO TU EXPERIENCIA
+      </p>
+
+      <h2 id="onboardingTitle">
+        Bienvenido a TERRA Campaign
+      </h2>
+
+      <p id="onboardingDescription">
+        Estamos preparando la información necesaria para tu primer acceso.
+      </p>
+
+      <div
+        id="onboardingContent"
+        aria-live="polite"
+      >
+      </div>
+
+      <p
+        id="onboardingMessage"
+        class="message"
+        aria-live="polite"
+      >
+      </p>
+
+      <div class="actions">
+
+        <button
+          id="previousButton"
+          class="button button--secondary"
+          type="button"
+          hidden
+        >
+          Anterior
+        </button>
+
+        <button
+          id="nextButton"
+          class="button"
+          type="button"
+          disabled
+        >
+          Continuar
+        </button>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <script
+    type="module"
+    src="./onboarding.js?v=build-124-onboarding-001"
+  ></script>
+
+</body>
+
+</html>

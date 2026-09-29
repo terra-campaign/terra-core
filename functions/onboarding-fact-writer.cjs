@@ -1163,6 +1163,224 @@ exports.completeOnboarding =
   );
 
 
+function buildOnboardingStatus({
+  role,
+  campaignId,
+  personId,
+  onboardingFactId,
+  validatedFact = null,
+}) {
+
+  if (
+    role ===
+      'admin'
+  ) {
+
+    return {
+      ok: true,
+      applicable: false,
+      completed: true,
+      reason:
+        'technical-admin',
+    };
+  }
+
+  if (
+    !validatedFact
+  ) {
+
+    return {
+      ok: true,
+      applicable: true,
+      completed: false,
+      campaignId,
+      personId,
+      onboardingFactId,
+      programVersion:
+        ONBOARDING_PROGRAM_VERSION,
+    };
+  }
+
+  return {
+    ok: true,
+    applicable: true,
+    completed: true,
+    campaignId,
+    personId,
+    onboardingFactId,
+    programVersion:
+      validatedFact.programVersion,
+  };
+}
+
+exports.getMyOnboardingStatus =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      if (
+        !request.auth
+      ) {
+
+        fail(
+          'unauthenticated',
+          'Debe iniciar sesión.'
+        );
+      }
+
+      const db =
+        getFirestore();
+
+      const actorUid =
+        request.auth.uid;
+
+      try {
+
+        const actorProfileRef =
+          db.doc(
+            'usuarios/' +
+            actorUid
+          );
+
+        const actorProfileSnapshot =
+          await actorProfileRef.get();
+
+        if (
+          !actorProfileSnapshot.exists
+        ) {
+
+          fail(
+            'permission-denied',
+            'La cuenta no tiene perfil territorial autorizado.'
+          );
+        }
+
+        const actorProfile =
+          actorProfileSnapshot.data();
+
+        if (
+          !actorProfile ||
+          actorProfile.active !== true
+        ) {
+
+          fail(
+            'permission-denied',
+            'La cuenta territorial no está activa.'
+          );
+        }
+
+        if (
+          actorProfile.role ===
+            'admin'
+        ) {
+
+          return buildOnboardingStatus({
+            role:
+              actorProfile.role,
+          });
+        }
+
+        const campaignId =
+          requiredStoredId(
+            actorProfile.campaignId,
+            'La campaña de la cuenta'
+          );
+
+        const actorIdentity =
+          await resolveCanonicalPersonForAccount({
+            db,
+
+            accountUid:
+              actorUid,
+
+            profile:
+              actorProfile,
+
+            campaignId,
+          });
+
+        const personId =
+          actorIdentity.personId;
+
+        const onboardingFactId =
+          canonicalOnboardingFactDocumentId({
+            campaignId,
+            personId,
+          });
+
+        const onboardingFactSnapshot =
+          await db
+            .collection(
+              'onboardingFacts'
+            )
+            .doc(
+              onboardingFactId
+            )
+            .get();
+
+        if (
+          !onboardingFactSnapshot.exists
+        ) {
+
+          return buildOnboardingStatus({
+            role:
+              actorProfile.role,
+
+            campaignId,
+            personId,
+            onboardingFactId,
+          });
+        }
+
+        const validated =
+          validateReusableExistingFact({
+            onboardingFactId,
+
+            onboardingFact:
+              onboardingFactSnapshot.data(),
+
+            campaignId,
+            personId,
+          });
+
+        return buildOnboardingStatus({
+          role:
+            actorProfile.role,
+
+          campaignId,
+          personId,
+          onboardingFactId,
+
+          validatedFact:
+            validated,
+        });
+
+      } catch (
+        error
+      ) {
+
+        if (
+          error instanceof
+            HttpsError
+        ) {
+
+          throw error;
+        }
+
+        console.error(
+          'Error al consultar estado de onboarding:',
+          error
+        );
+
+        fail(
+          'internal',
+          'No fue posible consultar el estado del onboarding.'
+        );
+      }
+    }
+  );
+
 exports._test = {
   cleanId,
   canonicalCriteria,
@@ -1173,4 +1391,5 @@ exports._test = {
   actorCanAssistTarget,
   buildAuthoritativeOnboardingFact,
   validateReusableExistingFact,
+  buildOnboardingStatus,
 };

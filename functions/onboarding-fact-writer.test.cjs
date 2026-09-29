@@ -728,3 +728,156 @@ test(
     );
   }
 );
+
+test(
+  'technical admin does not require territorial onboarding',
+  () => {
+
+    const status =
+      _test
+        .buildOnboardingStatus({
+          role:
+            'admin',
+        });
+
+    assert.deepEqual(
+      status,
+      {
+        ok: true,
+        applicable: false,
+        completed: true,
+        reason:
+          'technical-admin',
+      }
+    );
+  }
+);
+
+
+test(
+  'territorial person without onboarding fact remains pending',
+  () => {
+
+    const onboardingFactId =
+      canonicalOnboardingFactDocumentId({
+        campaignId:
+          'CAM-001',
+
+        personId:
+          'PER-TARGET',
+      });
+
+    const status =
+      _test
+        .buildOnboardingStatus({
+          role:
+            'integrante',
+
+          campaignId:
+            'CAM-001',
+
+          personId:
+            'PER-TARGET',
+
+          onboardingFactId,
+        });
+
+    assert.deepEqual(
+      status,
+      {
+        ok: true,
+        applicable: true,
+        completed: false,
+        campaignId:
+          'CAM-001',
+        personId:
+          'PER-TARGET',
+        onboardingFactId,
+        programVersion:
+          ONBOARDING_PROGRAM_VERSION,
+      }
+    );
+  }
+);
+
+
+test(
+  'territorial person with validated canonical onboarding fact is completed',
+  () => {
+
+    const existing =
+      _test
+        .buildAuthoritativeOnboardingFact({
+          campaignId:
+            'CAM-001',
+
+          personId:
+            'PER-TARGET',
+
+          completedByPersonId:
+            'PER-TARGET',
+
+          deliveryMode:
+            ONBOARDING_DELIVERY_MODES
+              .SELF_SERVICE,
+
+          criteria:
+            fullCriteria(),
+
+          completedAt:
+            123,
+        });
+
+    const validated =
+      _test
+        .validateReusableExistingFact({
+          onboardingFactId:
+            existing.id,
+
+          onboardingFact:
+            existing,
+
+          campaignId:
+            'CAM-001',
+
+          personId:
+            'PER-TARGET',
+        });
+
+    const status =
+      _test
+        .buildOnboardingStatus({
+          role:
+            'integrante',
+
+          campaignId:
+            'CAM-001',
+
+          personId:
+            'PER-TARGET',
+
+          onboardingFactId:
+            existing.id,
+
+          validatedFact:
+            validated,
+        });
+
+    assert.deepEqual(
+      status,
+      {
+        ok: true,
+        applicable: true,
+        completed: true,
+        campaignId:
+          'CAM-001',
+        personId:
+          'PER-TARGET',
+        onboardingFactId:
+          existing.id,
+        programVersion:
+          ONBOARDING_PROGRAM_VERSION,
+      }
+    );
+  }
+);

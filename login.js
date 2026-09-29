@@ -1,6 +1,20 @@
 // TERRA Campaign — acceso con destino interno validado.
 import { auth } from "./firebase-config.js";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
+
+const functions =
+  getFunctions(
+    auth.app,
+    "us-central1"
+  );
+
+const getMyOnboardingStatus =
+  httpsCallable(
+    functions,
+    "getMyOnboardingStatus"
+  );
+
 const form = document.querySelector("#loginForm");
 const emailInput = document.querySelector("#email");
 const passwordInput = document.querySelector("#password");
@@ -66,10 +80,92 @@ const destination =
       ? `./eventos.html?invitation=${encodeURIComponent(eventInvitationId)}`
       : "./admin.html";
 let redirecting = false;
-function enter() {
-  if (redirecting) return;
+
+function onboardingDestination() {
+
+  const onboardingParams =
+    new URLSearchParams();
+
+  if (validMission) {
+    onboardingParams.set(
+      "mission",
+      missionId
+    );
+  }
+
+  if (validEventInvitation) {
+    onboardingParams.set(
+      "eventInvitation",
+      eventInvitationId
+    );
+  }
+
+  const query =
+    onboardingParams.toString();
+
+  return query
+    ? `./onboarding.html?${query}`
+    : "./onboarding.html";
+}
+
+async function enter() {
+
+  if (redirecting) {
+    return;
+  }
+
   redirecting = true;
-  window.location.replace(destination);
+
+  try {
+
+    const result =
+      await getMyOnboardingStatus();
+
+    const status =
+      result?.data;
+
+    if (
+      !status ||
+      status.ok !== true
+    ) {
+      throw new Error(
+        "No fue posible determinar el estado del primer acceso."
+      );
+    }
+
+    if (
+      status.applicable === true &&
+      status.completed !== true
+    ) {
+      window.location.replace(
+        onboardingDestination()
+      );
+
+      return;
+    }
+
+    window.location.replace(
+      destination
+    );
+
+  } catch (error) {
+
+    console.error(
+      "No fue posible validar onboarding:",
+      error
+    );
+
+    redirecting = false;
+
+    message.textContent =
+      "No fue posible validar tu primer acceso. Intenta nuevamente.";
+
+    submitButton.disabled =
+      false;
+
+    submitButton.textContent =
+      "Ingresar";
+  }
 }
 window.addEventListener("load", () => {
   setTimeout(() => {
@@ -77,7 +173,14 @@ window.addEventListener("load", () => {
     if (card) card.style.display = "block";
   }, 3000);
 });
-onAuthStateChanged(auth, user => { if (user) enter(); });
+onAuthStateChanged(
+  auth,
+  user => {
+    if (user) {
+      enter();
+    }
+  }
+);
 form.addEventListener("submit", async event => {
   event.preventDefault();
   if (submitButton.disabled) return;
@@ -88,7 +191,7 @@ form.addEventListener("submit", async event => {
   try {
     await signInWithEmailAndPassword(auth, emailInput.value.trim(), passwordInput.value);
     message.textContent = "Acceso correcto.";
-    enter();
+    await enter();
   } catch (error) {
     const messages = {
       "auth/invalid-credential": "Correo o contraseña incorrectos.",
