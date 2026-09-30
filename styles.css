@@ -2402,3 +2402,39 @@ button.button-whatsapp:disabled {
     justify-self: start;
   }
 }
+
+/* =====================================================
+   TERRA - FEEDBACK VISUAL / ALTA DE PARTICIPANTES
+   ===================================================== */
+
+#participantFormStatus.status {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+#participantFormStatus.status[hidden] {
+  display: none;
+}
+
+#participantFormStatus.status--success {
+  background: #edf9f2;
+  border-color: #9bd1ae;
+  border-left: 4px solid #16a34a;
+  color: #21623b;
+}
+
+#participantFormStatus.status--error {
+  background: #fff1f1;
+  border-color: #e5aaaa;
+  border-left: 4px solid #b42318;
+  color: #8a2525;
+}

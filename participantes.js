@@ -872,8 +872,8 @@ async function handleCreateParticipant(event) {
     showStatus(
       participantFormStatus,
       createdParticipant?.name
-        ? `${createdParticipant.name} registrado correctamente.`
-        : "Participante registrado correctamente.",
+        ? `✓ ${createdParticipant.name} registrado correctamente.`
+        : "✓ Participante registrado correctamente.",
       "success"
     );
 
@@ -886,8 +886,8 @@ async function handleCreateParticipant(event) {
     showStatus(
       memberInfoStatus,
       createdParticipant?.name
-        ? `${createdParticipant.name} registrado correctamente.`
-        : "Participante registrado correctamente.",
+        ? `✓ ${createdParticipant.name} registrado correctamente.`
+        : "✓ Participante registrado correctamente.",
       "success"
     );
   } catch (error) {
@@ -920,6 +920,12 @@ closeParticipantModalButton?.addEventListener(
 );
 
 participantForm?.addEventListener("submit", handleCreateParticipant);
+
+participantWelcomeDirect?.addEventListener("click", () => {
+  window.setTimeout(() => {
+    closeParticipantModal();
+  }, 150);
+});
 
 participantModal
   ?.querySelector(".modal__backdrop")
