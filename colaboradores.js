@@ -810,10 +810,46 @@ function showWelcome(
       : "Este teléfono no está marcado con WhatsApp."
   );
 
+  const responsibleName =
+    String(
+      currentParticipant?.name || ""
+    ).trim();
+
+  const structureName =
+    String(
+      currentParticipant?.structureName ||
+      currentParticipant?.structureId ||
+      ""
+    ).trim();
+
+  const municipalityName =
+    String(
+      currentParticipant?.municipalityName || ""
+    ).trim();
+
   const message = [
-    `Hola ${name}.`,
+    "TERRA CAMPAIGN · Bienvenida",
     "",
-    "Has sido registrado como colaborador de base en TERRA Campaign.",
+    `Hola, ${name}.`,
+    "",
+    "Has sido registrado(a) como Colaborador(a) de Base de TERRA CAMPAIGN.",
+    responsibleName
+      ? `Responsable directo: ${responsibleName}.`
+      : "",
+    structureName
+      ? `Estructura: ${structureName}.`
+      : "",
+    municipalityName
+      ? `Municipio: ${municipalityName}.`
+      : "",
+    "",
+    "Tu acceso a TERRA CAMPAIGN ya está habilitado.",
+    "",
+    "TERRA te permitirá conocer y participar en las actividades operativas que correspondan a tu estructura.",
+    "",
+    "Al ingresar por primera vez completarás tu proceso de bienvenida y podrás indicar las actividades en las que estás dispuesto(a) a apoyar.",
+    "",
+    "Seleccionar una actividad no significa aceptar automáticamente una tarea. Tu participación y las actividades realizadas y validadas podrán formar parte de tu historial, reconocimiento y desempeño dentro de TERRA.",
     "",
     "Usuario:",
     email,
@@ -824,8 +860,19 @@ function showWelcome(
     "Por seguridad, tu contraseña temporal no se comparte en este mensaje.",
     "Recíbela por separado de la persona que realizó tu registro.",
     "",
-    "Bienvenido al equipo territorial."
-  ].join("\n");
+    responsibleName
+      ? `Si necesitas ayuda, comunícate con tu responsable directo: ${responsibleName}.`
+      : "Si necesitas ayuda, comunícate con tu responsable directo.",
+    "",
+    "Bienvenido(a) a TERRA CAMPAIGN."
+  ]
+    .filter(
+      (line, index, array) =>
+        line !== "" ||
+        index === 0 ||
+        array[index - 1] !== ""
+    )
+    .join("\n");
 
   collaboratorWelcomeMessage.value =
     message;
@@ -1056,8 +1103,8 @@ async function handleSubmit(
     showStatus(
       collaboratorFormStatus,
       collaborator?.name
-        ? `${collaborator.name} registrado correctamente.`
-        : "Colaborador registrado correctamente.",
+        ? `✓ ${collaborator.name} registrado correctamente.`
+        : "✓ Colaborador registrado correctamente.",
       "success"
     );
 
@@ -1119,6 +1166,12 @@ collaboratorForm?.addEventListener(
   "submit",
   handleSubmit
 );
+
+collaboratorWelcomeDirect?.addEventListener("click", () => {
+  window.setTimeout(() => {
+    closeModal();
+  }, 150);
+});
 
 backButton?.addEventListener(
   "click",
