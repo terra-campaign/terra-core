@@ -423,7 +423,7 @@ const steps = [
       "Actividades en las que puedo apoyar",
 
     description:
-      "TERRA permite identificar actividades operativas en las que una persona puede participar.",
+      "Selecciona las actividades en las que estás dispuesto(a) a apoyar. Puedes elegir una, varias o ninguna, según tus intereses y disponibilidad.",
 
     render:
       () => `
@@ -439,8 +439,16 @@ const steps = [
         </div>
 
         <p>
-          Conocer o indicar que puedes apoyar en una actividad no significa
-          que hayas aceptado automáticamente un compromiso específico.
+          Seleccionar una actividad no significa que ya estás aceptando una tarea.
+          Cuando exista una actividad concreta, podrás conocerla y asumir el
+          compromiso correspondiente.
+        </p>
+
+        <p>
+          <strong>Marcar más opciones no aumenta tu calificación.</strong>
+          Tu desempeño se construye con tu participación real: las actividades
+          que realices y sean validadas podrán contribuir a tu historial,
+          reconocimiento y puntuación dentro de TERRA.
         </p>
       `
   },
