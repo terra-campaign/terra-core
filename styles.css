@@ -2470,3 +2470,165 @@ button.button-whatsapp:disabled {
   border-left: 4px solid #b42318;
   color: #8a2525;
 }
+
+
+
+/* =====================================================
+   BUILD-124 - PERFIL OPERATIVO / MI DESEMPENO
+   ===================================================== */
+
+body.persona-page {
+  background: #eef3f7;
+  color: #17212b;
+}
+
+
+/* Barra superior */
+
+.persona-page .topbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .75rem;
+}
+
+
+/* Contenedor principal */
+
+.persona-page .workspace {
+  width: min(1100px, calc(100% - 2rem));
+  margin: 1.25rem auto 4rem;
+}
+
+
+/* Secciones principales */
+
+.persona-page .panel {
+  background: #fff;
+  border-radius: 16px;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  margin-bottom: 1rem;
+  box-shadow: 0 8px 24px rgba(23, 50, 77, .08);
+}
+
+.persona-page .panel h2 {
+  margin-bottom: 1rem;
+  color: #17324d;
+}
+
+
+/* Texto auxiliar */
+
+.persona-page .muted {
+  margin-bottom: .35rem;
+  color: #64748b;
+  font-size: .9rem;
+  line-height: 1.45;
+}
+
+
+/* Datos generales y organizacion */
+
+.persona-page .form-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.persona-page .form-grid > div {
+  min-width: 0;
+  padding: .9rem 1rem;
+  border: 1px solid #dfe8ef;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.persona-page .form-grid > div > p:last-child {
+  margin-bottom: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+
+/* Actividad y desempeno */
+
+.persona-page .stats-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(155px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.persona-page .stat-card {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #dbe6ef;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.persona-page .stat-card .muted {
+  min-height: 2.6em;
+}
+
+.persona-page .stat-card strong {
+  display: block;
+  margin-top: .35rem;
+  color: #17324d;
+  font-size: clamp(1.7rem, 4vw, 2.25rem);
+  line-height: 1;
+}
+
+
+/* Estados inferiores de actividad y desempeno */
+
+.persona-page #activityStatus,
+.persona-page #performanceStatus {
+  margin-top: .75rem;
+  margin-bottom: 0;
+}
+
+
+/* Responsive */
+
+@media (max-width: 768px) {
+
+  .persona-page .topbar {
+    align-items: stretch;
+  }
+
+  .persona-page .topbar__actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .persona-page .topbar__actions .button {
+    flex: 1 1 140px;
+  }
+
+  .persona-page .workspace {
+    width: min(100% - 1rem, 1100px);
+    margin-top: .75rem;
+  }
+
+  .persona-page .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .persona-page .stats-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+    gap: .75rem;
+  }
+}
+
+
+@media (max-width: 430px) {
+
+  .persona-page .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
