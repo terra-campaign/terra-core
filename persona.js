@@ -57,6 +57,10 @@ const loadingSection =
 const errorSection =
   document.getElementById("errorSection");
 
+
+const errorTitle =
+  document.getElementById("errorTitle");
+
 const errorMessage =
   document.getElementById("errorMessage");
 
@@ -217,13 +221,19 @@ function cleanText(value) {
 }
 
 
-function showError(message) {
+function showError(
+  message,
+  title = "No fue posible cargar el perfil"
+) {
 
   loadingSection.hidden = true;
   profileSection.hidden = true;
 
+  errorTitle.textContent =
+    title;
+
   errorMessage.textContent =
-    message || "Ocurrió un error.";
+    message || "Ocurri\u00f3 un error.";
 
   errorSection.hidden = false;
 }
@@ -1128,8 +1138,21 @@ async function loadPersonProfile(uid) {
       error
     );
 
+    const code =
+      cleanText(error?.code);
+
+    const permissionDenied =
+      code === "permission-denied" ||
+      code === "firestore/permission-denied" ||
+      code === "functions/permission-denied";
+
     showError(
-      "No fue posible consultar el perfil operativo."
+      permissionDenied
+        ? "No tienes autorizaci\u00f3n para consultar el perfil de esta persona."
+        : "No fue posible consultar el perfil operativo.",
+      permissionDenied
+        ? "Acceso no autorizado"
+        : "No fue posible cargar el perfil"
     );
   }
 }
