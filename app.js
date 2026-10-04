@@ -3,7 +3,11 @@
 // Pantalla inicial — BUILD-001
 // ======================================================
 
-import { app } from "./firebase-config.js";
+import { app, auth } from "./firebase-config.js";
+
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import { PROJECT_CONFIG } from "./project-config.js";
 
 const connectionStatus =
@@ -17,6 +21,38 @@ const mapsState =
 
 const pwaState =
   document.querySelector("#pwaState");
+
+const myPerformanceButton =
+  document.querySelector("#myPerformanceButton");
+
+
+// ------------------------------------------------------
+// Acceso personal a Mi Desempeno
+// ------------------------------------------------------
+
+onAuthStateChanged(
+  auth,
+  (user) => {
+
+    if (!myPerformanceButton) {
+      return;
+    }
+
+    if (!user) {
+      myPerformanceButton.hidden = true;
+      myPerformanceButton.href =
+        "./persona.html";
+
+      return;
+    }
+
+    myPerformanceButton.href =
+      "./persona.html?id=" +
+      encodeURIComponent(user.uid);
+
+    myPerformanceButton.hidden = false;
+  }
+);
 
 
 // ------------------------------------------------------
