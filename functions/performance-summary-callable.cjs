@@ -274,7 +274,10 @@ async function getPersonPerformanceSummaryCore({
     !result.campaignId ||
     !result.summary ||
     typeof result.summary !==
-      "object"
+      "object" ||
+    !Array.isArray(
+      result.contributionDetails
+    )
   ) {
     throw new Error(
       "INVALID_CALLABLE_READ_RESULT"
@@ -287,6 +290,9 @@ async function getPersonPerformanceSummaryCore({
 
     personId:
       result.personId,
+
+    contributionDetails:
+      result.contributionDetails,
 
     summary:
       result.summary

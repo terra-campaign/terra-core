@@ -2583,6 +2583,97 @@ body.persona-page {
 }
 
 
+/* Detalle de contribuciones verificadas */
+
+.persona-page .performance-contributions-actions {
+  margin: 1rem 0;
+}
+
+.persona-page .performance-contributions-panel {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #dbe6ef;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.persona-page .performance-contributions-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.persona-page .performance-contributions-heading h3 {
+  margin: .15rem 0 0;
+  color: #17324d;
+}
+
+.persona-page .performance-contributions-list {
+  display: grid;
+  gap: .75rem;
+}
+
+.persona-page .performance-contribution-card {
+  padding: 1rem;
+  border: 1px solid #dbe6ef;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.persona-page .performance-contribution-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .85rem;
+}
+
+.persona-page .performance-contribution-activity {
+  color: #17324d;
+  overflow-wrap: anywhere;
+}
+
+.persona-page .performance-contribution-points {
+  flex: 0 0 auto;
+  padding: .35rem .65rem;
+  border-radius: 999px;
+  background: #d7f5e5;
+  color: #16613a;
+  font-size: .85rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.persona-page .performance-contribution-fields {
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.persona-page .performance-contribution-field {
+  min-width: 0;
+}
+
+.persona-page .performance-contribution-field span,
+.persona-page .performance-contribution-field strong {
+  display: block;
+}
+
+.persona-page .performance-contribution-field strong {
+  margin-top: .15rem;
+  color: #17324d;
+  font-size: .92rem;
+  overflow-wrap: anywhere;
+}
+
+.persona-page .performance-contributions-empty {
+  margin: 0;
+}
+
+
 /* Estados inferiores de actividad y desempeno */
 
 .persona-page #activityStatus,
@@ -2629,6 +2720,19 @@ body.persona-page {
 @media (max-width: 430px) {
 
   .persona-page .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .persona-page .performance-contributions-actions .button {
+    width: 100%;
+  }
+
+  .persona-page .performance-contributions-heading,
+  .persona-page .performance-contribution-card__top {
+    flex-direction: column;
+  }
+
+  .persona-page .performance-contribution-fields {
     grid-template-columns: 1fr;
   }
 }

@@ -449,6 +449,51 @@
 
         </div>
 
+        <div
+          id="performanceContributionsActions"
+          class="performance-contributions-actions"
+          hidden
+        >
+          <button
+            id="performanceContributionsButton"
+            class="button button--secondary button--small"
+            type="button"
+            aria-expanded="false"
+            aria-controls="performanceContributionsPanel"
+          >
+            Ver mis contribuciones
+          </button>
+        </div>
+
+        <section
+          id="performanceContributionsPanel"
+          class="performance-contributions-panel"
+          aria-label="Detalle de contribuciones verificadas"
+          hidden
+        >
+          <div class="performance-contributions-heading">
+            <div>
+              <p class="eyebrow">
+                TRAZABILIDAD
+              </p>
+
+              <h3>
+                Mis contribuciones verificadas
+              </h3>
+            </div>
+
+            <p
+              id="performanceContributionsSummary"
+              class="muted"
+            ></p>
+          </div>
+
+          <div
+            id="performanceContributionsList"
+            class="performance-contributions-list"
+          ></div>
+        </section>
+
         <p
           id="performanceStatus"
           class="muted"
@@ -506,7 +551,7 @@
 
   <script
     type="module"
-    src="./persona.js?v=build-124-b2b16-r5"
+    src="./persona.js?v=build-124-b2b16-r6"
   ></script>
 
 </body>

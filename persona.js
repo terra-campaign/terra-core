@@ -170,6 +170,33 @@ const performanceDigital =
 const performanceStatus =
   document.getElementById("performanceStatus");
 
+const performanceContributionsActions =
+  document.getElementById(
+    "performanceContributionsActions"
+  );
+
+const performanceContributionsButton =
+  document.getElementById(
+    "performanceContributionsButton"
+  );
+
+const performanceContributionsPanel =
+  document.getElementById(
+    "performanceContributionsPanel"
+  );
+
+const performanceContributionsSummary =
+  document.getElementById(
+    "performanceContributionsSummary"
+  );
+
+const performanceContributionsList =
+  document.getElementById(
+    "performanceContributionsList"
+  );
+
+let performanceContributionDetails = [];
+
 
 // ======================================================
 // UTILIDADES
@@ -351,6 +378,8 @@ function resetPerformanceValues() {
   performanceOrganization.textContent = "—";
   performanceLogistics.textContent = "—";
   performanceDigital.textContent = "—";
+
+  resetPerformanceContributionDetails();
 }
 
 
@@ -359,6 +388,311 @@ function performanceNumber(value) {
   return Number.isFinite(value)
     ? String(value)
     : "0";
+}
+
+
+function performanceDimensionLabel(value) {
+
+  const labels = {
+    TERRITORIAL_ACTIVITY:
+      "Actividad territorial",
+
+    ATTENDANCE:
+      "Asistencia",
+
+    ORGANIZATION:
+      "Organizacion",
+
+    LOGISTICS:
+      "Logistica",
+
+    DIGITAL_ACTIVITY:
+      "Actividad digital"
+  };
+
+  return labels[value] ||
+    cleanText(value) ||
+    "Sin dimension";
+}
+
+
+function performanceActivityLabel(value) {
+
+  const labels = {
+    DIGITAL_ACTIVITY:
+      "Actividad digital",
+
+    TERRITORIAL_BRIGADE:
+      "Brigada territorial"
+  };
+
+  const token =
+    cleanText(value);
+
+  if (!token) {
+    return "Actividad operativa";
+  }
+
+  const normalized =
+    token
+      .trim()
+      .replace(/[s-]+/g, "_")
+      .toUpperCase();
+
+  return labels[normalized] ||
+    token
+      .replace(/[_-]+/g, " ")
+      .toLowerCase();
+}
+
+
+function performanceContributionDate(value) {
+
+  const token =
+    cleanText(value);
+
+  if (!token) {
+    return "Fecha no disponible";
+  }
+
+  const date =
+    new Date(token);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "Fecha no disponible";
+  }
+
+  return new Intl.DateTimeFormat(
+    "es-MX",
+    {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }
+  ).format(date);
+}
+
+
+function createContributionField(
+  label,
+  value
+) {
+
+  const field =
+    document.createElement("div");
+
+  field.className =
+    "performance-contribution-field";
+
+  const title =
+    document.createElement("span");
+
+  title.className =
+    "muted";
+
+  title.textContent =
+    label;
+
+  const content =
+    document.createElement("strong");
+
+  content.textContent =
+    value;
+
+  field.append(
+    title,
+    content
+  );
+
+  return field;
+}
+
+
+function renderPerformanceContributions() {
+
+  performanceContributionsList
+    .replaceChildren();
+
+  const details =
+    [...performanceContributionDetails]
+      .sort(
+        (left, right) => {
+
+          const leftTime =
+            Date.parse(
+              left?.occurredAt || ""
+            );
+
+          const rightTime =
+            Date.parse(
+              right?.occurredAt || ""
+            );
+
+          const safeLeft =
+            Number.isFinite(leftTime)
+              ? leftTime
+              : 0;
+
+          const safeRight =
+            Number.isFinite(rightTime)
+              ? rightTime
+              : 0;
+
+          return safeRight - safeLeft;
+        }
+      );
+
+  performanceContributionsSummary.textContent =
+    details.length === 1
+      ? "1 contribucion verificada."
+      : details.length +
+        " contribuciones verificadas.";
+
+  if (!details.length) {
+
+    const empty =
+      document.createElement("p");
+
+    empty.className =
+      "muted performance-contributions-empty";
+
+    empty.textContent =
+      "Todavia no hay contribuciones verificadas para mostrar.";
+
+    performanceContributionsList
+      .appendChild(empty);
+
+    return;
+  }
+
+  for (
+    const detail of
+    details
+  ) {
+
+    const card =
+      document.createElement("article");
+
+    card.className =
+      "performance-contribution-card";
+
+    const top =
+      document.createElement("div");
+
+    top.className =
+      "performance-contribution-card__top";
+
+    const activity =
+      document.createElement("strong");
+
+    activity.className =
+      "performance-contribution-activity";
+
+    activity.textContent =
+      performanceActivityLabel(
+        detail?.activityCode
+      );
+
+    const points =
+      document.createElement("span");
+
+    points.className =
+      "performance-contribution-points";
+
+    const pointsValue =
+      Number.isFinite(
+        detail?.points
+      )
+        ? detail.points
+        : 0;
+
+    points.textContent =
+      "+" +
+      pointsValue +
+      (
+        pointsValue === 1
+          ? " punto"
+          : " puntos"
+      );
+
+    top.append(
+      activity,
+      points
+    );
+
+    const fields =
+      document.createElement("div");
+
+    fields.className =
+      "performance-contribution-fields";
+
+    fields.append(
+      createContributionField(
+        "Dimensión",
+        performanceDimensionLabel(
+          detail?.scoreDimension
+        )
+      ),
+
+      createContributionField(
+        "Fecha",
+        performanceContributionDate(
+          detail?.occurredAt
+        )
+      ),
+
+      createContributionField(
+        "Evidencia",
+        detail?.evidenceAvailable === true
+          ? "Evidencia asociada"
+          : "Sin evidencia asociada"
+      )
+    );
+
+    card.append(
+      top,
+      fields
+    );
+
+    performanceContributionsList
+      .appendChild(card);
+  }
+}
+
+
+function closePerformanceContributions() {
+
+  performanceContributionsPanel.hidden =
+    true;
+
+  performanceContributionsButton
+    .setAttribute(
+      "aria-expanded",
+      "false"
+    );
+
+  performanceContributionsButton.textContent =
+    "Ver mis contribuciones";
+}
+
+
+function resetPerformanceContributionDetails() {
+
+  performanceContributionDetails = [];
+
+  performanceContributionsActions.hidden =
+    true;
+
+  performanceContributionsList
+    .replaceChildren();
+
+  performanceContributionsSummary.textContent =
+    "";
+
+  closePerformanceContributions();
 }
 
 
@@ -398,7 +732,10 @@ async function loadPersonPerformance(personId) {
       !data ||
       data.personId !== canonicalPersonId ||
       !summary ||
-      summary.personId !== canonicalPersonId
+      summary.personId !== canonicalPersonId ||
+      !Array.isArray(
+        data.contributionDetails
+      )
     ) {
 
       throw new Error(
@@ -458,6 +795,14 @@ async function loadPersonPerformance(personId) {
         dimensions.DIGITAL_ACTIVITY
       );
 
+    performanceContributionDetails =
+      data.contributionDetails;
+
+    performanceContributionsActions.hidden =
+      false;
+
+    renderPerformanceContributions();
+
     performanceStatus.textContent =
       summary.generalPerformanceIndex?.calculated === true
         ? "Contribución operativa verificada."
@@ -481,6 +826,37 @@ async function loadPersonPerformance(personId) {
         : "No fue posible consultar el desempeño operativo en este momento.";
   }
 }
+
+performanceContributionsButton.addEventListener(
+  "click",
+  () => {
+
+    const opening =
+      performanceContributionsPanel.hidden;
+
+    if (opening) {
+
+      renderPerformanceContributions();
+
+      performanceContributionsPanel.hidden =
+        false;
+
+      performanceContributionsButton
+        .setAttribute(
+          "aria-expanded",
+          "true"
+        );
+
+      performanceContributionsButton.textContent =
+        "Ocultar mis contribuciones";
+
+      return;
+    }
+
+    closePerformanceContributions();
+  }
+);
+
 
 async function loadPersonProfile(uid) {
 

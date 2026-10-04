@@ -1473,7 +1473,86 @@ test(
     const {
       dependencies
     } =
-      createDependencies();
+      createDependencies({
+        ledgerEntries: [
+          {
+            ledgerId:
+              "LEDGER-SECRET-1",
+            campaignId,
+            personId:
+              targetPersonId,
+            activityCode:
+              "ACTIVITY-001",
+            scoreDimension:
+              "TERRITORIAL_ACTIVITY",
+            points:
+              30,
+            occurredAt:
+              "2026-10-01T10:00:00.000Z",
+            evidenceRef:
+              "missionEvidence/EVIDENCE-SECRET",
+            sourceType:
+              "MISSION_VALIDATION",
+            sourceId:
+              "mission:SECRET:person:PER-TARGET",
+            ledgerStatus:
+              "POSTED",
+            runtimeScoringEnabled:
+              true,
+            ruleSnapshot: {
+              internal:
+                true
+            }
+          },
+
+          {
+            ledgerId:
+              "LEDGER-SECRET-2",
+            campaignId,
+            personId:
+              targetPersonId,
+            activityCode:
+              "ACTIVITY-002",
+            scoreDimension:
+              "DIGITAL_ACTIVITY",
+            points:
+              6,
+            occurredAt:
+              "2026-10-02T11:00:00.000Z",
+            evidenceRef:
+              null,
+            sourceType:
+              "MISSION_VALIDATION",
+            sourceId:
+              "mission:SECRET-2:person:PER-TARGET",
+            ledgerStatus:
+              "POSTED",
+            runtimeScoringEnabled:
+              true
+          },
+
+          // No debe aparecer en el detalle publico.
+          {
+            ledgerId:
+              "LEDGER-NOT-POSTED",
+            campaignId,
+            personId:
+              targetPersonId,
+            activityCode:
+              "ACTIVITY-003",
+            scoreDimension:
+              "ATTENDANCE",
+            points:
+              10,
+            occurredAt:
+              "2026-10-03T12:00:00.000Z",
+            ledgerStatus:
+              "DRAFT_NOT_POSTABLE",
+            runtimeScoringEnabled:
+              false
+          }
+        ]
+      });
 
     const result =
       await readAuthorizedPerformanceSummaryCore({
@@ -1510,5 +1589,70 @@ test(
       "adminAccessRecord" in result,
       false
     );
+
+    assert.deepEqual(
+      result.contributionDetails,
+      [
+        {
+          activityCode:
+            "ACTIVITY-001",
+          scoreDimension:
+            "TERRITORIAL_ACTIVITY",
+          points:
+            30,
+          occurredAt:
+            "2026-10-01T10:00:00.000Z",
+          evidenceAvailable:
+            true
+        },
+        {
+          activityCode:
+            "ACTIVITY-002",
+          scoreDimension:
+            "DIGITAL_ACTIVITY",
+          points:
+            6,
+          occurredAt:
+            "2026-10-02T11:00:00.000Z",
+          evidenceAvailable:
+            false
+        }
+      ]
+    );
+
+    for (
+      const detail of
+      result.contributionDetails
+    ) {
+      assert.equal(
+        "ledgerId" in detail,
+        false
+      );
+
+      assert.equal(
+        "sourceType" in detail,
+        false
+      );
+
+      assert.equal(
+        "sourceId" in detail,
+        false
+      );
+
+      assert.equal(
+        "evidenceRef" in detail,
+        false
+      );
+
+      assert.equal(
+        "ruleSnapshot" in detail,
+        false
+      );
+
+      assert.equal(
+        "runtimeScoringEnabled" in detail,
+        false
+      );
+    }
   }
 );

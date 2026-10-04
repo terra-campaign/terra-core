@@ -37,7 +37,8 @@ const {
   );
 
 const {
-  buildPerformanceSummaryProjection
+  buildPerformanceSummaryProjection,
+  buildContributionDetailsProjection
 } =
   require(
     "./performance-summary.cjs"
@@ -461,6 +462,14 @@ function freezeResult({
         ledgerRead.paginationRequired ===
         true
     }),
+
+    contributionDetails:
+      buildContributionDetailsProjection({
+        campaignId,
+        personId,
+        ledgerEntries:
+          ledgerRead.ledgerEntries
+      }),
 
     summary:
       projection

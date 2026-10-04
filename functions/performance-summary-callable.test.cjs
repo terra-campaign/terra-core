@@ -102,6 +102,21 @@ function serviceResult({
         false
     },
 
+    contributionDetails: [
+      {
+        activityCode:
+          "CALLABLE-ACTIVITY-001",
+        scoreDimension:
+          "TERRITORIAL_ACTIVITY",
+        points:
+          30,
+        occurredAt:
+          "2026-10-01T10:00:00.000Z",
+        evidenceAvailable:
+          true
+      }
+    ],
+
     summary: {
       campaignId,
       personId,
@@ -374,6 +389,34 @@ test(
     assert.equal(
       "summary" in result,
       true
+    );
+
+    assert.equal(
+      "contributionDetails" in result,
+      true
+    );
+
+    assert.deepEqual(
+      result.contributionDetails,
+      [
+        {
+          activityCode:
+            "CALLABLE-ACTIVITY-001",
+          scoreDimension:
+            "TERRITORIAL_ACTIVITY",
+          points:
+            30,
+          occurredAt:
+            "2026-10-01T10:00:00.000Z",
+          evidenceAvailable:
+            true
+        }
+      ]
+    );
+
+    assert.equal(
+      "ledger" in result,
+      false
     );
 
     assert.equal(

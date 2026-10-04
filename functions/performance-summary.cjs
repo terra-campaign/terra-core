@@ -373,6 +373,142 @@ function isScoredPostedEntry(
 }
 
 
+
+function normalizeContributionOccurredAt(
+  value
+) {
+  if (value == null) {
+    return null;
+  }
+
+  if (
+    typeof value === "string"
+  ) {
+    const millis =
+      Date.parse(value);
+
+    if (!Number.isFinite(millis)) {
+      return null;
+    }
+
+    return new Date(
+      millis
+    ).toISOString();
+  }
+
+  try {
+    const millis =
+      toMillis(
+        value,
+        "POSTED_LEDGER_OCCURRED_AT"
+      );
+
+    if (millis == null) {
+      return null;
+    }
+
+    return new Date(
+      millis
+    ).toISOString();
+  }
+  catch {
+    return null;
+  }
+}
+
+
+function buildContributionDetailsProjection({
+  campaignId,
+  personId,
+  ledgerEntries
+}) {
+  const campaign =
+    requireToken(
+      campaignId,
+      "CAMPAIGN_ID"
+    );
+
+  const person =
+    requireToken(
+      personId,
+      "PERSON_ID"
+    );
+
+  if (
+    !Array.isArray(
+      ledgerEntries
+    )
+  ) {
+    throw new Error(
+      "INVALID_LEDGER_ENTRIES"
+    );
+  }
+
+  const details = [];
+
+  for (
+    const entry of
+    ledgerEntries
+  ) {
+    if (
+      !entry ||
+      typeof entry !== "object"
+    ) {
+      continue;
+    }
+
+    if (
+      entry.campaignId !==
+        campaign ||
+      entry.personId !==
+        person
+    ) {
+      continue;
+    }
+
+    if (
+      !isScoredPostedEntry(
+        entry
+      )
+    ) {
+      continue;
+    }
+
+    const validated =
+      validatePostedContribution(
+        entry
+      );
+
+    details.push(
+      Object.freeze({
+        activityCode:
+          validated.activityCode,
+
+        scoreDimension:
+          validated.scoreDimension,
+
+        points:
+          validated.points,
+
+        occurredAt:
+          normalizeContributionOccurredAt(
+            entry.occurredAt
+          ),
+
+        evidenceAvailable:
+          Boolean(
+            entry.evidenceRef
+          )
+      })
+    );
+  }
+
+  return Object.freeze(
+    details
+  );
+}
+
+
 function deepFreeze(
   value
 ) {
@@ -748,4 +884,5 @@ module.exports = {
   normalizePeriod,
   normalizeOperationalPerformancePeriod,
   buildPerformanceSummaryProjection,
+  buildContributionDetailsProjection,
 };
