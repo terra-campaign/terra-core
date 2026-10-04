@@ -659,3 +659,116 @@ test(
     }
   }
 );
+
+test(
+  "growth validation derives contribution candidate without runtime mutation",
+  async () => {
+    const {
+      deriveGrowthContributionCandidateSafely,
+    } = require(
+      "./contribution-verified-fact-bridge.cjs"
+    );
+
+    const growthValidation = {
+      id:
+        "cff2da47e69cbcd8e3eabe138283d17ef7063200e3c5708a6bea21bc7b325286",
+
+      campaignId:
+        "CAM-001",
+
+      personId:
+        "PER-001",
+
+      introducedByPersonId:
+        "PER-INTRO-001",
+
+      milestone:
+        "PERSON_MEMBERSHIP",
+
+      status:
+        "validated",
+
+      validatedByPersonId:
+        "PER-VALIDATOR-001",
+
+      activityCatalogVersion:
+        CATALOG_VERSION,
+
+      personUnique:
+        true,
+
+      membershipCorrect:
+        true,
+
+      validatedAt:
+        3000,
+    };
+
+    const result =
+      await deriveGrowthContributionCandidateSafely({
+        growthValidation,
+
+        growthValidationId:
+          "cff2da47e69cbcd8e3eabe138283d17ef7063200e3c5708a6bea21bc7b325286",
+      });
+
+    assert.equal(
+      result.status,
+      BRIDGE_STATUSES.DERIVED
+    );
+
+    assert.equal(
+      result.stage,
+      BRIDGE_STAGES.CANDIDATE
+    );
+
+    assert.equal(
+      result.reasonCode,
+      null
+    );
+
+    assert.ok(
+      result.candidate
+    );
+
+    assert.equal(
+      result.candidate.campaignId,
+      "CAM-001"
+    );
+
+    assert.equal(
+      result.candidate.personId,
+      "PER-INTRO-001"
+    );
+
+    assert.equal(
+      result.candidate.points,
+      5
+    );
+
+    assert.equal(
+      result.candidate.runtimePostingEnabled,
+      false
+    );
+
+    assert.equal(
+      result.persisted,
+      false
+    );
+
+    assert.equal(
+      result.ledgerWritten,
+      false
+    );
+
+    assert.equal(
+      result.pointsPosted,
+      false
+    );
+
+    assert.equal(
+      result.runtimeScoringActivated,
+      false
+    );
+  }
+);

@@ -16,6 +16,7 @@ const {
 
 const {
   deriveMissionContributionCandidateSafely,
+  deriveGrowthContributionCandidateSafely,
 } =
   require(
     "./contribution-verified-fact-bridge.cjs"
@@ -137,86 +138,141 @@ async function processMissionContributionRecoveryCore({
     );
   }
 
-  if (
-    typeof runtime.loadSubjectProfile !==
-    "function"
-  ) {
-    throw new Error(
-      "RECOVERY_SUBJECT_PROFILE_LOADER_REQUIRED"
-    );
-  }
-
-  const subjectProfile =
-    await runtime.loadSubjectProfile({
-      db,
-
-      accountUid:
-        record.subjectAccountUid,
-    });
-
-  void subjectProfile;
+  let previousContributionResult;
+  let currentContributionResult;
 
   if (
-    typeof runtime.deriveContribution !==
-    "function"
+    record.recoveryType ===
+    "GROWTH_VALIDATION"
   ) {
-    throw new Error(
-      "RECOVERY_CONTRIBUTION_DERIVER_REQUIRED"
-    );
+    if (
+      typeof runtime.deriveGrowthContribution !==
+      "function"
+    ) {
+      throw new Error(
+        "RECOVERY_GROWTH_CONTRIBUTION_DERIVER_REQUIRED"
+      );
+    }
+
+    previousContributionResult =
+      Object.freeze({
+        status:
+          "NOT_ELIGIBLE",
+
+        stage:
+          "HISTORICAL",
+
+        reasonCode:
+          "NO_PREVIOUS_GROWTH_VALIDATION",
+
+        candidate:
+          null,
+      });
+
+    currentContributionResult =
+      await runtime.deriveGrowthContribution({
+        db,
+
+        growthValidation:
+          record.growthValidationFact,
+
+        growthValidationFact:
+          record.growthValidationFact,
+
+        growthValidationId:
+          record.growthValidationId,
+
+        campaignId:
+          record.campaignId,
+
+        personId:
+          record.personId,
+
+        introducedByPersonId:
+          record.introducedByPersonId,
+
+        milestone:
+          record.milestone,
+      });
+  } else {
+    if (
+      typeof runtime.loadSubjectProfile !==
+      "function"
+    ) {
+      throw new Error(
+        "RECOVERY_SUBJECT_PROFILE_LOADER_REQUIRED"
+      );
+    }
+
+    const subjectProfile =
+      await runtime.loadSubjectProfile({
+        db,
+
+        accountUid:
+          record.subjectAccountUid,
+      });
+
+    if (
+      typeof runtime.deriveContribution !==
+      "function"
+    ) {
+      throw new Error(
+        "RECOVERY_CONTRIBUTION_DERIVER_REQUIRED"
+      );
+    }
+
+    previousContributionResult =
+      record.previousReviewFact === null
+        ? Object.freeze({
+            status:
+              "NOT_ELIGIBLE",
+
+            stage:
+              "HISTORICAL",
+
+            reasonCode:
+              "NO_PREVIOUS_MISSION_REVIEW",
+
+            candidate:
+              null,
+          })
+        : await runtime.deriveContribution({
+            db,
+
+            mission:
+              record.missionFact,
+
+            evidence:
+              record.evidenceFact,
+
+            review:
+              record.previousReviewFact,
+
+            reviewId:
+              record.reviewId,
+
+            subjectProfile,
+          });
+
+    currentContributionResult =
+      await runtime.deriveContribution({
+        db,
+
+        mission:
+          record.missionFact,
+
+        evidence:
+          record.evidenceFact,
+
+        review:
+          record.currentReviewFact,
+
+        reviewId:
+          record.reviewId,
+
+        subjectProfile,
+      });
   }
-
-  const previousContributionResult =
-    record.previousReviewFact === null
-      ? Object.freeze({
-          status:
-            "NOT_ELIGIBLE",
-
-          stage:
-            "HISTORICAL",
-
-          reasonCode:
-            "NO_PREVIOUS_MISSION_REVIEW",
-
-          candidate:
-            null,
-        })
-      : await runtime.deriveContribution({
-          db,
-
-          mission:
-            record.missionFact,
-
-          evidence:
-            record.evidenceFact,
-
-          review:
-            record.previousReviewFact,
-
-          reviewId:
-            record.reviewId,
-
-          subjectProfile,
-        });
-
-  const currentContributionResult =
-    await runtime.deriveContribution({
-      db,
-
-      mission:
-        record.missionFact,
-
-      evidence:
-        record.evidenceFact,
-
-      review:
-        record.currentReviewFact,
-
-      reviewId:
-        record.reviewId,
-
-      subjectProfile,
-    });
-
   const bridgeError =
     [
       previousContributionResult,
@@ -399,6 +455,17 @@ const productionRuntime =
 
         resolveCanonicalIdentity:
           resolveCanonicalPersonForAccount,
+      });
+    },
+
+    async deriveGrowthContribution({
+      db,
+      growthValidation,
+      growthValidationId,
+    }) {
+      return deriveGrowthContributionCandidateSafely({
+        growthValidation,
+        growthValidationId,
       });
     },
 

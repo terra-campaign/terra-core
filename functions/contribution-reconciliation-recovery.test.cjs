@@ -830,3 +830,161 @@ test(
     );
   }
 );
+
+test(
+  "growth validation recovery record is server-side and does not persist candidates",
+  () => {
+    const {
+      RECOVERY_STATUSES,
+      buildGrowthValidationRecoveryRecord,
+    } = require(
+      "./contribution-reconciliation-recovery.cjs"
+    );
+
+    const record =
+      buildGrowthValidationRecoveryRecord({
+        operationId:
+          "growth-validation:CAM-004:PERSON-001:INTRO-001:ONBOARDING",
+
+        campaignId:
+          "CAM-004",
+
+        growthValidationId:
+          "GROWTH-VALIDATION-001",
+
+        personId:
+          "PERSON-001",
+
+        introducedByPersonId:
+          "INTRO-001",
+
+        milestone:
+          "ONBOARDING",
+
+        actorUid:
+          "VALIDATOR-001",
+
+        growthValidationFact: {
+          campaignId:
+            "CAM-004",
+
+          id:
+            "GROWTH-VALIDATION-001",
+
+          personId:
+            "PERSON-001",
+
+          introducedByPersonId:
+            "INTRO-001",
+
+          milestone:
+            "ONBOARDING",
+
+          status:
+            "validated",
+        },
+
+        createdAt:
+          "SERVER_TIME",
+      });
+
+    assert.equal(
+      record.status,
+      RECOVERY_STATUSES.PENDING
+    );
+
+    assert.equal(
+      record.recoveryType,
+      "GROWTH_VALIDATION"
+    );
+
+    assert.equal(
+      record.operationId,
+      "growth-validation:CAM-004:PERSON-001:INTRO-001:ONBOARDING"
+    );
+
+    assert.equal(
+      record.campaignId,
+      "CAM-004"
+    );
+
+    assert.equal(
+      record.growthValidationId,
+      "GROWTH-VALIDATION-001"
+    );
+
+    assert.equal(
+      record.personId,
+      "PERSON-001"
+    );
+
+    assert.equal(
+      record.introducedByPersonId,
+      "INTRO-001"
+    );
+
+    assert.equal(
+      record.milestone,
+      "ONBOARDING"
+    );
+
+    assert.equal(
+      record.contributionCandidate,
+      undefined
+    );
+
+    assert.equal(
+      record.candidate,
+      undefined
+    );
+
+    assert.equal(
+      record.ledgerWritten,
+      false
+    );
+
+    assert.equal(
+      record.pointsPosted,
+      false
+    );
+
+    assert.equal(
+      record.performanceSummaryWritten,
+      false
+    );
+
+    assert.equal(
+      record.serverSideOnly,
+      true
+    );
+
+    assert.equal(
+      record.attemptCount,
+      0
+    );
+
+    assert.equal(
+      record.lastError,
+      null
+    );
+
+    assert.equal(
+      record.reconciledAt,
+      null
+    );
+
+    assert.equal(
+      record.createdAt,
+      "SERVER_TIME"
+    );
+
+    assert.equal(
+      record.updatedAt,
+      "SERVER_TIME"
+    );
+
+    assert.ok(
+      Object.isFrozen(record)
+    );
+  }
+);

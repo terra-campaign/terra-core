@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 
 const test =
   require("node:test");
@@ -720,7 +720,7 @@ test(
 
     const productionSource =
       fs.readFileSync(
-        "functions/contribution-lifecycle-reconciler.cjs",
+        "contribution-lifecycle-reconciler.cjs",
         "utf8"
       );
 

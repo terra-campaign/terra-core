@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const {
   adminCanAccessCampaign
@@ -116,7 +116,7 @@ function canReadPerformanceSummary({
   //
   // No requiere identidad territorial propia.
   // Su autoridad proviene exclusivamente de
-  // adminCampaignAccess explícito para la campaña.
+  // adminCampaignAccess explÃ­cito para la campaÃ±a.
   // ----------------------------------------------------
   if (
     actorProfile.role ===
@@ -142,7 +142,7 @@ function canReadPerformanceSummary({
   // ACTOR TERRITORIAL
   //
   // Toda autoridad territorial debe provenir de una
-  // membresía canónica activa de la misma campaña.
+  // membresÃ­a canÃ³nica activa de la misma campaÃ±a.
   // ----------------------------------------------------
   if (!actorId) {
     return false;
@@ -184,7 +184,7 @@ function canReadPerformanceSummary({
     return false;
   }
 
-  // Propio desempeño.
+  // Propio desempeÃ±o.
   if (
     actorId ===
     targetId
@@ -192,7 +192,7 @@ function canReadPerformanceSummary({
     return true;
   }
 
-  // Subordinado directo por relación canónica personId.
+  // Subordinado directo por relaciÃ³n canÃ³nica personId.
   if (
     DIRECT_PARENT_ROLES.includes(
       actorRole
@@ -207,7 +207,7 @@ function canReadPerformanceSummary({
 
   // Responsable de estructura:
   // puede consultar miembros activos de su misma
-  // estructura canónica.
+  // estructura canÃ³nica.
   if (
     actorRole ===
       "jefe_estructura" &&
@@ -225,6 +225,236 @@ function canReadPerformanceSummary({
   }
 
   return false;
+}
+
+/*
+ * ============================================================
+ * PERFORMANCE SUMMARY READ SCOPE
+ * ============================================================
+ *
+ * Esta funcion NO decide si el actor esta autorizado a leer.
+ *
+ * Esa decision pertenece a:
+ *
+ *   canReadPerformanceSummary()
+ *
+ * Esta funcion determina UNICAMENTE que alcance consolidado
+ * puede recibir el actor cuando la lectura ya esta autorizada.
+ *
+ * IMPORTANTE:
+ *
+ * - No expone Contribution Ledger.
+ * - No expone ledgerIds.
+ * - No expone reglas de puntuacion.
+ * - No expone evidencias.
+ * - No permite lectura descendiente generalizada.
+ * - No modifica scoring.
+ * - No escribe datos.
+ *
+ * El resultado es exclusivamente un alcance semantico de
+ * lectura de Performance Summary.
+ * ============================================================
+ */
+
+const PERFORMANCE_SUMMARY_READ_SCOPE =
+  Object.freeze({
+    OWN:
+      "OWN_PERFORMANCE",
+
+    ADMIN_CAMPAIGN:
+      "ADMIN_CAMPAIGN_PERFORMANCE",
+
+    DIRECT_SUBORDINATE:
+      "DIRECT_SUBORDINATE_PERFORMANCE",
+
+    STRUCTURE_MEMBER:
+      "STRUCTURE_MEMBER_PERFORMANCE",
+
+    NONE:
+      "NO_PERFORMANCE_SCOPE"
+  });
+
+
+function getPerformanceSummaryReadScope({
+  actorProfile,
+  actorPersonId,
+  actorMembership = null,
+  targetPerson,
+  targetMembership
+}) {
+
+  const actorId =
+    cleanId(
+      actorPersonId
+    );
+
+  const targetId =
+    cleanId(
+      targetPerson?.personId
+    );
+
+  const campaignId =
+    cleanId(
+      targetPerson?.campaignId
+    );
+
+  /*
+   * ----------------------------------------------------------
+   * Validacion defensiva.
+   * ----------------------------------------------------------
+   *
+   * Esta funcion NO sustituye la autorizacion.
+   * canReadPerformanceSummary() sigue siendo la autoridad.
+   *
+   * Aqui solamente se determina el alcance semantico
+   * del Performance Summary una vez solicitada la lectura.
+   * ----------------------------------------------------------
+   */
+
+  if (
+    !actorProfile ||
+    actorProfile.active !== true ||
+    (
+      !actorId &&
+      cleanId(
+        actorProfile.role
+      ) !== "admin"
+    ) ||
+    !targetId ||
+    !campaignId ||
+    targetPerson.active !== true
+  ) {
+    return null;
+  }
+
+  const actorRole =
+    cleanId(
+      actorProfile.role
+    );
+
+
+  if (
+    actorRole ===
+      "admin"
+  ) {
+
+    return PERFORMANCE_SUMMARY_READ_SCOPE.ADMIN_CAMPAIGN;
+  }
+
+  /*
+   * ----------------------------------------------------------
+   * PROPIO DESEMPEÑO
+   * ----------------------------------------------------------
+   *
+   * Una persona siempre identifica su propio Performance
+   * Summary mediante personId.
+   *
+   * El contrato publico del scope utiliza SELF.
+   * ----------------------------------------------------------
+   */
+
+  if (
+    actorId ===
+    targetId
+  ) {
+    return PERFORMANCE_SUMMARY_READ_SCOPE.OWN;
+  }
+
+  /*
+   * ----------------------------------------------------------
+   * SUBORDINADO DIRECTO
+   * ----------------------------------------------------------
+   *
+   * La relación canónica se determina exclusivamente mediante
+   * targetMembership.parentPersonId.
+   *
+   * Esto aplica a:
+   *
+   * Coordinador -> subordinado directo
+   * Jefe        -> subordinado directo
+   * Integrante  -> subordinado directo
+   * Participante-> subordinado directo
+   *
+   * IMPORTANTE:
+   *
+   * Un jefe de estructura que consulta a un subordinado directo
+   * recibe DIRECT_SUBORDINATE, aunque pertenezca a su propia
+   * estructura.
+   * ----------------------------------------------------------
+   */
+
+  if (
+    DIRECT_PARENT_ROLES.includes(
+      actorRole
+    ) &&
+    cleanId(
+      targetMembership?.parentPersonId
+    ) === actorId
+  ) {
+    return PERFORMANCE_SUMMARY_READ_SCOPE.DIRECT_SUBORDINATE;
+  }
+
+  /*
+   * ----------------------------------------------------------
+   * JEFE DE ESTRUCTURA / MIEMBRO DE LA MISMA ESTRUCTURA
+   * ----------------------------------------------------------
+   *
+   * Esta regla solamente entra cuando el objetivo NO es un
+   * subordinado directo.
+   *
+   * Permite que el jefe tenga acceso al índice consolidado
+   * de desempeño de integrantes de SU estructura.
+   *
+   * No utiliza ancestorPersonIds.
+   *
+   * No permite otra estructura.
+   * ----------------------------------------------------------
+   */
+
+  if (
+    actorRole ===
+      "jefe_estructura"
+  ) {
+
+    const actorStructureId =
+      cleanId(
+        actorMembership?.structureId
+      );
+
+    const targetStructureId =
+      cleanId(
+        targetMembership?.structureId
+      );
+
+    if (
+      actorStructureId &&
+      targetStructureId &&
+      actorStructureId ===
+        targetStructureId
+    ) {
+      return PERFORMANCE_SUMMARY_READ_SCOPE.STRUCTURE_MEMBER;
+    }
+  }
+
+  /*
+   * ----------------------------------------------------------
+   * SIN ALCANCE
+   * ----------------------------------------------------------
+   *
+   * Importante:
+   *
+   * El contrato actual utiliza null para representar que no
+   * existe un Performance Read Scope.
+   *
+   * Esto es distinto de:
+   *
+   * NO_PERFORMANCE_SCOPE
+   *
+   * porque los tests y el contrato actual esperan null.
+   * ----------------------------------------------------------
+   */
+
+  return null;
 }
 
 const PERFORMANCE_SUMMARY_READ_POLICY =
@@ -279,5 +509,7 @@ module.exports = {
   PERFORMANCE_SUMMARY_READ_POLICY,
   DIRECT_PARENT_ROLES,
   validActiveMembership,
-  canReadPerformanceSummary
+  canReadPerformanceSummary,
+  getPerformanceSummaryReadScope,
+  PERFORMANCE_SUMMARY_READ_SCOPE
 };

@@ -286,10 +286,53 @@ function deriveAttendanceContributionCandidateSafely({
   }
 }
 
+
+async function deriveGrowthContributionCandidateSafely({
+  growthValidation,
+  growthValidationId,
+}) {
+  try {
+    const {
+      buildGrowthContributionCandidate,
+    } =
+      require("./contribution-candidate.cjs");
+
+    const candidate =
+      buildGrowthContributionCandidate({
+        growthValidation,
+        growthValidationId,
+      });
+
+    return frozenResult({
+      status:
+        BRIDGE_STATUSES.DERIVED,
+
+      stage:
+        BRIDGE_STAGES.CANDIDATE,
+
+      candidate,
+    });
+  } catch (error) {
+    return frozenResult({
+      status:
+        BRIDGE_STATUSES.ERROR,
+
+      stage:
+        BRIDGE_STAGES.CANDIDATE,
+
+      reasonCode:
+        safeErrorCode(
+          error,
+          "GROWTH_CANDIDATE_DERIVATION_FAILED"
+        ),
+    });
+  }
+}
 module.exports = {
   BRIDGE_SCHEMA_VERSION,
   BRIDGE_STATUSES,
   BRIDGE_STAGES,
   deriveMissionContributionCandidateSafely,
   deriveAttendanceContributionCandidateSafely,
+  deriveGrowthContributionCandidateSafely,
 };

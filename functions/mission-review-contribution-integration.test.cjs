@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const test =
   require("node:test");
@@ -11,7 +11,7 @@ const fs =
 
 const source =
   fs.readFileSync(
-    "functions/mission-review.cjs",
+    "mission-review.cjs",
     "utf8"
   )
     .replace(/\r\n/g, "\n");

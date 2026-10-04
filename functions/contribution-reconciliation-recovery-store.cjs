@@ -126,6 +126,77 @@ function assertRecoveryRecordContract(
     "RECOVERY_CAMPAIGN_ID_REQUIRED"
   );
 
+  if (
+    !Object.values(
+      RECOVERY_STATUSES
+    ).includes(
+      checked.status
+    )
+  ) {
+    throw new Error(
+      "RECOVERY_STATUS_INVALID"
+    );
+  }
+
+  if (
+    checked.serverSideOnly !==
+    true
+  ) {
+    throw new Error(
+      "RECOVERY_SERVER_SIDE_ONLY_REQUIRED"
+    );
+  }
+
+  const recoveryType =
+    checked.recoveryType ||
+    "MISSION_REVIEW";
+
+  if (
+    recoveryType ===
+    "GROWTH_VALIDATION"
+  ) {
+    requireToken(
+      checked.growthValidationId,
+      "GROWTH_VALIDATION_ID_REQUIRED"
+    );
+
+    requireToken(
+      checked.personId,
+      "PERSON_ID_REQUIRED"
+    );
+
+    requireToken(
+      checked.introducedByPersonId,
+      "INTRODUCED_BY_PERSON_ID_REQUIRED"
+    );
+
+    requireToken(
+      checked.milestone,
+      "MILESTONE_REQUIRED"
+    );
+
+    requireToken(
+      checked.actorUid,
+      "RECOVERY_ACTOR_UID_REQUIRED"
+    );
+
+    requireObject(
+      checked.growthValidationFact,
+      "GROWTH_VALIDATION_FACT_REQUIRED"
+    );
+
+    return checked;
+  }
+
+  if (
+    recoveryType !==
+    "MISSION_REVIEW"
+  ) {
+    throw new Error(
+      "RECOVERY_TYPE_INVALID"
+    );
+  }
+
   requireToken(
     checked.evidenceId,
     "RECOVERY_EVIDENCE_ID_REQUIRED"
@@ -162,36 +233,59 @@ function assertRecoveryRecordContract(
     );
   }
 
-  if (
-    !Object.values(
-      RECOVERY_STATUSES
-    ).includes(
-      checked.status
-    )
-  ) {
-    throw new Error(
-      "RECOVERY_STATUS_INVALID"
-    );
-  }
-
-  if (
-    checked.serverSideOnly !==
-    true
-  ) {
-    throw new Error(
-      "RECOVERY_SERVER_SIDE_ONLY_REQUIRED"
-    );
-  }
-
   return checked;
 }
 
 function recoveryOperationalIdentity(
   record
 ) {
+  const recoveryType =
+    record.recoveryType ||
+    "MISSION_REVIEW";
+
+  if (
+    recoveryType ===
+    "GROWTH_VALIDATION"
+  ) {
+    return {
+      schemaVersion:
+        record.schemaVersion,
+
+      recoveryType:
+        "GROWTH_VALIDATION",
+
+      operationId:
+        record.operationId,
+
+      campaignId:
+        record.campaignId,
+
+      growthValidationId:
+        record.growthValidationId,
+
+      personId:
+        record.personId,
+
+      introducedByPersonId:
+        record.introducedByPersonId,
+
+      milestone:
+        record.milestone,
+
+      actorUid:
+        record.actorUid,
+
+      growthValidationFact:
+        record.growthValidationFact,
+    };
+  }
+
   return {
     schemaVersion:
       record.schemaVersion,
+
+    recoveryType:
+      "MISSION_REVIEW",
 
     operationId:
       record.operationId,
@@ -235,54 +329,15 @@ function sameOperationalIdentity(
   left,
   right
 ) {
-  const a =
+  return isDeepStrictEqual(
     recoveryOperationalIdentity(
       left
-    );
-
-  const b =
+    ),
     recoveryOperationalIdentity(
       right
-    );
-
-  return (
-    a.schemaVersion ===
-      b.schemaVersion &&
-    a.operationId ===
-      b.operationId &&
-    a.campaignId ===
-      b.campaignId &&
-    a.evidenceId ===
-      b.evidenceId &&
-    a.missionId ===
-      b.missionId &&
-    a.reviewId ===
-      b.reviewId &&
-    a.revision ===
-      b.revision &&
-    a.actorUid ===
-      b.actorUid &&
-    a.subjectAccountUid ===
-      b.subjectAccountUid &&
-    isDeepStrictEqual(
-      a.missionFact,
-      b.missionFact
-    ) &&
-    isDeepStrictEqual(
-      a.evidenceFact,
-      b.evidenceFact
-    ) &&
-    isDeepStrictEqual(
-      a.previousReviewFact,
-      b.previousReviewFact
-    ) &&
-    isDeepStrictEqual(
-      a.currentReviewFact,
-      b.currentReviewFact
     )
   );
 }
-
 function snapshotData(
   snapshot
 ) {

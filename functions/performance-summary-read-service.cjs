@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const {
   canonicalMembershipDocumentId
@@ -22,7 +22,8 @@ const {
   );
 
 const {
-  canReadPerformanceSummary
+  canReadPerformanceSummary,
+  getPerformanceSummaryReadScope
 } =
   require(
     "./performance-summary-read-policy.cjs"
@@ -702,6 +703,21 @@ async function readAuthorizedPerformanceSummaryCore({
     );
   }
 
+  const readScope =
+    getPerformanceSummaryReadScope({
+      actorProfile,
+      actorPersonId,
+      actorMembership,
+      targetPerson,
+      targetMembership
+    });
+
+  if (!readScope) {
+    throw new Error(
+      "PERFORMANCE_SUMMARY_READ_SCOPE_UNRESOLVED"
+    );
+  }
+
   const ledgerRead =
     assertLedgerReadResult({
       result:
@@ -737,6 +753,7 @@ async function readAuthorizedPerformanceSummaryCore({
   return freezeResult({
     campaignId,
     personId,
+    readScope,
     ledgerRead,
     projection
   });

@@ -1,6 +1,6 @@
-// ======================================================
+﻿// ======================================================
 // TERRA CAMPAIGN
-// BUILD-117B-2 — PERFIL OPERATIVO DE PERSONA
+// BUILD-117B-2 â€” PERFIL OPERATIVO DE PERSONA
 // ======================================================
 
 import {
@@ -30,11 +30,15 @@ const functions =
     "us-central1"
   );
 
+async function loadActorProfile(user) { if (!user || !cleanText(user.uid)) { actorProfile = null; return null; } const actorSnapshot = await getDoc(doc(db, "usuarios", user.uid)); if (!actorSnapshot.exists()) { actorProfile = null; return null; } actorProfile = { uid: user.uid, ...actorSnapshot.data() }; return actorProfile; }
+
 const getPersonActivitySummary =
   httpsCallable(
     functions,
     "getPersonActivitySummary"
   );
+
+let actorProfile = null;
 
 const getPersonPerformanceSummary =
   httpsCallable(
@@ -136,7 +140,7 @@ const activityStatus =
   document.getElementById("activityStatus");
 
 // ======================================================
-// DESEMPEÑO OPERATIVO
+// DESEMPEÃ‘O OPERATIVO
 // BUILD-124 B4-B2B16
 // ======================================================
 
@@ -182,7 +186,7 @@ function showError(message) {
   profileSection.hidden = true;
 
   errorMessage.textContent =
-    message || "Ocurrió un error.";
+    message || "OcurriÃ³ un error.";
 
   errorSection.hidden = false;
 }
@@ -196,13 +200,13 @@ function roleLabel(role) {
       "Administrador",
 
     lider_principal:
-      "Líder principal",
+      "LÃ­der principal",
 
     coordinador:
       "Coordinador",
 
     coordinador_municipal:
-      "Responsable de organización",
+      "Responsable de organizaciÃ³n",
 
     jefe_estructura:
       "Responsable de estructura",
@@ -235,7 +239,7 @@ async function getParentName(
   }
 
   if (!parentUserId) {
-    return "—";
+    return "â€”";
   }
 
   try {
@@ -250,7 +254,7 @@ async function getParentName(
       );
 
     if (!parentSnapshot.exists()) {
-      return "—";
+      return "â€”";
     }
 
     const parent =
@@ -265,7 +269,7 @@ async function getParentName(
 return (
   cleanText(parent.name) ||
   cleanText(parent.email) ||
-  "—"
+  "â€”"
 );
 
   } catch (error) {
@@ -275,7 +279,7 @@ return (
       error
     );
 
-    return "—";
+    return "â€”";
   }
 }
 
@@ -288,19 +292,19 @@ return (
 async function loadPersonActivity(uid) {
 
   missionsAssigned.textContent =
-    "—";
+    "â€”";
 
   missionsCompleted.textContent =
-    "—";
+    "â€”";
 
   evidenceCount.textContent =
-    "—";
+    "â€”";
 
   eventsCount.textContent =
-    "—";
+    "â€”";
 
   activityStatus.textContent =
-    "Consultando actividad operativa…";
+    "Consultando actividad operativaâ€¦";
 
 
   try {
@@ -317,27 +321,27 @@ async function loadPersonActivity(uid) {
     missionsAssigned.textContent =
       Number.isInteger(data.assigned)
         ? String(data.assigned)
-        : "—";
+        : "â€”";
 
     missionsCompleted.textContent =
       Number.isInteger(data.completed)
         ? String(data.completed)
-        : "—";
+        : "â€”";
 
     evidenceCount.textContent =
       Number.isInteger(data.evidence)
         ? String(data.evidence)
-        : "—";
+        : "â€”";
 
 
-    // Eventos todavía no tiene una fuente
-    // operativa validada en esta versión.
+    // Eventos todavÃ­a no tiene una fuente
+    // operativa validada en esta versiÃ³n.
     eventsCount.textContent =
-      "—";
+      "â€”";
 
 
     activityStatus.textContent =
-      "Misiones y evidencias calculadas con datos operativos reales. Eventos aún no está conectado.";
+      "Misiones y evidencias calculadas con datos operativos reales. Eventos aÃºn no estÃ¡ conectado.";
 
   } catch (error) {
 
@@ -348,16 +352,16 @@ async function loadPersonActivity(uid) {
 
 
     missionsAssigned.textContent =
-      "—";
+      "â€”";
 
     missionsCompleted.textContent =
-      "—";
+      "â€”";
 
     evidenceCount.textContent =
-      "—";
+      "â€”";
 
     eventsCount.textContent =
-      "—";
+      "â€”";
 
 
     activityStatus.textContent =
@@ -371,19 +375,19 @@ async function loadPersonActivity(uid) {
 // ======================================================
 
 // ======================================================
-// DESEMPEÑO OPERATIVO
+// DESEMPEÃ‘O OPERATIVO
 // BUILD-124 B4-B2B16
 // ======================================================
 
 function resetPerformanceValues() {
 
-  performanceContributionCount.textContent = "—";
-  performancePoints.textContent = "—";
-  performanceTerritorial.textContent = "—";
-  performanceAttendance.textContent = "—";
-  performanceOrganization.textContent = "—";
-  performanceLogistics.textContent = "—";
-  performanceDigital.textContent = "—";
+  performanceContributionCount.textContent = "â€”";
+  performancePoints.textContent = "â€”";
+  performanceTerritorial.textContent = "â€”";
+  performanceAttendance.textContent = "â€”";
+  performanceOrganization.textContent = "â€”";
+  performanceLogistics.textContent = "â€”";
+  performanceDigital.textContent = "â€”";
 }
 
 
@@ -405,13 +409,13 @@ async function loadPersonPerformance(personId) {
   if (!canonicalPersonId) {
 
     performanceStatus.textContent =
-      "Desempeño no disponible: este registro todavía no tiene identidad canónica de persona.";
+      "DesempeÃ±o no disponible: este registro todavÃ­a no tiene identidad canÃ³nica de persona.";
 
     return;
   }
 
   performanceStatus.textContent =
-    "Consultando desempeño operativo…";
+    "Consultando desempeÃ±o operativoâ€¦";
 
   try {
 
@@ -444,7 +448,7 @@ async function loadPersonPerformance(personId) {
     ) {
 
       performanceStatus.textContent =
-        "El desempeño operativo todavía no está activado. No se muestra una calificación ni un índice general.";
+        "El desempeÃ±o operativo todavÃ­a no estÃ¡ activado. No se muestra una calificaciÃ³n ni un Ã­ndice general.";
 
       return;
     }
@@ -503,13 +507,13 @@ async function loadPersonPerformance(personId) {
 
     performanceStatus.textContent =
       summary.generalPerformanceIndex?.calculated === true
-        ? "Contribución operativa verificada."
-        : "Contribución operativa verificada. El índice general todavía no se calcula.";
+        ? "ContribuciÃ³n operativa verificada."
+        : "ContribuciÃ³n operativa verificada. El Ã­ndice general todavÃ­a no se calcula.";
 
   } catch (error) {
 
     console.error(
-      "Error al cargar desempeño operativo:",
+      "Error al cargar desempeÃ±o operativo:",
       error
     );
 
@@ -520,8 +524,8 @@ async function loadPersonPerformance(personId) {
 
     performanceStatus.textContent =
       code === "functions/permission-denied"
-        ? "No tienes autorización para consultar el desempeño de esta persona."
-        : "No fue posible consultar el desempeño operativo en este momento.";
+        ? "No tienes autorizaciÃ³n para consultar el desempeÃ±o de esta persona."
+        : "No fue posible consultar el desempeÃ±o operativo en este momento.";
   }
 }
 
@@ -573,26 +577,26 @@ async function loadPersonProfile(uid) {
       cleanText(person.name) || "Sin nombre";
 
     personEmail.textContent =
-      cleanText(person.email) || "—";
+      cleanText(person.email) || "â€”";
 
     personPhone.textContent =
-      cleanText(person.phone) || "—";
+      cleanText(person.phone) || "â€”";
 
     personWhatsApp.textContent =
       person.hasWhatsApp === true
-        ? "Sí"
+        ? "SÃ­"
         : person.hasWhatsApp === false
           ? "No"
           : "No registrado";
 
     personLocality.textContent =
-      cleanText(person.locality) || "—";
+      cleanText(person.locality) || "â€”";
 
     personStreet.textContent =
-      cleanText(person.street) || "—";
+      cleanText(person.street) || "â€”";
 
     personHouseNumber.textContent =
-      cleanText(person.houseNumber) || "—";
+      cleanText(person.houseNumber) || "â€”";
 
     personStatus.textContent =
       person.active === true
@@ -603,7 +607,7 @@ async function loadPersonProfile(uid) {
 
 
     // ==================================================
-    // ORGANIZACIÓN
+    // ORGANIZACIÃ“N
     // ==================================================
 
     personRole.textContent =
@@ -616,7 +620,7 @@ async function loadPersonProfile(uid) {
       cleanText(
         person.municipalityId
       ) ||
-      "—";
+      "â€”";
 
     personStructure.textContent =
       cleanText(
@@ -625,7 +629,7 @@ async function loadPersonProfile(uid) {
       cleanText(
         person.structureId
       ) ||
-      "—";
+      "â€”";
 
     if (
       person.role === "admin" ||
@@ -645,7 +649,7 @@ async function loadPersonProfile(uid) {
 
       personStructureChief.textContent =
         cleanText(person.name) ||
-        "—";
+        "â€”";
 
     } else {
 
@@ -656,7 +660,7 @@ async function loadPersonProfile(uid) {
         cleanText(
           person.chiefName
         ) ||
-        "—";
+        "â€”";
     }
 
     personParent.textContent =
@@ -673,7 +677,7 @@ async function loadPersonProfile(uid) {
     personCampaign.textContent =
       cleanText(
         person.campaignId
-      ) || "—";
+      ) || "â€”";
 
 
     // ==================================================
@@ -689,8 +693,8 @@ async function loadPersonProfile(uid) {
     // ACTIVIDAD
     // BUILD-117B-2
     //
-    // Se consulta después de mostrar el perfil.
-    // Una demora o falla de métricas no bloquea
+    // Se consulta despuÃ©s de mostrar el perfil.
+    // Una demora o falla de mÃ©tricas no bloquea
     // los datos generales de la persona.
     // ==================================================
 
@@ -699,10 +703,10 @@ async function loadPersonProfile(uid) {
     );
 
     // ==================================================
-    // DESEMPEÑO OPERATIVO
+    // DESEMPEÃ‘O OPERATIVO
     // BUILD-124 B4-B2B16
     //
-    // person.personId es la identidad canónica.
+    // person.personId es la identidad canÃ³nica.
     // Nunca se sustituye con UID.
     // ==================================================
 
@@ -740,7 +744,7 @@ const targetUid =
 
 
 // ======================================================
-// AUTENTICACIÓN
+// AUTENTICACIÃ“N
 // ======================================================
 
 onAuthStateChanged(
@@ -756,10 +760,12 @@ onAuthStateChanged(
       return;
     }
 
+    await loadActorProfile(user);
+
     if (!targetUid) {
 
       showError(
-        "No se recibió el identificador de la persona."
+        "No se recibiÃ³ el identificador de la persona."
       );
 
       return;
@@ -813,7 +819,7 @@ logoutButton.addEventListener(
     } catch (error) {
 
       console.error(
-        "Error al cerrar sesión:",
+        "Error al cerrar sesiÃ³n:",
         error
       );
     }

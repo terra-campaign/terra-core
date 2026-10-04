@@ -3602,7 +3602,7 @@ test(
 
     const writerSource =
       fsLocal.readFileSync(
-        "functions/contribution-ledger-reversal-writer.cjs",
+        "contribution-ledger-reversal-writer.cjs",
         "utf8"
       );
 

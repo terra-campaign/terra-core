@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const test =
   require(
@@ -16,7 +16,9 @@ const {
   PERFORMANCE_SUMMARY_READ_POLICY_SCOPE,
   PERFORMANCE_SUMMARY_READ_POLICY,
   validActiveMembership,
-  canReadPerformanceSummary
+  canReadPerformanceSummary,
+  getPerformanceSummaryReadScope,
+  PERFORMANCE_SUMMARY_READ_SCOPE
 } =
   require(
     "./performance-summary-read-policy.cjs"
@@ -721,5 +723,222 @@ test(
       ),
       true
     );
+  }
+);
+
+test(
+  "performance read scope resolves own performance",
+  () => {
+
+    assert.equal(
+      getPerformanceSummaryReadScope({
+        actorProfile:
+          actor(),
+
+        actorPersonId:
+          "PER-ACTOR",
+
+        actorMembership:
+          actorMembership(),
+
+        targetPerson:
+          targetPerson({
+            personId:
+              "PER-ACTOR"
+          }),
+
+        targetMembership:
+          targetMembership({
+            personId:
+              "PER-ACTOR"
+          })
+      }),
+
+      PERFORMANCE_SUMMARY_READ_SCOPE.OWN
+    );
+
+  }
+);
+
+
+test(
+  "performance read scope resolves direct subordinate",
+  () => {
+
+    assert.equal(
+      getPerformanceSummaryReadScope({
+        actorProfile:
+          actor({
+            role:
+              "jefe_estructura"
+          }),
+
+        actorPersonId:
+          "PER-ACTOR",
+
+        actorMembership:
+          actorMembership({
+            personId:
+              "PER-ACTOR",
+
+            role:
+              "jefe_estructura"
+          }),
+
+        targetPerson:
+          targetPerson(),
+
+        targetMembership:
+          targetMembership({
+            parentPersonId:
+              "PER-ACTOR"
+          })
+      }),
+
+      PERFORMANCE_SUMMARY_READ_SCOPE
+        .DIRECT_SUBORDINATE
+    );
+
+  }
+);
+
+
+test(
+  "municipal coordinator does not receive descendant detail scope",
+  () => {
+
+    assert.equal(
+      getPerformanceSummaryReadScope({
+        actorProfile:
+          actor({
+            role:
+              "coordinador_municipal"
+          }),
+
+        actorPersonId:
+          "PER-COORD",
+
+        actorMembership:
+          actorMembership({
+            personId:
+              "PER-COORD",
+
+            role:
+              "coordinador_municipal"
+          }),
+
+        targetPerson:
+          targetPerson(),
+
+        targetMembership:
+          targetMembership({
+            parentPersonId:
+              "PER-JEFE",
+
+            ancestorPersonIds: [
+              "PER-JEFE",
+              "PER-COORD"
+            ]
+          })
+      }),
+
+      null
+    );
+
+  }
+);
+
+
+test(
+  "structure chief can inspect member performance inside own structure",
+  () => {
+
+    assert.equal(
+      getPerformanceSummaryReadScope({
+        actorProfile:
+          actor({
+            role:
+              "jefe_estructura"
+          }),
+
+        actorPersonId:
+          "PER-JEFE",
+
+        actorMembership:
+          actorMembership({
+            personId:
+              "PER-JEFE",
+
+            role:
+              "jefe_estructura",
+
+            structureId:
+              "EST-001"
+          }),
+
+        targetPerson:
+          targetPerson(),
+
+        targetMembership:
+          targetMembership({
+            structureId:
+              "EST-001",
+
+            parentPersonId:
+              "PER-OTRO"
+          })
+      }),
+
+      PERFORMANCE_SUMMARY_READ_SCOPE
+        .STRUCTURE_MEMBER
+    );
+
+  }
+);
+
+
+test(
+  "structure chief cannot inspect another structure",
+  () => {
+
+    assert.equal(
+      getPerformanceSummaryReadScope({
+        actorProfile:
+          actor({
+            role:
+              "jefe_estructura"
+          }),
+
+        actorPersonId:
+          "PER-JEFE",
+
+        actorMembership:
+          actorMembership({
+            personId:
+              "PER-JEFE",
+
+            role:
+              "jefe_estructura",
+
+            structureId:
+              "EST-001"
+          }),
+
+        targetPerson:
+          targetPerson(),
+
+        targetMembership:
+          targetMembership({
+            structureId:
+              "EST-002",
+
+            parentPersonId:
+              "PER-OTRO"
+          })
+      }),
+
+      null
+    );
+
   }
 );

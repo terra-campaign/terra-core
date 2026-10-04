@@ -1851,3 +1851,698 @@ test(
     );
   }
 );
+test(
+  "growth validation recovery derives contribution without loading a subject account profile",
+  async () => {
+    const {
+      _test,
+    } =
+      require(
+        "./contribution-reconciliation-recovery-processor.cjs"
+      );
+
+    const growthValidationId =
+      "cff2da47e69cbcd8e3eabe138283d17ef7063200e3c5708a6bea21bc7b325286";
+
+    const growthValidationFact = {
+      id:
+        growthValidationId,
+
+      campaignId:
+        "CAM-001",
+
+      personId:
+        "PER-001",
+
+      introducedByPersonId:
+        "PER-INTRO-001",
+
+      milestone:
+        "PERSON_MEMBERSHIP",
+
+      status:
+        "validated",
+
+      validatedByPersonId:
+        "PER-VALIDATOR-001",
+
+      activityCatalogVersion:
+        require("./activity-catalog-v1.cjs")
+          .CATALOG_VERSION,
+
+      personUnique:
+        true,
+
+      membershipCorrect:
+        true,
+
+      validatedAt:
+        3000,
+    };
+
+    const record = {
+      schemaVersion:
+        "1.0.0-foundation",
+
+      recoveryType:
+        "GROWTH_VALIDATION",
+
+      operationId:
+        "growth-validation:" +
+        growthValidationId,
+
+      status:
+        "PENDING",
+
+      campaignId:
+        "CAM-001",
+
+      growthValidationId,
+
+      personId:
+        "PER-001",
+
+      introducedByPersonId:
+        "PER-INTRO-001",
+
+      milestone:
+        "PERSON_MEMBERSHIP",
+
+      actorUid:
+        "PER-VALIDATOR-001",
+
+      growthValidationFact,
+
+      attemptCount:
+        0,
+
+      lastError:
+        null,
+
+      createdAt:
+        1,
+
+      updatedAt:
+        1,
+
+      reconciledAt:
+        null,
+
+      serverSideOnly:
+        true,
+
+      ledgerWritten:
+        false,
+
+      pointsPosted:
+        false,
+
+      performanceSummaryWritten:
+        false,
+    };
+
+    const calls = [];
+
+    const result =
+      await _test
+        .processMissionContributionRecoveryCore({
+          db: {
+            marker:
+              "fake-db",
+          },
+
+          record,
+
+          runtime: {
+            async loadSubjectProfile() {
+              calls.push({
+                step:
+                  "loadSubjectProfile",
+              });
+
+              throw new Error(
+                "GROWTH_MUST_NOT_LOAD_SUBJECT_PROFILE"
+              );
+            },
+
+            async deriveGrowthContribution({
+              growthValidation,
+              growthValidationId:
+                receivedGrowthValidationId,
+            }) {
+              calls.push({
+                step:
+                  "deriveGrowthContribution",
+
+                growthValidationId:
+                  receivedGrowthValidationId,
+
+                growthValidation,
+              });
+
+              return {
+                status:
+                  "DERIVED",
+
+                stage:
+                  "CANDIDATE",
+
+                reasonCode:
+                  null,
+
+                candidate: {
+                  campaignId:
+                    "CAM-001",
+
+                  personId:
+                    "PER-INTRO-001",
+
+                  activityCode:
+                    "ORGANIZATIONAL_GROWTH",
+
+                  sourceType:
+                    "GROWTH_VALIDATION",
+
+                  sourceId:
+                    "growth-validation:" +
+                    growthValidationId,
+
+                  points:
+                    5,
+
+                  scoreDimension:
+                    "organizationalGrowth",
+
+                  runtimePostingEnabled:
+                    false,
+                },
+
+                persisted:
+                  false,
+
+                ledgerWritten:
+                  false,
+
+                pointsPosted:
+                  false,
+
+                runtimeScoringActivated:
+                  false,
+              };
+            },
+
+            async reconcileLifecycle({
+              previousContributionResult,
+              currentContributionResult,
+            }) {
+              calls.push({
+                step:
+                  "reconcileLifecycle",
+
+                previousContributionResult,
+
+                currentContributionResult,
+              });
+
+              return {
+                action:
+                  "POST",
+
+                ledgerId:
+                  "LEDGER-GROWTH-001",
+
+                result: {
+                  ledgerWritten:
+                    true,
+
+                  pointsPosted:
+                    true,
+
+                  performanceSummaryWritten:
+                    true,
+                },
+              };
+            },
+
+            async markReconciled({
+              operationId,
+              observability,
+            }) {
+              calls.push({
+                step:
+                  "markReconciled",
+
+                operationId,
+
+                observability,
+              });
+
+              return {
+                status:
+                  "RECONCILED",
+
+                operationId,
+
+                observability,
+              };
+            },
+
+            async markRetryRequired({
+              operationId,
+              errorCode,
+            }) {
+              calls.push({
+                step:
+                  "markRetryRequired",
+
+                operationId,
+
+                errorCode,
+              });
+
+              throw new Error(
+                "RETRY_MUST_NOT_RUN"
+              );
+            },
+
+            now() {
+              return 4000;
+            },
+          },
+        });
+
+    assert.equal(
+      result.status,
+      "RECONCILED"
+    );
+
+    assert.equal(
+      calls.some(
+        call =>
+          call.step ===
+          "loadSubjectProfile"
+      ),
+      false
+    );
+
+    const derivation =
+      calls.find(
+        call =>
+          call.step ===
+          "deriveGrowthContribution"
+      );
+
+    assert.ok(
+      derivation
+    );
+
+    assert.equal(
+      derivation.growthValidationId,
+      growthValidationId
+    );
+
+    assert.deepEqual(
+      derivation.growthValidation,
+      growthValidationFact
+    );
+
+    const lifecycle =
+      calls.find(
+        call =>
+          call.step ===
+          "reconcileLifecycle"
+      );
+
+    assert.ok(
+      lifecycle
+    );
+
+    assert.equal(
+      lifecycle.previousContributionResult
+        .status,
+      "NOT_ELIGIBLE"
+    );
+
+    assert.equal(
+      lifecycle.currentContributionResult
+        .status,
+      "DERIVED"
+    );
+
+    assert.equal(
+      lifecycle.currentContributionResult
+        .candidate
+        .points,
+      5
+    );
+
+    const reconciled =
+      calls.find(
+        call =>
+          call.step ===
+          "markReconciled"
+      );
+
+    assert.ok(
+      reconciled
+    );
+
+    assert.equal(
+      reconciled.operationId,
+      record.operationId
+    );
+
+    assert.deepEqual(
+      reconciled.observability,
+      {
+        ledgerWritten:
+          true,
+
+        pointsPosted:
+          true,
+
+        performanceSummaryWritten:
+          true,
+      }
+    );
+  }
+);
+
+
+test(
+  "growth validation recovery derives growth contribution and reconciles it",
+  async () => {
+    const {
+      _test,
+    } =
+      require(
+        "./contribution-reconciliation-recovery-processor.cjs"
+      );
+
+    const {
+      processMissionContributionRecoveryCore,
+    } = _test;
+
+    const record = {
+      schemaVersion:
+        "1.0.0-foundation",
+
+      recoveryType:
+        "GROWTH_VALIDATION",
+
+      operationId:
+        "growth-validation:001",
+
+      status:
+        "PENDING",
+
+      campaignId:
+        "CAM-001",
+
+      growthValidationId:
+        "cff2da47e69cbcd8e3eabe138283d17ef7063200e3c5708a6bea21bc7b325286",
+
+      personId:
+        "PER-001",
+
+      introducedByPersonId:
+        "PER-INTRO-001",
+
+      milestone:
+        "PERSON_MEMBERSHIP",
+
+      actorUid:
+        "UID-VALIDATOR",
+
+      growthValidationFact: {
+        id:
+          "cff2da47e69cbcd8e3eabe138283d17ef7063200e3c5708a6bea21bc7b325286",
+
+        growthValidationId:
+          "cff2da47e69cbcd8e3eabe138283d17ef7063200e3c5708a6bea21bc7b325286",
+
+        campaignId:
+          "CAM-001",
+
+        personId:
+          "PER-001",
+
+        introducedByPersonId:
+          "PER-INTRO-001",
+
+        milestone:
+          "PERSON_MEMBERSHIP",
+
+        status:
+          "validated",
+
+        validatedByPersonId:
+          "PER-VALIDATOR-001",
+
+        activityCatalogVersion:
+          "1.0.0",
+
+        personUnique:
+          true,
+
+        membershipCorrect:
+          true,
+
+        validatedAt:
+          3000,
+      },
+
+      attemptCount:
+        0,
+
+      lastError:
+        null,
+
+      createdAt:
+        1,
+
+      updatedAt:
+        1,
+
+      reconciledAt:
+        null,
+
+      serverSideOnly:
+        true,
+
+      ledgerWritten:
+        false,
+
+      pointsPosted:
+        false,
+
+      performanceSummaryWritten:
+        false,
+    };
+
+    const calls = {
+      growthDerivation:
+        0,
+
+      lifecycle:
+        0,
+
+      reconciled:
+        0,
+
+      growthArgs:
+        null,
+
+      lifecycleArgs:
+        null,
+    };
+
+    const runtime = {
+      async loadSubjectProfile() {
+        throw new Error(
+          "MISSION_PROFILE_LOADER_MUST_NOT_RUN_FOR_GROWTH"
+        );
+      },
+
+      async deriveContribution() {
+        throw new Error(
+          "MISSION_DERIVER_MUST_NOT_RUN_FOR_GROWTH"
+        );
+      },
+
+      async deriveGrowthContribution(args) {
+        calls.growthDerivation += 1;
+        calls.growthArgs = args;
+
+        return {
+          status:
+            "DERIVED",
+
+          candidate: {
+            candidateId:
+              "growth-candidate-1",
+
+            campaignId:
+              "CAM-001",
+
+            personId:
+              "PER-INTRO-001",
+
+            points:
+              5,
+
+            runtimePostingEnabled:
+              false,
+          },
+
+          persisted:
+            false,
+
+          ledgerWritten:
+            false,
+
+          pointsPosted:
+            false,
+
+          runtimeScoringActivated:
+            false,
+        };
+      },
+
+      async reconcileLifecycle(args) {
+        calls.lifecycle += 1;
+        calls.lifecycleArgs = args;
+
+        return {
+          action:
+            "POST",
+
+          result: {
+            ledgerWritten:
+              true,
+
+            pointsPosted:
+              true,
+
+            performanceSummaryWritten:
+              false,
+          },
+        };
+      },
+
+      async markRetryRequired() {
+        throw new Error(
+          "RETRY_MUST_NOT_RUN"
+        );
+      },
+
+      async markReconciled(args) {
+        calls.reconciled += 1;
+
+        return {
+          ...record,
+
+          status:
+            "RECONCILED",
+
+          attemptCount:
+            1,
+
+          lastError:
+            null,
+
+          updatedAt:
+            2,
+
+          reconciledAt:
+            2,
+
+          observability:
+            args.observability,
+        };
+      },
+
+      now() {
+        return 2;
+      },
+    };
+
+    const result =
+      await processMissionContributionRecoveryCore({
+        db: {
+          marker:
+            "fake-db",
+        },
+
+        record,
+
+        runtime,
+      });
+
+    assert.equal(
+      calls.growthDerivation,
+      1
+    );
+
+    assert.equal(
+      calls.lifecycle,
+      1
+    );
+
+    assert.equal(
+      calls.reconciled,
+      1
+    );
+
+    assert.equal(
+      calls.growthArgs.growthValidationFact,
+      record.growthValidationFact
+    );
+
+    assert.equal(
+      calls.growthArgs.growthValidationId,
+      record.growthValidationId
+    );
+
+    assert.equal(
+      calls.growthArgs.campaignId,
+      record.campaignId
+    );
+
+    assert.equal(
+      calls.growthArgs.personId,
+      record.personId
+    );
+
+    assert.equal(
+      calls.growthArgs.introducedByPersonId,
+      record.introducedByPersonId
+    );
+
+    assert.equal(
+      calls.growthArgs.milestone,
+      record.milestone
+    );
+
+    assert.equal(
+      calls.lifecycleArgs.currentContributionResult
+        .status,
+      "DERIVED"
+    );
+
+    assert.equal(
+      result.status,
+      "RECONCILED"
+    );
+
+    assert.equal(
+      result.observability.ledgerWritten,
+      true
+    );
+
+    assert.equal(
+      result.observability.pointsPosted,
+      true
+    );
+  }
+);

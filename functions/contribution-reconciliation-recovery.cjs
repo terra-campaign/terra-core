@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const RECOVERY_SCHEMA_VERSION =
   "1.0.0-foundation";
@@ -585,11 +585,139 @@ function projectMissionContributionRecoveryFacts({
       checkedReviewId,
   });
 }
+
+function buildGrowthValidationRecoveryRecord({
+  operationId,
+  campaignId,
+  growthValidationId,
+  personId,
+  introducedByPersonId,
+  milestone,
+  actorUid,
+  growthValidationFact,
+  createdAt,
+}) {
+  const checkedOperationId =
+    requireToken(
+      operationId,
+      "RECOVERY_OPERATION_ID"
+    );
+
+  const checkedCampaignId =
+    requireToken(
+      campaignId,
+      "CAMPAIGN_ID"
+    );
+
+  const checkedGrowthValidationId =
+    requireToken(
+      growthValidationId,
+      "GROWTH_VALIDATION_ID"
+    );
+
+  const checkedPersonId =
+    requireToken(
+      personId,
+      "PERSON_ID"
+    );
+
+  const checkedIntroducedByPersonId =
+    requireToken(
+      introducedByPersonId,
+      "INTRODUCED_BY_PERSON_ID"
+    );
+
+  const checkedMilestone =
+    requireToken(
+      milestone,
+      "MILESTONE"
+    );
+
+  const checkedActorUid =
+    requireToken(
+      actorUid,
+      "ACTOR_UID"
+    );
+
+  const checkedGrowthValidationFact =
+    requireObject(
+      growthValidationFact,
+      "GROWTH_VALIDATION_FACT"
+    );
+
+  if (createdAt == null) {
+    throw new Error(
+      "RECOVERY_CREATED_AT_REQUIRED"
+    );
+  }
+
+  return Object.freeze({
+    schemaVersion:
+      RECOVERY_SCHEMA_VERSION,
+
+    recoveryType:
+      "GROWTH_VALIDATION",
+
+    operationId:
+      checkedOperationId,
+
+    status:
+      RECOVERY_STATUSES.PENDING,
+
+    campaignId:
+      checkedCampaignId,
+
+    growthValidationId:
+      checkedGrowthValidationId,
+
+    personId:
+      checkedPersonId,
+
+    introducedByPersonId:
+      checkedIntroducedByPersonId,
+
+    milestone:
+      checkedMilestone,
+
+    actorUid:
+      checkedActorUid,
+
+    growthValidationFact:
+      checkedGrowthValidationFact,
+
+    attemptCount:
+      0,
+
+    lastError:
+      null,
+
+    createdAt,
+
+    updatedAt:
+      createdAt,
+
+    reconciledAt:
+      null,
+
+    serverSideOnly:
+      true,
+
+    ledgerWritten:
+      false,
+
+    pointsPosted:
+      false,
+
+    performanceSummaryWritten:
+      false,
+  });
+}
 module.exports = {
   projectMissionContributionRecoveryFacts,
   RECOVERY_SCHEMA_VERSION,
   RECOVERY_STATUSES,
   buildMissionReviewRecoveryRecord,
+  buildGrowthValidationRecoveryRecord,
   markRecoveryRetryRequired,
   markRecoveryReconciled,
 };

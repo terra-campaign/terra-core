@@ -11,7 +11,7 @@ const fs =
 
 const source =
   fs.readFileSync(
-    "functions/event-delegation.cjs",
+    "event-delegation.cjs",
     "utf8"
   )
     .replace(/\r\n/g, "\n");

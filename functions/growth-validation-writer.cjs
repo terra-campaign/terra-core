@@ -21,6 +21,24 @@ const {
 );
 
 const {
+  buildGrowthValidationRecoveryRecord,
+} = require(
+  './contribution-reconciliation-recovery.cjs'
+);
+
+const {
+  createRecoveryRecordInTransaction,
+} = require(
+  './contribution-reconciliation-recovery-store.cjs'
+);
+
+const {
+  processMissionContributionRecovery,
+} = require(
+  './contribution-reconciliation-recovery-processor.cjs'
+);
+
+const {
   canonicalMembershipDocumentId,
 } = require(
   './territorial-membership-id.cjs'
@@ -108,7 +126,7 @@ function validClientId(
 
     fail(
       'invalid-argument',
-      label + ' inválido.'
+      label + ' invÃƒÂ¡lido.'
     );
   }
 
@@ -135,7 +153,7 @@ function requiredStoredId(
 
     fail(
       'failed-precondition',
-      label + ' no está configurado correctamente.'
+      label + ' no estÃƒÂ¡ configurado correctamente.'
     );
   }
 
@@ -162,7 +180,7 @@ function normalizeMilestone(
 
     fail(
       'invalid-argument',
-      'Hito de crecimiento inválido.'
+      'Hito de crecimiento invÃƒÂ¡lido.'
     );
   }
 
@@ -190,7 +208,7 @@ function normalizeVerifiedSourceType(
 
     fail(
       'invalid-argument',
-      'Fuente operacional verificable inválida.'
+      'Fuente operacional verificable invÃƒÂ¡lida.'
     );
   }
 
@@ -359,7 +377,7 @@ async function resolveHistoricalIntroducerPersonId({
   if (!introducedByUserId) {
     fail(
       'failed-precondition',
-      'El incorporador histórico no está disponible en los datos canónicos.'
+      'El incorporador histÃƒÂ³rico no estÃƒÂ¡ disponible en los datos canÃƒÂ³nicos.'
     );
   }
 
@@ -375,7 +393,7 @@ async function resolveHistoricalIntroducerPersonId({
   if (!legacyIntroducerUserSnapshot.exists) {
     fail(
       'failed-precondition',
-      'El incorporador histórico legado no puede verificarse.'
+      'El incorporador histÃƒÂ³rico legado no puede verificarse.'
     );
   }
 
@@ -394,7 +412,7 @@ async function resolveHistoricalIntroducerPersonId({
   ) {
     fail(
       'failed-precondition',
-      'El incorporador histórico legado pertenece a otra campaña.'
+      'El incorporador hist\u00F3rico legado pertenece a otra campa\u00F1a.'
     );
   }
 
@@ -402,7 +420,7 @@ async function resolveHistoricalIntroducerPersonId({
     requiredStoredId(
       legacyIntroducerUser
         .personId,
-      'La persona del incorporador histórico legado'
+      'La persona del incorporador histÃƒÂ³rico legado'
     );
 
   return {
@@ -992,6 +1010,909 @@ function domainAssert(
 }
 
 
+async function completeGrowthValidationCore({
+  db,
+  actorUid,
+  requestedPersonId,
+  milestone,
+  requestedSourceType,
+  requestedSourceDocumentId,
+}) {
+
+  return await db.runTransaction(
+    async tx => {
+
+
+
+    const actorProfile =
+      profileFromSnapshot(
+        await tx.get(
+          db.collection(
+            'usuarios'
+          ).doc(
+            actorUid
+          )
+        )
+      );
+
+    if (
+      !actorProfile ||
+      actorProfile.active !==
+        true ||
+      !actorProfile.campaignId
+    ) {
+
+      fail(
+        'permission-denied',
+        'Perfil territorial no autorizado.'
+      );
+    }
+
+    if (
+      actorProfile.role ===
+      'admin'
+    ) {
+
+      fail(
+        'permission-denied',
+        'El Administrador tÃƒÂ©cnico no valida crecimiento territorial.'
+      );
+    }
+
+    const campaignId =
+      requiredStoredId(
+        actorProfile.campaignId,
+        'La campaÃƒÂ±a'
+      );
+
+    const actorIdentity =
+      await resolveCanonicalPersonForAccount({
+        db,
+        tx,
+
+        accountUid:
+          actorUid,
+
+        profile:
+          actorProfile,
+
+        campaignId,
+      });
+
+    const actorPersonId =
+      requiredStoredId(
+        actorIdentity.personId,
+        'La persona del validador'
+      );
+
+    const targetPersonRef =
+      db.collection(
+        'persons'
+      ).doc(
+        requestedPersonId
+      );
+
+    const targetPersonSnapshot =
+      await tx.get(
+        targetPersonRef
+      );
+
+    if (
+      !targetPersonSnapshot.exists
+    ) {
+
+      fail(
+        'not-found',
+        'La persona no existe.'
+      );
+    }
+
+    const targetPerson = {
+      ...targetPersonSnapshot.data(),
+
+      id:
+        targetPersonSnapshot.id,
+    };
+
+    if (
+      !personMatchesSubject({
+        person:
+          targetPerson,
+
+        documentId:
+          targetPersonSnapshot.id,
+
+        campaignId,
+
+        personId:
+          requestedPersonId,
+      })
+    ) {
+
+      fail(
+        'failed-precondition',
+        'La persona no pertenece activamente a la campaÃƒÂ±a.'
+      );
+    }
+
+    const introducerResolution =
+      await resolveHistoricalIntroducerPersonId({
+        db,
+        tx,
+        targetPerson,
+        campaignId,
+      });
+
+    const introducedByPersonId =
+      requiredStoredId(
+        introducerResolution
+          .personId,
+        'El incorporador histÃƒÂ³rico'
+      );
+
+    const introducedByUserId =
+      cleanId(
+        introducerResolution
+          .introducedByUserId
+      );
+
+    if (
+      introducedByPersonId ===
+      requestedPersonId
+    ) {
+
+      fail(
+        'failed-precondition',
+        'La persona no puede figurar como su propio incorporador.'
+      );
+    }
+
+    const introducerSnapshot =
+      await tx.get(
+        db.collection(
+          'persons'
+        ).doc(
+          introducedByPersonId
+        )
+      );
+
+    if (
+      !introducerSnapshot.exists ||
+      cleanId(
+        introducerSnapshot
+          .data()
+          ?.campaignId
+      ) !==
+        campaignId
+    ) {
+
+      fail(
+        'failed-precondition',
+        'El incorporador histÃƒÂ³rico no puede verificarse en esta campaÃƒÂ±a.'
+      );
+    }
+
+    const actorMembershipId =
+      canonicalMembershipDocumentId(
+        campaignId,
+        actorPersonId
+      );
+
+    const targetMembershipId =
+      canonicalMembershipDocumentId(
+        campaignId,
+        requestedPersonId
+      );
+
+    const [
+      actorMembershipSnapshot,
+      targetMembershipSnapshot,
+    ] = await Promise.all([
+      tx.get(
+        db.collection(
+          'territorialMemberships'
+        ).doc(
+          actorMembershipId
+        )
+      ),
+
+      tx.get(
+        db.collection(
+          'territorialMemberships'
+        ).doc(
+          targetMembershipId
+        )
+      ),
+    ]);
+
+    const actorMembership =
+      actorMembershipSnapshot.exists
+        ? actorMembershipSnapshot.data()
+        : null;
+
+    const targetMembership =
+      targetMembershipSnapshot.exists
+        ? targetMembershipSnapshot.data()
+        : null;
+
+    if (
+      !membershipIntroducerConsistent({
+        membership:
+          targetMembership,
+
+        introducedByPersonId,
+      })
+    ) {
+
+      fail(
+        'failed-precondition',
+        'La membresÃƒÂ­a territorial contradice al incorporador histÃƒÂ³rico.'
+      );
+    }
+    if (
+      !membershipLegacyIntroducerConsistent({
+        membership:
+          targetMembership,
+
+        introducedByUserId,
+      })
+    ) {
+      fail(
+        'failed-precondition',
+        'La membresÃƒÂ­a territorial contradice al incorporador histÃƒÂ³rico legado.'
+      );
+    }
+
+
+    if (
+      !actorCanValidateTarget({
+        actorPersonId,
+        actorMembership,
+
+        targetPersonId:
+          requestedPersonId,
+
+        targetMembership,
+        campaignId,
+      })
+    ) {
+
+      fail(
+        'permission-denied',
+        'No tienes autoridad territorial sobre esta persona.'
+      );
+    }
+
+    const validationId =
+      canonicalGrowthValidationDocumentId({
+        campaignId,
+
+        personId:
+          requestedPersonId,
+
+        introducedByPersonId,
+
+        milestone,
+      });
+
+    const validationRef =
+      db.collection(
+        'growthValidations'
+      ).doc(
+        validationId
+      );
+
+    const milestoneRefs =
+      Object.values(
+        GROWTH_MILESTONES
+      ).map(
+        currentMilestone => {
+
+          const id =
+            canonicalGrowthValidationDocumentId({
+              campaignId,
+
+              personId:
+                requestedPersonId,
+
+              introducedByPersonId,
+
+              milestone:
+                currentMilestone,
+            });
+
+          return {
+            id,
+            milestone:
+              currentMilestone,
+
+            ref:
+              db.collection(
+                'growthValidations'
+              ).doc(
+                id
+              ),
+          };
+        }
+      );
+
+    const existingSnapshots =
+      [];
+
+    for (
+      const item of
+      milestoneRefs
+    ) {
+
+      existingSnapshots.push({
+        ...item,
+
+        snapshot:
+          await tx.get(
+            item.ref
+          ),
+      });
+    }
+
+    const existingValidations =
+      [];
+
+    let currentExisting =
+      null;
+
+    for (
+      const item of
+      existingSnapshots
+    ) {
+
+      if (
+        !item.snapshot.exists
+      ) {
+
+        continue;
+      }
+
+      const existing =
+        item.snapshot.data();
+
+      const reusable =
+        domainAssert(
+          () =>
+            validateReusableExistingValidation({
+              validationId:
+                item.id,
+
+              validation:
+                existing,
+
+              campaignId,
+
+              personId:
+                requestedPersonId,
+
+              introducedByPersonId,
+
+              milestone:
+                item.milestone,
+            }),
+
+          'Existe una validaciÃƒÂ³n de crecimiento inconsistente.'
+        );
+
+      existingValidations.push(
+        reusable
+      );
+
+      if (
+        item.id ===
+        validationId
+      ) {
+
+        currentExisting =
+          reusable;
+      }
+    }
+
+    if (currentExisting) {
+
+      domainAssert(
+        () =>
+          assertGrowthValidationSetPolicy(
+            existingValidations
+          ),
+
+        'El conjunto de validaciones de crecimiento no cumple la polÃƒÂ­tica vigente.'
+      );
+
+      return {
+        ok:
+          true,
+
+        alreadyValidated:
+          true,
+
+        growthValidationId:
+          validationId,
+
+        campaignId,
+
+        personId:
+          requestedPersonId,
+
+        introducedByPersonId,
+
+        milestone,
+
+        validatedByPersonId:
+          currentExisting
+            .validatedByPersonId,
+
+        runtimeScoringEnabled:
+          false,
+
+        contributionCandidatePersisted:
+          false,
+
+        contributionLedgerWritten:
+          false,
+
+        pointsPosted:
+          false,
+      };
+    }
+
+    let proof =
+      null;
+
+    if (
+      milestone ===
+      GROWTH_MILESTONES
+        .PERSON_MEMBERSHIP
+    ) {
+
+      if (
+        !membershipMatchesSubject({
+          membership:
+            targetMembership,
+
+          campaignId,
+
+          personId:
+            requestedPersonId,
+        })
+      ) {
+
+        fail(
+          'failed-precondition',
+          'La membresÃƒÂ­a territorial canÃƒÂ³nica no estÃƒÂ¡ activa o no coincide.'
+        );
+      }
+
+      proof = {
+        personRef:
+          'persons/' +
+          requestedPersonId,
+
+        membershipRef:
+          'territorialMemberships/' +
+          targetMembershipId,
+      };
+    }
+
+    if (
+      milestone ===
+      GROWTH_MILESTONES
+        .ONBOARDING
+    ) {
+
+      const onboardingFactId =
+        canonicalOnboardingFactDocumentId({ campaignId, personId: requestedPersonId });
+
+      const onboardingSnapshot =
+        await tx.get(
+          db.collection(
+            'onboardingFacts'
+          ).doc(
+            onboardingFactId
+          )
+        );
+
+      if (
+        !onboardingSnapshot.exists
+      ) {
+
+        fail(
+          'failed-precondition',
+          'La persona todavÃƒÂ­a no tiene onboarding canÃƒÂ³nico completado.'
+        );
+      }
+
+      proof = {
+        onboardingFactId,
+
+        onboardingFact: {
+          ...onboardingSnapshot.data(),
+
+          id:
+            onboardingFactId,
+        },
+      };
+    }
+
+    if (
+      milestone ===
+      GROWTH_MILESTONES
+        .FIRST_VERIFIED_ACTIVITY
+    ) {
+
+      if (
+        requestedSourceType ===
+        SOURCE_TYPES
+          .MISSION_VALIDATION
+      ) {
+
+        const reviewSnapshot =
+          await tx.get(
+            db.collection(
+              'missionReviews'
+            ).doc(
+              requestedSourceDocumentId
+            )
+          );
+
+        const evidenceSnapshot =
+          await tx.get(
+            db.collection(
+              'missionEvidence'
+            ).doc(
+              requestedSourceDocumentId
+            )
+          );
+
+        if (
+          !reviewSnapshot.exists ||
+          !evidenceSnapshot.exists
+        ) {
+
+          fail(
+            'failed-precondition',
+            'La validaciÃƒÂ³n de misiÃƒÂ³n seleccionada no existe.'
+          );
+        }
+
+        const review =
+          reviewSnapshot.data();
+
+        const evidence =
+          evidenceSnapshot.data();
+
+        const missionId =
+          requiredStoredId(
+            review.missionId,
+            'La misiÃƒÂ³n validada'
+          );
+
+        const subjectUid =
+          requiredStoredId(
+            review.subjectId,
+            'La cuenta de la persona de la misiÃƒÂ³n'
+          );
+
+        const missionSnapshot =
+          await tx.get(
+            db.collection(
+              'misiones'
+            ).doc(
+              missionId
+            )
+          );
+
+        const subjectProfile =
+          profileFromSnapshot(
+            await tx.get(
+              db.collection(
+                'usuarios'
+              ).doc(
+                subjectUid
+              )
+            )
+          );
+
+        if (
+          !missionSnapshot.exists ||
+          !subjectProfile
+        ) {
+
+          fail(
+            'failed-precondition',
+            'La fuente de misiÃƒÂ³n no puede reconstruirse de forma autoritativa.'
+          );
+        }
+
+        const canonicalSubject =
+          await resolveCanonicalPersonForAccount({
+            db,
+            tx,
+
+            accountUid:
+              subjectUid,
+
+            profile:
+              subjectProfile,
+
+            campaignId,
+          });
+
+        proof =
+          domainAssert(
+            () =>
+              missionVerifiedActivityProof({
+                sourceDocumentId:
+                  requestedSourceDocumentId,
+
+                review,
+                evidence,
+
+                mission:
+                  missionSnapshot.data(),
+
+                campaignId,
+
+                subjectPersonId:
+                  requestedPersonId,
+
+                canonicalSubjectPersonId:
+                  canonicalSubject.personId,
+              }),
+
+            'La misiÃƒÂ³n no acredita la primera actividad de esta persona.'
+          );
+      }
+
+      if (
+        requestedSourceType ===
+        SOURCE_TYPES
+          .ATTENDANCE_RECORD
+      ) {
+
+        const attendanceSnapshot =
+          await tx.get(
+            db.collection(
+              'eventAttendance'
+            ).doc(
+              requestedSourceDocumentId
+            )
+          );
+
+        if (
+          !attendanceSnapshot.exists
+        ) {
+
+          fail(
+            'failed-precondition',
+            'La asistencia seleccionada no existe.'
+          );
+        }
+
+        proof =
+          domainAssert(
+            () =>
+              attendanceVerifiedActivityProof({
+                sourceDocumentId:
+                  requestedSourceDocumentId,
+
+                attendance:
+                  attendanceSnapshot.data(),
+
+                campaignId,
+
+                subjectPersonId:
+                  requestedPersonId,
+              }),
+
+            'La asistencia no acredita la primera actividad de esta persona.'
+          );
+      }
+    }
+
+    const serverNow =
+      FieldValue
+        .serverTimestamp();
+
+    const validationRecord =
+      buildGrowthValidationRecord({
+        validationId,
+        campaignId,
+
+        personId:
+          requestedPersonId,
+
+        introducedByPersonId,
+
+        milestone,
+
+        validatedByPersonId:
+          actorPersonId,
+
+        validatedByUserId:
+          actorUid,
+
+        validatedAt:
+          serverNow,
+
+        proof,
+      });
+
+    domainAssert(
+      () =>
+        validateGrowthMilestoneFact(
+          validationRecord
+        ),
+
+      'La validaciÃƒÂ³n de crecimiento no cumple el contrato del dominio.'
+    );
+
+    domainAssert(
+      () =>
+        assertGrowthValidationSetPolicy([
+          ...existingValidations,
+          validationRecord,
+        ]),
+
+      'La validaciÃƒÂ³n no puede completar crecimiento mediante autoaprobaciÃƒÂ³n total.'
+    );
+
+    const auditRef =
+      db.collection(
+        'logs'
+      ).doc();
+
+    const recoveryOperationId =
+      'growth-validation:' +
+      campaignId +
+      ':' +
+      validationId;
+
+    const recoveryRecord =
+      buildGrowthValidationRecoveryRecord({
+        operationId:
+          recoveryOperationId,
+
+        campaignId,
+
+        growthValidationId:
+          validationId,
+
+        personId:
+          requestedPersonId,
+
+        introducedByPersonId,
+
+        milestone,
+
+        actorUid,
+
+        growthValidationFact:
+          validationRecord,
+
+        createdAt:
+          serverNow,
+      });
+
+    const auditRecord = {
+      action:
+        'VALIDATE_GROWTH_MILESTONE',
+
+      growthValidationId:
+        validationId,
+
+      campaignId,
+
+      personId:
+        requestedPersonId,
+
+      introducedByPersonId,
+
+      milestone,
+
+      validatedByPersonId:
+        actorPersonId,
+
+      validatedByUserId:
+        actorUid,
+
+      sourceType:
+        proof
+          ?.verifiedActivitySourceType ||
+        null,
+
+      sourceId:
+        proof
+          ?.verifiedActivitySourceId ||
+        null,
+
+      sourceDocumentId:
+        proof
+          ?.verifiedActivitySourceDocumentId ||
+        null,
+
+      runtimeScoringEnabled:
+        false,
+
+      contributionCandidatePersisted:
+        false,
+
+      contributionLedgerWritten:
+        false,
+
+      pointsPosted:
+        false,
+
+      createdAt:
+        serverNow,
+    };
+
+    createRecoveryRecordInTransaction({
+      db,
+
+      tx,
+
+      record:
+        recoveryRecord,
+    });
+
+    tx.create(
+      validationRef,
+      validationRecord
+    );
+
+    tx.create(
+      auditRef,
+      auditRecord
+    );
+
+    return {
+      ok:
+        true,
+
+      alreadyValidated:
+        false,
+
+      growthValidationId:
+        validationId,
+
+      campaignId,
+
+      personId:
+        requestedPersonId,
+
+      introducedByPersonId,
+
+      milestone,
+
+      validatedByPersonId:
+        actorPersonId,
+
+      runtimeScoringEnabled:
+        false,
+
+      contributionCandidatePersisted:
+        false,
+
+      contributionLedgerWritten:
+        false,
+
+      pointsPosted:
+        false,
+
+      recoveryRecord,
+    };
+    }
+
+
+  );
+}
+
 exports.completeGrowthValidation =
   onCall(
     OPTIONS,
@@ -1002,9 +1923,12 @@ exports.completeGrowthValidation =
 
         fail(
           'unauthenticated',
-          'Inicia sesión.'
+          'Inicia sesiÃ³n.'
         );
       }
+
+      const actorUid =
+        request.auth.uid;
 
       const data =
         request.data ||
@@ -1050,854 +1974,64 @@ exports.completeGrowthValidation =
 
       try {
 
-        return await db.runTransaction(
-          async tx => {
+        const transactionResult =
+          await completeGrowthValidationCore({
+            db,
 
-            const actorUid =
-              request.auth.uid;
+            actorUid,
 
-            const actorProfile =
-              profileFromSnapshot(
-                await tx.get(
-                  db.collection(
-                    'usuarios'
-                  ).doc(
-                    actorUid
-                  )
-                )
-              );
+            requestedPersonId,
 
-            if (
-              !actorProfile ||
-              actorProfile.active !==
-                true ||
-              !actorProfile.campaignId
-            ) {
+            milestone,
 
-              fail(
-                'permission-denied',
-                'Perfil territorial no autorizado.'
-              );
-            }
+            requestedSourceType,
 
-            if (
-              actorProfile.role ===
-              'admin'
-            ) {
+            requestedSourceDocumentId,
+          });
 
-              fail(
-                'permission-denied',
-                'El Administrador técnico no valida crecimiento territorial.'
-              );
-            }
+        try {
 
-            const campaignId =
-              requiredStoredId(
-                actorProfile.campaignId,
-                'La campaña'
-              );
+          if (
+            transactionResult &&
+            transactionResult.recoveryRecord
+          ) {
 
-            const actorIdentity =
-              await resolveCanonicalPersonForAccount({
-                db,
-                tx,
+            await processMissionContributionRecovery({
+              db,
 
-                accountUid:
-                  actorUid,
-
-                profile:
-                  actorProfile,
-
-                campaignId,
-              });
-
-            const actorPersonId =
-              requiredStoredId(
-                actorIdentity.personId,
-                'La persona del validador'
-              );
-
-            const targetPersonRef =
-              db.collection(
-                'persons'
-              ).doc(
-                requestedPersonId
-              );
-
-            const targetPersonSnapshot =
-              await tx.get(
-                targetPersonRef
-              );
-
-            if (
-              !targetPersonSnapshot.exists
-            ) {
-
-              fail(
-                'not-found',
-                'La persona no existe.'
-              );
-            }
-
-            const targetPerson = {
-              ...targetPersonSnapshot.data(),
-
-              id:
-                targetPersonSnapshot.id,
-            };
-
-            if (
-              !personMatchesSubject({
-                person:
-                  targetPerson,
-
-                documentId:
-                  targetPersonSnapshot.id,
-
-                campaignId,
-
-                personId:
-                  requestedPersonId,
-              })
-            ) {
-
-              fail(
-                'failed-precondition',
-                'La persona no pertenece activamente a la campaña.'
-              );
-            }
-
-            const introducerResolution =
-              await resolveHistoricalIntroducerPersonId({
-                db,
-                tx,
-                targetPerson,
-                campaignId,
-              });
-
-            const introducedByPersonId =
-              requiredStoredId(
-                introducerResolution
-                  .personId,
-                'El incorporador histórico'
-              );
-
-            const introducedByUserId =
-              cleanId(
-                introducerResolution
-                  .introducedByUserId
-              );
-
-            if (
-              introducedByPersonId ===
-              requestedPersonId
-            ) {
-
-              fail(
-                'failed-precondition',
-                'La persona no puede figurar como su propio incorporador.'
-              );
-            }
-
-            const introducerSnapshot =
-              await tx.get(
-                db.collection(
-                  'persons'
-                ).doc(
-                  introducedByPersonId
-                )
-              );
-
-            if (
-              !introducerSnapshot.exists ||
-              cleanId(
-                introducerSnapshot
-                  .data()
-                  ?.campaignId
-              ) !==
-                campaignId
-            ) {
-
-              fail(
-                'failed-precondition',
-                'El incorporador histórico no puede verificarse en esta campaña.'
-              );
-            }
-
-            const actorMembershipId =
-              canonicalMembershipDocumentId(
-                campaignId,
-                actorPersonId
-              );
-
-            const targetMembershipId =
-              canonicalMembershipDocumentId(
-                campaignId,
-                requestedPersonId
-              );
-
-            const [
-              actorMembershipSnapshot,
-              targetMembershipSnapshot,
-            ] = await Promise.all([
-              tx.get(
-                db.collection(
-                  'territorialMemberships'
-                ).doc(
-                  actorMembershipId
-                )
-              ),
-
-              tx.get(
-                db.collection(
-                  'territorialMemberships'
-                ).doc(
-                  targetMembershipId
-                )
-              ),
-            ]);
-
-            const actorMembership =
-              actorMembershipSnapshot.exists
-                ? actorMembershipSnapshot.data()
-                : null;
-
-            const targetMembership =
-              targetMembershipSnapshot.exists
-                ? targetMembershipSnapshot.data()
-                : null;
-
-            if (
-              !membershipIntroducerConsistent({
-                membership:
-                  targetMembership,
-
-                introducedByPersonId,
-              })
-            ) {
-
-              fail(
-                'failed-precondition',
-                'La membresía territorial contradice al incorporador histórico.'
-              );
-            }
-            if (
-              !membershipLegacyIntroducerConsistent({
-                membership:
-                  targetMembership,
-
-                introducedByUserId,
-              })
-            ) {
-              fail(
-                'failed-precondition',
-                'La membresía territorial contradice al incorporador histórico legado.'
-              );
-            }
-
-
-            if (
-              !actorCanValidateTarget({
-                actorPersonId,
-                actorMembership,
-
-                targetPersonId:
-                  requestedPersonId,
-
-                targetMembership,
-                campaignId,
-              })
-            ) {
-
-              fail(
-                'permission-denied',
-                'No tienes autoridad territorial sobre esta persona.'
-              );
-            }
-
-            const validationId =
-              canonicalGrowthValidationDocumentId({
-                campaignId,
-
-                personId:
-                  requestedPersonId,
-
-                introducedByPersonId,
-
-                milestone,
-              });
-
-            const validationRef =
-              db.collection(
-                'growthValidations'
-              ).doc(
-                validationId
-              );
-
-            const milestoneRefs =
-              Object.values(
-                GROWTH_MILESTONES
-              ).map(
-                currentMilestone => {
-
-                  const id =
-                    canonicalGrowthValidationDocumentId({
-                      campaignId,
-
-                      personId:
-                        requestedPersonId,
-
-                      introducedByPersonId,
-
-                      milestone:
-                        currentMilestone,
-                    });
-
-                  return {
-                    id,
-                    milestone:
-                      currentMilestone,
-
-                    ref:
-                      db.collection(
-                        'growthValidations'
-                      ).doc(
-                        id
-                      ),
-                  };
-                }
-              );
-
-            const existingSnapshots =
-              [];
-
-            for (
-              const item of
-              milestoneRefs
-            ) {
-
-              existingSnapshots.push({
-                ...item,
-
-                snapshot:
-                  await tx.get(
-                    item.ref
-                  ),
-              });
-            }
-
-            const existingValidations =
-              [];
-
-            let currentExisting =
-              null;
-
-            for (
-              const item of
-              existingSnapshots
-            ) {
-
-              if (
-                !item.snapshot.exists
-              ) {
-
-                continue;
-              }
-
-              const existing =
-                item.snapshot.data();
-
-              const reusable =
-                domainAssert(
-                  () =>
-                    validateReusableExistingValidation({
-                      validationId:
-                        item.id,
-
-                      validation:
-                        existing,
-
-                      campaignId,
-
-                      personId:
-                        requestedPersonId,
-
-                      introducedByPersonId,
-
-                      milestone:
-                        item.milestone,
-                    }),
-
-                  'Existe una validación de crecimiento inconsistente.'
-                );
-
-              existingValidations.push(
-                reusable
-              );
-
-              if (
-                item.id ===
-                validationId
-              ) {
-
-                currentExisting =
-                  reusable;
-              }
-            }
-
-            if (currentExisting) {
-
-              domainAssert(
-                () =>
-                  assertGrowthValidationSetPolicy(
-                    existingValidations
-                  ),
-
-                'El conjunto de validaciones de crecimiento no cumple la política vigente.'
-              );
-
-              return {
-                ok:
-                  true,
-
-                alreadyValidated:
-                  true,
-
-                growthValidationId:
-                  validationId,
-
-                campaignId,
-
-                personId:
-                  requestedPersonId,
-
-                introducedByPersonId,
-
-                milestone,
-
-                validatedByPersonId:
-                  currentExisting
-                    .validatedByPersonId,
-
-                runtimeScoringEnabled:
-                  false,
-
-                contributionCandidatePersisted:
-                  false,
-
-                contributionLedgerWritten:
-                  false,
-
-                pointsPosted:
-                  false,
-              };
-            }
-
-            let proof =
-              null;
-
-            if (
-              milestone ===
-              GROWTH_MILESTONES
-                .PERSON_MEMBERSHIP
-            ) {
-
-              if (
-                !membershipMatchesSubject({
-                  membership:
-                    targetMembership,
-
-                  campaignId,
-
-                  personId:
-                    requestedPersonId,
-                })
-              ) {
-
-                fail(
-                  'failed-precondition',
-                  'La membresía territorial canónica no está activa o no coincide.'
-                );
-              }
-
-              proof = {
-                personRef:
-                  'persons/' +
-                  requestedPersonId,
-
-                membershipRef:
-                  'territorialMemberships/' +
-                  targetMembershipId,
-              };
-            }
-
-            if (
-              milestone ===
-              GROWTH_MILESTONES
-                .ONBOARDING
-            ) {
-
-              const onboardingFactId =
-                canonicalOnboardingFactDocumentId({ campaignId, personId: requestedPersonId });
-
-              const onboardingSnapshot =
-                await tx.get(
-                  db.collection(
-                    'onboardingFacts'
-                  ).doc(
-                    onboardingFactId
-                  )
-                );
-
-              if (
-                !onboardingSnapshot.exists
-              ) {
-
-                fail(
-                  'failed-precondition',
-                  'La persona todavía no tiene onboarding canónico completado.'
-                );
-              }
-
-              proof = {
-                onboardingFactId,
-
-                onboardingFact: {
-                  ...onboardingSnapshot.data(),
-
-                  id:
-                    onboardingFactId,
-                },
-              };
-            }
-
-            if (
-              milestone ===
-              GROWTH_MILESTONES
-                .FIRST_VERIFIED_ACTIVITY
-            ) {
-
-              if (
-                requestedSourceType ===
-                SOURCE_TYPES
-                  .MISSION_VALIDATION
-              ) {
-
-                const reviewSnapshot =
-                  await tx.get(
-                    db.collection(
-                      'missionReviews'
-                    ).doc(
-                      requestedSourceDocumentId
-                    )
-                  );
-
-                const evidenceSnapshot =
-                  await tx.get(
-                    db.collection(
-                      'missionEvidence'
-                    ).doc(
-                      requestedSourceDocumentId
-                    )
-                  );
-
-                if (
-                  !reviewSnapshot.exists ||
-                  !evidenceSnapshot.exists
-                ) {
-
-                  fail(
-                    'failed-precondition',
-                    'La validación de misión seleccionada no existe.'
-                  );
-                }
-
-                const review =
-                  reviewSnapshot.data();
-
-                const evidence =
-                  evidenceSnapshot.data();
-
-                const missionId =
-                  requiredStoredId(
-                    review.missionId,
-                    'La misión validada'
-                  );
-
-                const subjectUid =
-                  requiredStoredId(
-                    review.subjectId,
-                    'La cuenta de la persona de la misión'
-                  );
-
-                const missionSnapshot =
-                  await tx.get(
-                    db.collection(
-                      'misiones'
-                    ).doc(
-                      missionId
-                    )
-                  );
-
-                const subjectProfile =
-                  profileFromSnapshot(
-                    await tx.get(
-                      db.collection(
-                        'usuarios'
-                      ).doc(
-                        subjectUid
-                      )
-                    )
-                  );
-
-                if (
-                  !missionSnapshot.exists ||
-                  !subjectProfile
-                ) {
-
-                  fail(
-                    'failed-precondition',
-                    'La fuente de misión no puede reconstruirse de forma autoritativa.'
-                  );
-                }
-
-                const canonicalSubject =
-                  await resolveCanonicalPersonForAccount({
-                    db,
-                    tx,
-
-                    accountUid:
-                      subjectUid,
-
-                    profile:
-                      subjectProfile,
-
-                    campaignId,
-                  });
-
-                proof =
-                  domainAssert(
-                    () =>
-                      missionVerifiedActivityProof({
-                        sourceDocumentId:
-                          requestedSourceDocumentId,
-
-                        review,
-                        evidence,
-
-                        mission:
-                          missionSnapshot.data(),
-
-                        campaignId,
-
-                        subjectPersonId:
-                          requestedPersonId,
-
-                        canonicalSubjectPersonId:
-                          canonicalSubject.personId,
-                      }),
-
-                    'La misión no acredita la primera actividad de esta persona.'
-                  );
-              }
-
-              if (
-                requestedSourceType ===
-                SOURCE_TYPES
-                  .ATTENDANCE_RECORD
-              ) {
-
-                const attendanceSnapshot =
-                  await tx.get(
-                    db.collection(
-                      'eventAttendance'
-                    ).doc(
-                      requestedSourceDocumentId
-                    )
-                  );
-
-                if (
-                  !attendanceSnapshot.exists
-                ) {
-
-                  fail(
-                    'failed-precondition',
-                    'La asistencia seleccionada no existe.'
-                  );
-                }
-
-                proof =
-                  domainAssert(
-                    () =>
-                      attendanceVerifiedActivityProof({
-                        sourceDocumentId:
-                          requestedSourceDocumentId,
-
-                        attendance:
-                          attendanceSnapshot.data(),
-
-                        campaignId,
-
-                        subjectPersonId:
-                          requestedPersonId,
-                      }),
-
-                    'La asistencia no acredita la primera actividad de esta persona.'
-                  );
-              }
-            }
-
-            const serverNow =
-              FieldValue
-                .serverTimestamp();
-
-            const validationRecord =
-              buildGrowthValidationRecord({
-                validationId,
-                campaignId,
-
-                personId:
-                  requestedPersonId,
-
-                introducedByPersonId,
-
-                milestone,
-
-                validatedByPersonId:
-                  actorPersonId,
-
-                validatedByUserId:
-                  actorUid,
-
-                validatedAt:
-                  serverNow,
-
-                proof,
-              });
-
-            domainAssert(
-              () =>
-                validateGrowthMilestoneFact(
-                  validationRecord
-                ),
-
-              'La validación de crecimiento no cumple el contrato del dominio.'
-            );
-
-            domainAssert(
-              () =>
-                assertGrowthValidationSetPolicy([
-                  ...existingValidations,
-                  validationRecord,
-                ]),
-
-              'La validación no puede completar crecimiento mediante autoaprobación total.'
-            );
-
-            const auditRef =
-              db.collection(
-                'logs'
-              ).doc();
-
-            const auditRecord = {
-              action:
-                'VALIDATE_GROWTH_MILESTONE',
-
-              growthValidationId:
-                validationId,
-
-              campaignId,
-
-              personId:
-                requestedPersonId,
-
-              introducedByPersonId,
-
-              milestone,
-
-              validatedByPersonId:
-                actorPersonId,
-
-              validatedByUserId:
-                actorUid,
-
-              sourceType:
-                proof
-                  ?.verifiedActivitySourceType ||
-                null,
-
-              sourceId:
-                proof
-                  ?.verifiedActivitySourceId ||
-                null,
-
-              sourceDocumentId:
-                proof
-                  ?.verifiedActivitySourceDocumentId ||
-                null,
-
-              runtimeScoringEnabled:
-                false,
-
-              contributionCandidatePersisted:
-                false,
-
-              contributionLedgerWritten:
-                false,
-
-              pointsPosted:
-                false,
-
-              createdAt:
-                serverNow,
-            };
-
-            tx.create(
-              validationRef,
-              validationRecord
-            );
-
-            tx.create(
-              auditRef,
-              auditRecord
-            );
-
-            return {
-              ok:
-                true,
-
-              alreadyValidated:
-                false,
-
-              growthValidationId:
-                validationId,
-
-              campaignId,
-
-              personId:
-                requestedPersonId,
-
-              introducedByPersonId,
-
-              milestone,
-
-              validatedByPersonId:
-                actorPersonId,
-
-              runtimeScoringEnabled:
-                false,
-
-              contributionCandidatePersisted:
-                false,
-
-              contributionLedgerWritten:
-                false,
-
-              pointsPosted:
-                false,
-            };
+              record:
+                transactionResult.recoveryRecord,
+            });
           }
-        );
+
+        } catch (recoveryError) {
+
+          console.error(
+            "COMPLETE_GROWTH_VALIDATION_RECOVERY_FAILURE",
+            {
+              operationId:
+                transactionResult
+                  ?.recoveryRecord
+                  ?.operationId,
+
+              error:
+                recoveryError &&
+                recoveryError.message
+                  ? recoveryError.message
+                  : String(
+                      recoveryError
+                    ),
+            }
+          );
+        }
+
+        const publicResult = {
+          ...transactionResult,
+        };
+
+        delete publicResult.recoveryRecord;
+
+        return publicResult;
 
       } catch (error) {
 
@@ -1913,7 +2047,7 @@ exports.completeGrowthValidation =
           'COMPLETE_GROWTH_VALIDATION_UNEXPECTED_FAILURE',
           {
             uid:
-              request.auth.uid,
+              actorUid,
 
             personId:
               requestedPersonId,
@@ -1932,12 +2066,11 @@ exports.completeGrowthValidation =
 
         fail(
           'internal',
-          'No fue posible completar la validación de crecimiento.'
+          'No fue posible completar la validaciÃ³n de crecimiento.'
         );
       }
     }
   );
-
 
 exports._test = {
   cleanId,

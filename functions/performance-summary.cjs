@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const {
   SCORE_DIMENSIONS,
@@ -12,6 +12,20 @@ const {
 } =
   require(
     "./contribution-ledger.cjs"
+  );
+
+const {
+  validateOperationalPeriod,
+} =
+  require(
+    "./operational-performance-period.cjs"
+  );
+
+const {
+  evaluateMembershipEligibility,
+} =
+  require(
+    "./performance-membership-eligibility.cjs"
   );
 
 
@@ -196,6 +210,83 @@ function normalizePeriod({
 }
 
 
+/**
+ * BUILD-125
+ *
+ * Adapta el capitulo operacional oficial al Performance Summary.
+ *
+ * IMPORTANTE:
+ * - No activa scoring.
+ * - No calcula calificacion.
+ * - No persiste datos.
+ * - Solo valida y normaliza el contrato temporal oficial.
+ */
+function normalizeOperationalPerformancePeriod({
+  campaignId,
+  periodId,
+  startDate,
+  endDate,
+}) {
+
+  const operationalPeriod =
+    validateOperationalPeriod({
+      campaignId,
+      periodId,
+      startDate,
+      endDate,
+    });
+
+  const startDateObject =
+    new Date(
+      startDate +
+      "T00:00:00.000Z"
+    );
+
+  const endDateObject =
+    new Date(
+      endDate +
+      "T00:00:00.000Z"
+    );
+
+  const startMillis =
+    startDateObject.getTime();
+
+  const endMillis =
+    endDateObject.getTime();
+
+  if (
+    !Number.isFinite(
+      startMillis
+    )
+  ) {
+    throw new Error(
+      "INVALID_PERIOD_START"
+    );
+  }
+
+  if (
+    !Number.isFinite(
+      endMillis
+    )
+  ) {
+    throw new Error(
+      "INVALID_PERIOD_END"
+    );
+  }
+
+  return Object.freeze({
+    ...operationalPeriod,
+
+    startMillis,
+
+    endMillis,
+
+    endExclusive:
+      true,
+  });
+}
+
+
 function createDimensionTotals() {
   const totals = {};
 
@@ -308,8 +399,12 @@ function buildPerformanceSummaryProjection({
   campaignId,
   personId,
   ledgerEntries,
+
   periodStart = null,
   periodEnd = null,
+
+  operationalPeriod = null,
+  membership = null,
 }) {
   const campaign =
     requireToken(
@@ -333,11 +428,152 @@ function buildPerformanceSummaryProjection({
     );
   }
 
-  const period =
-    normalizePeriod({
-      periodStart,
-      periodEnd,
-    });
+  let period;
+
+  let membershipEligibility =
+    null;
+
+  if (operationalPeriod) {
+
+    const normalizedOperationalPeriod =
+      normalizeOperationalPerformancePeriod({
+        campaignId:
+          campaign,
+
+        periodId:
+          operationalPeriod.periodId,
+
+        startDate:
+          operationalPeriod.startDate,
+
+        endDate:
+          operationalPeriod.endDate,
+      });
+
+    period =
+      Object.freeze({
+        enabled:
+          true,
+
+        startMillis:
+          normalizedOperationalPeriod.startMillis,
+
+        endMillis:
+          normalizedOperationalPeriod.endMillis,
+
+        endExclusive:
+          true,
+      });
+
+    if (membership) {
+
+      membershipEligibility =
+        evaluateMembershipEligibility({
+          membership,
+          period:
+            normalizedOperationalPeriod,
+        });
+
+      if (
+        membershipEligibility.eligible !== true
+      ) {
+
+        if (
+          membershipEligibility.reason ===
+          "CAMPAIGN_MISMATCH"
+        ) {
+          throw new Error(
+            "CAMPAIGN_MISMATCH"
+          );
+        }
+
+        return deepFreeze({
+          schemaVersion:
+            PERFORMANCE_SUMMARY_SCHEMA_VERSION,
+
+          status:
+            PERFORMANCE_SUMMARY_STATUS,
+
+          scope:
+            PERFORMANCE_SUMMARY_SCOPE,
+
+          campaignId:
+            campaign,
+
+          personId:
+            person,
+
+          period,
+
+          membershipEligibility,
+
+          contribution: {
+            historical: {
+              points: 0,
+
+              contributionCount: 0,
+
+              byDimension:
+                createDimensionTotals(),
+            },
+
+            currentPeriod: {
+              enabled:
+                period.enabled,
+
+              points:
+                period.enabled
+                  ? 0
+                  : null,
+
+              contributionCount:
+                period.enabled
+                  ? 0
+                  : null,
+
+              byDimension:
+                period.enabled
+                  ? createDimensionTotals()
+                  : null,
+            },
+          },
+
+          ignoredEntryCount:
+            Array.isArray(ledgerEntries)
+              ? ledgerEntries.length
+              : 0,
+
+          generalPerformanceIndex: {
+            calculated:
+              false,
+
+            value:
+              null,
+
+            formulaVersion:
+              null,
+          },
+
+          persistenceEnabled:
+            false,
+
+          runtimeScoringActivated:
+            false,
+        });
+      }
+
+    }
+
+  }
+  else {
+
+    period =
+      normalizePeriod({
+        periodStart,
+        periodEnd,
+      });
+
+  }
 
   const historicalByDimension =
     createDimensionTotals();
@@ -510,5 +746,6 @@ module.exports = {
   PERFORMANCE_SUMMARY_SCOPE,
   SCORE_DIMENSION_VALUES,
   normalizePeriod,
+  normalizeOperationalPerformancePeriod,
   buildPerformanceSummaryProjection,
 };
