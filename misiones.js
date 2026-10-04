@@ -33,6 +33,7 @@ import {getFunctions, httpsCallable} from "https://www.gstatic.com/firebasejs/12
 const functions = getFunctions(auth.app, "us-central1");
 const manageMissionLifecycle = httpsCallable(functions,"manageMissionLifecycle");
 const createLinkedMissions = httpsCallable(functions, "createLinkedMissions");
+const getEligibleMissionAssignees = httpsCallable(functions, "getEligibleMissionAssignees");
 const getMissionEvidenceTotal = httpsCallable(functions, "getMissionEvidenceTotal");
 const getMissionBranchProgress = httpsCallable(functions, "getMissionBranchProgress");
 const missionAssigneeList = document.querySelector("#missionAssigneeList");
@@ -284,21 +285,26 @@ function applyRoleInterface() {
 
 async function loadAvailableAssignees() {
 
+  const requestVersion =
+    (
+      loadAvailableAssignees
+        .requestVersion ||
+      0
+    ) + 1;
+
+  loadAvailableAssignees
+    .requestVersion =
+      requestVersion;
+
   if (!currentUserProfile) {
     return;
   }
 
-  missionAssigneeList.innerHTML = `
-    <p>
-      Cargando personas...
-    </p>
-  `;
-
   missionSelectAll.checked =
     false;
 
-  const campaignId =
-    currentUserProfile.campaignId;
+  missionSelectAll.disabled =
+    true;
 
   const assignableRole =
     getAssignableRole(
@@ -316,236 +322,204 @@ async function loadAvailableAssignees() {
     return;
   }
 
+  const activityCode =
+    String(
+      missionActivityCodeInput.value ||
+      ""
+    ).trim();
+
+  if (
+    !parentMission &&
+    !activityCode
+  ) {
+
+    missionAssigneeList.innerHTML = `
+      <p>
+        Selecciona primero el tipo de actividad.
+      </p>
+    `;
+
+    missionFormMessage.textContent =
+      "";
+
+    return;
+  }
+
+  missionAssigneeList.innerHTML = `
+    <p>
+      Buscando personas elegibles...
+    </p>
+  `;
+
+  missionFormMessage.textContent =
+    "";
+
   try {
 
-    let usersQuery;
+    const payload =
+      parentMission
+        ? {
+            parentMissionId:
+              parentMission.id
+          }
+        : {
+            activityCode
+          };
 
-    if (
-      currentUserProfile.role ===
-      "admin"
-    ) {
-
-      usersQuery =
-        query(
-          collection(
-            db,
-            "usuarios"
-          ),
-
-          where(
-            "campaignId",
-            "==",
-            campaignId
-          ),
-
-          where(
-            "role",
-            "==",
-            assignableRole
-          )
-        );
-
-    } else {
-
-      usersQuery =
-        query(
-          collection(
-            db,
-            "usuarios"
-          ),
-
-          where(
-            "campaignId",
-            "==",
-            campaignId
-          ),
-
-          where(
-            "role",
-            "==",
-            assignableRole
-          ),
-
-          where(
-            "parentUserId",
-            "==",
-            currentUserProfile.uid
-          )
-        );
-    }
-
-    const snapshot =
-      await getDocs(
-        usersQuery
+    const response =
+      await getEligibleMissionAssignees(
+        payload
       );
 
-    const people = [];
+    const currentParentMissionId =
+      parentMission?.id ||
+      null;
 
-    snapshot.forEach(
-      (documentSnapshot) => {
+    const currentActivityCode =
+      String(
+        missionActivityCodeInput.value ||
+        ""
+      ).trim();
 
-        const person = {
-          uid:
-            documentSnapshot.id,
+    if (
+      requestVersion !==
+        loadAvailableAssignees
+          .requestVersion ||
+      missionModal.hidden ||
+      (
+        payload.parentMissionId ||
+        null
+      ) !==
+        currentParentMissionId ||
+      (
+        !payload.parentMissionId &&
+        payload.activityCode !==
+          currentActivityCode
+      )
+    ) {
+      return;
+    }
 
-          ...documentSnapshot.data()
-        };
+    const data =
+      response.data || {};
 
-        if (
-          person.active !== true
-        ) {
-          return;
-        }
-
-        if (
-          currentUserProfile.role ===
-          "admin"
-        ) {
-
-          people.push(person);
-
-          return;
-        }
-
-        if (
-          person.parentUserId ===
-          currentUserProfile.uid
-        ) {
-
-          people.push(person);
-        }
-      }
-    );
-
-    people.sort(
-      (a, b) =>
-        String(
-          a.name || ""
-        ).localeCompare(
-          String(
-            b.name || ""
-          ),
-          "es"
-        )
-    );
+    const people =
+      Array.isArray(
+        data.eligible
+      )
+        ? data.eligible
+        : [];
 
     missionAssigneeList.innerHTML =
       "";
 
+    const roleLabels = {
+      coordinador_municipal:
+        "Responsable de organización",
+
+      jefe_estructura:
+        "Responsable de estructura",
+
+      integrante:
+        "Integrante",
+
+      participante:
+        "Participante",
+
+      colaborador_base:
+        "Colaborador de base"
+    };
+
     people.forEach(
-      (person) => {
+      person => {
 
         const label =
-  document.createElement(
-    "label"
-  );
+          document.createElement(
+            "label"
+          );
 
-label.className =
-  "mission-assignee-option";
+        label.className =
+          "mission-assignee-option";
 
+        const checkbox =
+          document.createElement(
+            "input"
+          );
 
-const checkbox =
-  document.createElement(
-    "input"
-  );
+        checkbox.type =
+          "checkbox";
 
-checkbox.type =
-  "checkbox";
+        checkbox.className =
+          "mission-assignee-checkbox";
 
-checkbox.className =
-  "mission-assignee-checkbox";
+        checkbox.value =
+          person.uid;
 
-checkbox.value =
-  person.uid;
+        checkbox.dataset.name =
+          person.name ||
+          person.uid;
 
-checkbox.dataset.name =
-  person.name ||
-  person.email ||
-  person.uid;
+        checkbox.dataset.role =
+          person.role ||
+          "";
 
-checkbox.dataset.role =
-  person.role ||
-  "";
+        checkbox.dataset.municipalityId =
+          person.municipalityId ||
+          "";
 
-checkbox.dataset.municipalityId =
-  person.municipalityId ||
-  "";
+        checkbox.dataset.structureId =
+          person.structureId ||
+          "";
 
-checkbox.dataset.structureId =
-  person.structureId ||
-  "";
+        const info =
+          document.createElement(
+            "span"
+          );
 
+        info.className =
+          "mission-assignee-info";
 
-const info =
-  document.createElement(
-    "span"
-  );
+        const name =
+          document.createElement(
+            "strong"
+          );
 
-info.className =
-  "mission-assignee-info";
+        name.textContent =
+          person.name ||
+          person.uid;
 
+        const role =
+          document.createElement(
+            "small"
+          );
 
-const name =
-  document.createElement(
-    "strong"
-  );
+        role.textContent =
+          roleLabels[
+            person.role
+          ] ||
+          person.role ||
+          "Persona";
 
-name.textContent =
-  person.name ||
-  person.email ||
-  person.uid;
+        info.appendChild(
+          name
+        );
 
+        info.appendChild(
+          role
+        );
 
-const role =
-  document.createElement(
-    "small"
-  );
+        label.appendChild(
+          checkbox
+        );
 
-const roleLabels = {
-  coordinador_municipal:
-    "Responsable de organización",
+        label.appendChild(
+          info
+        );
 
-  jefe_estructura:
-    "Responsable de estructura",
-
-  integrante:
-    "Integrante",
-
-  participante:
-    "Participante",
-
-  colaborador_base:
-    "Colaborador de base"
-};
-
-role.textContent =
-  roleLabels[
-    person.role
-  ] ||
-  person.role ||
-  "Persona";
-
-
-info.appendChild(
-  name
-);
-
-info.appendChild(
-  role
-);
-
-label.appendChild(
-  checkbox
-);
-
-label.appendChild(
-  info
-);
-
-missionAssigneeList.appendChild(
-  label
-);
-        
+        missionAssigneeList
+          .appendChild(
+            label
+          );
       }
     );
 
@@ -553,31 +527,53 @@ missionAssigneeList.appendChild(
 
       missionAssigneeList.innerHTML = `
         <p>
-          No existen personas disponibles en tu nivel inmediato inferior.
+          No hay personas elegibles para este tipo de actividad.
         </p>
       `;
 
       missionFormMessage.textContent =
-        "No existen personas disponibles en tu nivel inmediato inferior.";
+        "Ninguna persona de tu nivel inmediato indicó disponibilidad para esta actividad.";
+
+      return;
     }
+
+    missionSelectAll.disabled =
+      false;
 
   } catch (error) {
 
     console.error(
-      "Error al cargar subordinados directos:",
+      "Error al cargar personas elegibles:",
       error
     );
 
     missionAssigneeList.innerHTML = `
       <p>
-        No fue posible cargar las personas disponibles.
+        No fue posible cargar las personas elegibles.
       </p>
     `;
 
     missionFormMessage.textContent =
-      "No fue posible cargar las personas disponibles.";
+      error.message ||
+      "No fue posible cargar las personas elegibles.";
   }
 }
+
+
+missionActivityCodeInput.addEventListener(
+  "change",
+  () => {
+
+    if (
+      missionModal.hidden ||
+      parentMission
+    ) {
+      return;
+    }
+
+    loadAvailableAssignees();
+  }
+);
 
 
 // ======================================================

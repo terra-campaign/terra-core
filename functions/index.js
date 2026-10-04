@@ -6121,6 +6121,9 @@ exports.getEventAttendanceWorkspace =
 exports.createLinkedMissions =
   require("./mission-delegation.cjs").createLinkedMissions;
 
+exports.getEligibleMissionAssignees =
+  require("./mission-delegation.cjs").getEligibleMissionAssignees;
+
 exports.getMissionBranchProgress =
   require("./mission-delegation.cjs").getMissionBranchProgress;
 

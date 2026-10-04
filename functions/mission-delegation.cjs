@@ -5,6 +5,22 @@ const {createHash} = require('node:crypto');
 const {
   classifyMissionActivity
 } = require('./activity-classification.cjs');
+
+const {
+  resolveCanonicalPersonForAccount
+} = require('./person-identity.cjs');
+
+const {
+  canonicalMembershipDocumentId
+} = require('./territorial-membership-id.cjs');
+
+const {
+  membershipMatchesSubject
+} = require('./activity-preferences.cjs');
+
+const {
+  evaluateMissionAssigneeEligibility
+} = require('./mission-assignee-eligibility.cjs');
 const NEXT = {lider_principal:'coordinador_municipal', admin:'coordinador_municipal', coordinador_municipal:'jefe_estructura', jefe_estructura:'integrante', integrante:'participante', participante:'colaborador_base'};
 const OPTIONS = {region:'us-central1', timeoutSeconds:60};
 const fail = (code, message) => { throw new HttpsError(code, message); };
@@ -102,6 +118,18 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
       if (parent.content?.deadlineAt && Date.parse(parent.content.deadlineAt) <= Date.now()) fail('failed-precondition','La misión ya venció; no se puede delegar.');
       if (parent.ancestorMissionIds.length >= 4) fail('failed-precondition','Se alcanzó el último nivel de delegación.');
     }
+    const effectiveActivityCode =
+      parent
+        ? parent.content?.activityCode
+        : fields?.activityCode;
+
+    if (!effectiveActivityCode) {
+      fail(
+        'failed-precondition',
+        'La misión no tiene un tipo de actividad operativo válido.'
+      );
+    }
+
     const groupId = parent ? parent.groupId : hash(p.uid,requestId,'group');
     const ancestors = parent ? [...parent.ancestorMissionIds,parentId] : [];
     const records = [];
@@ -119,6 +147,109 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
       }
       if (existingMission.exists) fail('already-exists','El identificador de asignación ya está ocupado.');
       const t = target.data();
+
+      const targetIdentity =
+        await resolveCanonicalPersonForAccount({
+          db,
+          tx,
+          accountUid:
+            uid,
+          profile:
+            t,
+          campaignId:
+            p.campaignId
+        });
+
+      const targetMembershipId =
+        canonicalMembershipDocumentId(
+          p.campaignId,
+          targetIdentity.personId
+        );
+
+      const targetMembershipSnapshot =
+        await tx.get(
+          db
+            .collection(
+              'territorialMemberships'
+            )
+            .doc(
+              targetMembershipId
+            )
+        );
+
+      if (
+        !targetMembershipSnapshot.exists
+      ) {
+        fail(
+          'failed-precondition',
+          'Una persona seleccionada no tiene membresía territorial canónica.'
+        );
+      }
+
+      const targetMembership =
+        targetMembershipSnapshot.data();
+
+      if (
+        targetMembership.active !== true ||
+        !membershipMatchesSubject({
+          membership:
+            targetMembership,
+          membershipId:
+            targetMembershipId,
+          campaignId:
+            p.campaignId,
+          personId:
+            targetIdentity.personId
+        })
+      ) {
+        fail(
+          'failed-precondition',
+          'La membresía territorial de una persona seleccionada no es válida.'
+        );
+      }
+
+      const eligibility =
+        evaluateMissionAssigneeEligibility({
+          activityCode:
+            effectiveActivityCode,
+
+          activityPreferences:
+            targetMembership
+              .activityPreferences,
+
+          hasDigitalAccount:
+            Boolean(
+              targetIdentity.accountUid
+            )
+        });
+
+      if (!eligibility.eligible) {
+
+        if (
+          eligibility.reason ===
+            'activity-not-selected'
+        ) {
+          fail(
+            'failed-precondition',
+            'Una persona seleccionada no indicó disponibilidad para este tipo de actividad.'
+          );
+        }
+
+        if (
+          eligibility.reason ===
+            'digital-account-required'
+        ) {
+          fail(
+            'failed-precondition',
+            'Esta actividad requiere una cuenta digital activa en TERRA.'
+          );
+        }
+
+        fail(
+          'failed-precondition',
+          'Una persona seleccionada no es elegible para este tipo de misión.'
+        );
+      }
       const content = parent ? parent.content : fields;
       const data = {
         id:missionId, campaignId:p.campaignId, ...content, deadlineAtMillis:content.deadlineAt ? Date.parse(content.deadlineAt) : null, active:true,
@@ -140,6 +271,331 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
     return result;
   });
 });
+exports.getEligibleMissionAssignees = onCall(
+  OPTIONS,
+  async request => {
+
+    const d =
+      request.data || {};
+
+    const parentId =
+      d.parentMissionId == null
+        ? null
+        : id(
+            d.parentMissionId
+          );
+
+    let requestedActivityCode =
+      null;
+
+    if (!parentId) {
+
+      try {
+
+        requestedActivityCode =
+          classifyMissionActivity(
+            d.activityCode
+          ).activityCode;
+
+      } catch {
+
+        fail(
+          'invalid-argument',
+          'Selecciona un tipo de actividad valido para la mision.'
+        );
+      }
+    }
+
+    const db =
+      getFirestore();
+
+    return db.runTransaction(
+      async tx => {
+
+        const p =
+          await caller(
+            tx,
+            db,
+            request
+          );
+
+        if (!NEXT[p.role]) {
+          fail(
+            'permission-denied',
+            'Tu nivel no puede delegar.'
+          );
+        }
+
+        let parent =
+          null;
+
+        if (parentId) {
+
+          const registry =
+            await tx.get(
+              db
+                .collection(
+                  'missionLinks'
+                )
+                .doc(
+                  parentId
+                )
+            );
+
+          const sourceMission =
+            await tx.get(
+              db
+                .collection(
+                  'misiones'
+                )
+                .doc(
+                  parentId
+                )
+            );
+
+          parent =
+            registry.data();
+
+          if (
+            !parent ||
+            !sourceMission.exists ||
+            parent.campaignId !==
+              p.campaignId ||
+            parent.assignedTo !==
+              p.uid ||
+            parent.assignedToRole !==
+              p.role ||
+            sourceMission.data()
+              .active !== true
+          ) {
+            fail(
+              'permission-denied',
+              'Solo puedes delegar una mision vinculada, activa y asignada a ti.'
+            );
+          }
+
+          if (
+            parent.content
+              ?.deadlineAt &&
+            Date.parse(
+              parent.content.deadlineAt
+            ) <= Date.now()
+          ) {
+            fail(
+              'failed-precondition',
+              'La mision ya vencio y no se puede delegar.'
+            );
+          }
+
+          if (
+            parent.ancestorMissionIds
+              .length >= 4
+          ) {
+            fail(
+              'failed-precondition',
+              'Se alcanzo el ultimo nivel de delegacion.'
+            );
+          }
+        }
+
+        const effectiveActivityCode =
+          parent
+            ? parent.content
+                ?.activityCode
+            : requestedActivityCode;
+
+        if (!effectiveActivityCode) {
+          fail(
+            'failed-precondition',
+            'La mision no tiene un tipo de actividad operativo valido.'
+          );
+        }
+
+        const assignableRole =
+          NEXT[p.role];
+
+        let usersQuery =
+          db
+            .collection(
+              'usuarios'
+            )
+            .where(
+              'campaignId',
+              '==',
+              p.campaignId
+            )
+            .where(
+              'role',
+              '==',
+              assignableRole
+            );
+
+        if (
+          ![
+            'admin',
+            'lider_principal'
+          ].includes(
+            p.role
+          )
+        ) {
+          usersQuery =
+            usersQuery.where(
+              'parentUserId',
+              '==',
+              p.uid
+            );
+        }
+
+        const targets =
+          await tx.get(
+            usersQuery
+          );
+
+        const eligible = [];
+
+        for (
+          const targetSnapshot
+          of targets.docs
+        ) {
+
+          const targetProfile =
+            targetSnapshot.data();
+
+          if (
+            !targetAllowed(
+              p,
+              targetProfile
+            )
+          ) {
+            continue;
+          }
+
+          const targetIdentity =
+            await resolveCanonicalPersonForAccount({
+              db,
+              tx,
+              accountUid:
+                targetSnapshot.id,
+              profile:
+                targetProfile,
+              campaignId:
+                p.campaignId
+            });
+
+          const targetMembershipId =
+            canonicalMembershipDocumentId(
+              p.campaignId,
+              targetIdentity.personId
+            );
+
+          const targetMembershipSnapshot =
+            await tx.get(
+              db
+                .collection(
+                  'territorialMemberships'
+                )
+                .doc(
+                  targetMembershipId
+                )
+            );
+
+          if (
+            !targetMembershipSnapshot
+              .exists
+          ) {
+            continue;
+          }
+
+          const targetMembership =
+            targetMembershipSnapshot
+              .data();
+
+          if (
+            targetMembership.active !==
+              true ||
+            !membershipMatchesSubject({
+              membership:
+                targetMembership,
+              membershipId:
+                targetMembershipId,
+              campaignId:
+                p.campaignId,
+              personId:
+                targetIdentity.personId
+            })
+          ) {
+            continue;
+          }
+
+          const eligibility =
+            evaluateMissionAssigneeEligibility({
+              activityCode:
+                effectiveActivityCode,
+
+              activityPreferences:
+                targetMembership
+                  .activityPreferences,
+
+              hasDigitalAccount:
+                Boolean(
+                  targetIdentity.accountUid
+                )
+            });
+
+          if (
+            !eligibility.eligible
+          ) {
+            continue;
+          }
+
+          eligible.push({
+            uid:
+              targetSnapshot.id,
+
+            name:
+              targetProfile.name ||
+              targetProfile.email ||
+              'Sin nombre',
+
+            role:
+              targetProfile.role ||
+              '',
+
+            municipalityId:
+              targetProfile
+                .municipalityId ||
+              '',
+
+            structureId:
+              targetProfile
+                .structureId ||
+              ''
+          });
+        }
+
+        eligible.sort(
+          (a, b) =>
+            String(
+              a.name || ''
+            ).localeCompare(
+              String(
+                b.name || ''
+              ),
+              'es'
+            )
+        );
+
+        return {
+          activityCode:
+            effectiveActivityCode,
+
+          eligible
+        };
+      }
+    );
+  }
+);
+
 exports.getMissionBranchProgress = onCall(OPTIONS, async request => {
   const missionId = id(request.data?.missionId);
   const db = getFirestore();
