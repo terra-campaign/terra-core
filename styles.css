@@ -873,6 +873,14 @@ TOPBAR ADMIN RESPONSIVE
 
 }
 
+.topbar-profile {
+    margin: .35rem 0 0;
+    font-size: .82rem;
+    line-height: 1.35;
+    font-weight: 600;
+    opacity: .9;
+}
+
 .topbar-actions{
 
     display:flex;

@@ -94,6 +94,9 @@ import {
 const logoutButton =
   document.querySelector("#logoutButton");
 
+const activeProfileLabel =
+  document.querySelector("#activeProfileLabel");
+
 const brigadistasAdminButton =
   document.querySelector("#brigadistasAdminButton");
 
@@ -927,6 +930,57 @@ function isTechnicalAdmin() {
   );
 }
 
+
+function profileRoleLabel(role) {
+
+  const labels = {
+    admin: "Administrador t\u00e9cnico",
+    lider_principal: "L\u00edder principal",
+    coordinador: "Coordinador",
+    coordinador_municipal: "Coordinador municipal",
+    jefe_estructura: "Responsable de estructura",
+    integrante: "Integrante",
+    participante: "Participante",
+    colaborador_base: "Colaborador de base",
+    brigadista: "Brigadista",
+    consulta: "Consulta"
+  };
+
+  return (
+    labels[role] ||
+    role ||
+    "Perfil"
+  );
+}
+
+
+function applyActiveProfileLabel() {
+
+  if (
+    !activeProfileLabel ||
+    !currentUserProfile
+  ) {
+    return;
+  }
+
+  const name =
+    currentUserProfile.name ||
+    currentUserProfile.displayName ||
+    currentUser?.displayName ||
+    currentUserProfile.email ||
+    currentUser?.email ||
+    "Usuario";
+
+  activeProfileLabel.textContent =
+    name +
+    " ? " +
+    profileRoleLabel(
+      currentUserProfile.role
+    );
+
+  activeProfileLabel.hidden = false;
+}
+
 function adminCampaignLabel(campaign) {
   return (
     campaign?.name ||
@@ -1022,6 +1076,8 @@ function applyRoleInterface() {
 
   const role = currentUserProfile.role;
   const isAdmin = role === "admin";
+
+  applyActiveProfileLabel();
 
   const canManageBrigadistas =
     isAdmin || role === "coordinador";
