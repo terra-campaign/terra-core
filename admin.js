@@ -112,6 +112,9 @@ const missionsButton =
 const eventsButton =
   document.querySelector("#eventsButton");
 
+const myPerformanceButton =
+  document.querySelector("#myPerformanceButton");
+
 const organizationButton =
   document.querySelector("#organizationButton");
 
@@ -1103,6 +1106,17 @@ function applyRoleInterface() {
 
   if (eventsButton) {
     eventsButton.hidden = !canAccessEvents;
+  }
+
+  if (myPerformanceButton) {
+    myPerformanceButton.hidden =
+      !currentUser?.uid;
+
+    if (currentUser?.uid) {
+      myPerformanceButton.href =
+        "./persona.html?id=" +
+        encodeURIComponent(currentUser.uid);
+    }
   }
 
   // BUILD-119A3:
