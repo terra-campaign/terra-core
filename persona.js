@@ -229,58 +229,21 @@ function roleLabel(role) {
 // RESPONSABLE DIRECTO
 // ======================================================
 
-async function getParentName(
-  parentUserId,
-  fallbackName = ""
+function getParentName(
+  ...candidateNames
 ) {
 
-  if (fallbackName) {
-    return fallbackName;
-  }
+  for (const candidate of candidateNames) {
 
-  if (!parentUserId) {
-    return "â€”";
-  }
+    const name =
+      cleanText(candidate);
 
-  try {
-
-    const parentSnapshot =
-      await getDoc(
-        doc(
-          db,
-          "usuarios",
-          parentUserId
-        )
-      );
-
-    if (!parentSnapshot.exists()) {
-      return "â€”";
+    if (name) {
+      return name;
     }
-
-    const parent =
-      parentSnapshot.data();
-
-    if (
-  parent.role === "admin"
-) {
-  return "ADMINISTRADOR GRAL";
-}
-
-return (
-  cleanText(parent.name) ||
-  cleanText(parent.email) ||
-  "â€”"
-);
-
-  } catch (error) {
-
-    console.error(
-      "Error al consultar responsable directo:",
-      error
-    );
-
-    return "â€”";
   }
+
+  return "\u2014";
 }
 
 
@@ -563,9 +526,11 @@ async function loadPersonProfile(uid) {
     // ==================================================
 
     const parentName =
-      await getParentName(
-        person.parentUserId,
-        person.parentUserName
+      getParentName(
+        person.parentUserName,
+        person.parentName,
+        person.structureChiefName,
+        person.chiefName
       );
 
 
