@@ -144,6 +144,11 @@ const activityStatus =
 // BUILD-124 B4-B2B16
 // ======================================================
 
+const performanceHeading =
+  document.getElementById(
+    "performanceHeading"
+  );
+
 const performanceContributionCount =
   document.getElementById(
     "performanceContributionCount"
@@ -183,6 +188,11 @@ const performanceContributionsButton =
 const performanceContributionsPanel =
   document.getElementById(
     "performanceContributionsPanel"
+  );
+
+const performanceContributionsTitle =
+  document.getElementById(
+    "performanceContributionsTitle"
   );
 
 const performanceContributionsSummary =
@@ -663,6 +673,50 @@ function renderPerformanceContributions() {
 }
 
 
+function isOwnPerformanceProfile() {
+
+  return Boolean(
+    cleanText(actorProfile?.uid) &&
+    cleanText(targetUid) &&
+    cleanText(actorProfile.uid) ===
+      cleanText(targetUid)
+  );
+}
+
+
+function applyPerformanceContextLabels() {
+
+  const ownProfile =
+    isOwnPerformanceProfile();
+
+  performanceHeading.textContent =
+    ownProfile
+      ? "Mi desempeño operativo"
+      : "Desempeño operativo";
+
+  performanceContributionsTitle.textContent =
+    ownProfile
+      ? "Mis contribuciones verificadas"
+      : "Contribuciones verificadas";
+
+  const expanded =
+    performanceContributionsPanel.hidden === false;
+
+  performanceContributionsButton.textContent =
+    expanded
+      ? (
+          ownProfile
+            ? "Ocultar mis contribuciones"
+            : "Ocultar contribuciones"
+        )
+      : (
+          ownProfile
+            ? "Ver mis contribuciones"
+            : "Ver contribuciones verificadas"
+        );
+}
+
+
 function closePerformanceContributions() {
 
   performanceContributionsPanel.hidden =
@@ -674,8 +728,7 @@ function closePerformanceContributions() {
       "false"
     );
 
-  performanceContributionsButton.textContent =
-    "Ver mis contribuciones";
+  applyPerformanceContextLabels();
 }
 
 
@@ -847,8 +900,7 @@ performanceContributionsButton.addEventListener(
           "true"
         );
 
-      performanceContributionsButton.textContent =
-        "Ocultar mis contribuciones";
+      applyPerformanceContextLabels();
 
       return;
     }
@@ -1019,6 +1071,30 @@ async function loadPersonProfile(uid) {
     errorSection.hidden = true;
     profileSection.hidden = false;
 
+    if (
+      window.location.hash ===
+      "#desempeno"
+    ) {
+
+      const performanceSection =
+        document.getElementById(
+          "desempeno"
+        );
+
+      if (performanceSection) {
+
+        requestAnimationFrame(
+          () => {
+            performanceSection
+              .scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+              });
+          }
+        );
+      }
+    }
+
 
     // ==================================================
     // ACTIVIDAD
@@ -1092,6 +1168,8 @@ onAuthStateChanged(
     }
 
     await loadActorProfile(user);
+
+    applyPerformanceContextLabels();
 
     if (!targetUid) {
 

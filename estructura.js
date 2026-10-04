@@ -631,6 +631,15 @@ function renderStructureChief(
           Ver perfil
         </a>
 
+        <a
+          class="button button--secondary button--small"
+          href="./persona.html?id=${encodeURIComponent(
+            chief.uid
+          )}#desempeno"
+        >
+          Ver desempeño
+        </a>
+
       </div>
 
     </article>
@@ -744,6 +753,20 @@ function renderMembers(
 >
   Ver perfil
 </a>
+
+${currentUserProfile.role === "jefe_estructura"
+  ? `
+<a
+  class="button button--secondary button--small"
+  href="./persona.html?id=${encodeURIComponent(
+    member.uid
+  )}#desempeno"
+>
+  Ver desempeño
+</a>
+`
+  : ""
+}
     </div>
 
   </article>
