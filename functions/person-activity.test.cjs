@@ -118,6 +118,9 @@ const summary =
     targetUid:
       'PERSON',
 
+    targetPersonId:
+      'PERSON-ID-001',
+
     campaignId:
       'CAM-001',
 
@@ -263,6 +266,85 @@ const summary =
           pendingAppeal: false
         }
       }
+    ],
+
+    attendance: [
+
+      {
+        id: 'ATT-1',
+        data: {
+          campaignId: 'CAM-001',
+          personId: 'PERSON-ID-001',
+          eventId: 'EVENT-001',
+          attended: true
+        }
+      },
+
+      {
+        id: 'ATT-2',
+        data: {
+          campaignId: 'CAM-001',
+          personId: 'PERSON-ID-001',
+          eventId: 'EVENT-002',
+          attended: true
+        }
+      },
+
+      // Mismo evento: no debe duplicarse.
+      {
+        id: 'ATT-2-DUP',
+        data: {
+          campaignId: 'CAM-001',
+          personId: 'PERSON-ID-001',
+          eventId: 'EVENT-002',
+          attended: true
+        }
+      },
+
+      // No asistio.
+      {
+        id: 'ATT-3',
+        data: {
+          campaignId: 'CAM-001',
+          personId: 'PERSON-ID-001',
+          eventId: 'EVENT-003',
+          attended: false
+        }
+      },
+
+      // Otra campana.
+      {
+        id: 'ATT-4',
+        data: {
+          campaignId: 'CAM-999',
+          personId: 'PERSON-ID-001',
+          eventId: 'EVENT-004',
+          attended: true
+        }
+      },
+
+      // Otra persona.
+      {
+        id: 'ATT-5',
+        data: {
+          campaignId: 'CAM-001',
+          personId: 'OTHER-PERSON',
+          eventId: 'EVENT-005',
+          attended: true
+        }
+      },
+
+      // Sin eventId valido.
+      {
+        id: 'ATT-6',
+        data: {
+          campaignId: 'CAM-001',
+          personId: 'PERSON-ID-001',
+          eventId: '',
+          attended: true
+        }
+      }
+
     ]
   });
 
@@ -272,7 +354,8 @@ assert.deepEqual(
   {
     assigned: 3,
     completed: 1,
-    evidence: 4
+    evidence: 4,
+    eventsAttended: 2
   }
 );
 

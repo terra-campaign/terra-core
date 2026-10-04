@@ -297,14 +297,14 @@ async function loadPersonActivity(uid) {
         : "—";
 
 
-    // Eventos todavía no tiene una fuente
-    // operativa validada en esta versión.
     eventsCount.textContent =
-      "—";
+      Number.isInteger(data.eventsAttended)
+        ? String(data.eventsAttended)
+        : "—";
 
 
     activityStatus.textContent =
-      "Misiones y evidencias calculadas con datos operativos reales. Eventos aún no está conectado.";
+      "Misiones, evidencias y eventos calculados con datos operativos reales validados.";
 
   } catch (error) {
 

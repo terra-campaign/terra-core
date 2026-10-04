@@ -132,10 +132,12 @@ function canReadTarget(caller, target) {
 
 function buildSummary({
   targetUid,
+  targetPersonId,
   campaignId,
   missions,
   evidence,
-  reviews
+  reviews,
+  attendance = []
 }) {
 
   const missionMap = new Map();
@@ -211,6 +213,29 @@ function buildSummary({
   }
 
 
+  const attendedEventIds =
+    new Set();
+
+  for (const row of attendance) {
+
+    const record =
+      row?.data || {};
+
+    if (
+      record.campaignId !== campaignId ||
+      record.personId !== targetPersonId ||
+      record.attended !== true ||
+      !validDocumentId(record.eventId)
+    ) {
+      continue;
+    }
+
+    attendedEventIds.add(
+      record.eventId
+    );
+  }
+
+
   return {
     assigned:
       missionMap.size,
@@ -219,7 +244,10 @@ function buildSummary({
       completedMissionIds.size,
 
     evidence:
-      evidenceMap.size
+      evidenceMap.size,
+
+    eventsAttended:
+      attendedEventIds.size
   };
 }
 
@@ -323,6 +351,16 @@ exports.getPersonActivitySummary =
           }
 
 
+          const targetPersonId =
+            typeof target.personId ===
+              'string' &&
+            validDocumentId(
+              target.personId.trim()
+            )
+              ? target.personId.trim()
+              : null;
+
+
           // Consultas por un solo campo:
           // no requieren índices compuestos adicionales.
 
@@ -365,10 +403,35 @@ exports.getPersonActivitySummary =
             );
 
 
+          let attendanceSnapshot =
+            null;
+
+          if (targetPersonId) {
+
+            attendanceSnapshot =
+              await tx.get(
+                db
+                  .collection(
+                    'eventAttendance'
+                  )
+                  .where(
+                    'personId',
+                    '==',
+                    targetPersonId
+                  )
+                  .limit(5001)
+              );
+          }
+
+
           if (
             missionsSnapshot.size > 5000 ||
             evidenceSnapshot.size > 5000 ||
-            reviewsSnapshot.size > 5000
+            reviewsSnapshot.size > 5000 ||
+            (
+              attendanceSnapshot &&
+              attendanceSnapshot.size > 5000
+            )
           ) {
             fail(
               'resource-exhausted',
@@ -381,6 +444,8 @@ exports.getPersonActivitySummary =
             buildSummary({
 
               targetUid,
+
+              targetPersonId,
 
               campaignId:
                 target.campaignId,
@@ -407,7 +472,17 @@ exports.getPersonActivitySummary =
                     id: doc.id,
                     data: doc.data()
                   })
-                )
+                ),
+
+              attendance:
+                attendanceSnapshot
+                  ? attendanceSnapshot.docs.map(
+                      (doc) => ({
+                        id: doc.id,
+                        data: doc.data()
+                      })
+                    )
+                  : []
             });
 
 
