@@ -79,13 +79,13 @@ assert.match(
 
 // ======================================================
 // PERSONA:
-// TUTOR = INTRODUCTOR / MENTOR
-// INVITADOR = REFERENTE
+// INVITADOR = INTRODUCTOR
+// TUTOR = PADRE JERARQUICO / MENTOR
 // ======================================================
 
 assert.match(
   source,
-  /introducedByUserId:\s*caller\.uid,\s*introducedByPersonId:\s*callerPersonId/
+  /introducedByUserId:\s*handoff\.inviterUserId,\s*introducedByPersonId:\s*inviterPersonId/
 );
 
 assert.match(
@@ -101,7 +101,7 @@ assert.match(
 
 // ======================================================
 // MEMBRESIA:
-// TUTOR = PARENT / INTRODUCTOR / MENTOR
+// TUTOR = PARENT / MENTOR
 // ======================================================
 
 assert.match(
@@ -111,7 +111,7 @@ assert.match(
 
 const introducedPersonMatches =
   source.match(
-    /introducedByPersonId:\s*callerPersonId/g
+    /introducedByPersonId:\s*inviterPersonId/g
   ) || [];
 
 assert.ok(

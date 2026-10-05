@@ -21,7 +21,7 @@ const {
 const {
   evaluateMissionAssigneeEligibility
 } = require('./mission-assignee-eligibility.cjs');
-const NEXT = {lider_principal:'coordinador_municipal', admin:'coordinador_municipal', coordinador_municipal:'jefe_estructura', jefe_estructura:'integrante', integrante:'participante', participante:'colaborador_base'};
+const NEXT = {lider_principal:'coordinador_municipal', admin:'coordinador_municipal', coordinador_municipal:'jefe_estructura', jefe_estructura:'integrante', integrante:'participante', participante:'colaborador_base', colaborador_base:'apoyo_territorial'};
 const OPTIONS = {region:'us-central1', timeoutSeconds:60};
 const fail = (code, message) => { throw new HttpsError(code, message); };
 const hash = (...parts) => createHash('sha256').update(JSON.stringify(parts)).digest('hex');
@@ -38,7 +38,7 @@ async function caller(tx, db, request) {
   if (!request.auth) fail('unauthenticated','Inicia sesión.');
   const s = await tx.get(db.collection('usuarios').doc(request.auth.uid));
   const p = s.data();
-  if (!p || p.active !== true || !p.campaignId || ![...Object.keys(NEXT),'colaborador_base'].includes(p.role)) fail('permission-denied','Perfil no autorizado.');
+  if (!p || p.active !== true || !p.campaignId || ![...Object.keys(NEXT),'apoyo_territorial'].includes(p.role)) fail('permission-denied','Perfil no autorizado.');
   if (p.role === 'lider_principal') {
     const lock = await tx.get(db.collection('principalLeaders').doc(p.campaignId));
     if (lock.data()?.uid !== s.id) fail('permission-denied','Líder no registrado para esta campaña.');
@@ -48,7 +48,7 @@ async function caller(tx, db, request) {
 function targetAllowed(p, t) {
   return t && t.active === true && t.campaignId === p.campaignId && t.role === NEXT[p.role] &&
     (['admin','lider_principal'].includes(p.role) || (t.parentUserId === p.uid && !!p.municipalityId && t.municipalityId === p.municipalityId)) &&
-    (!['jefe_estructura','integrante','participante'].includes(p.role) || (!!p.structureId && t.structureId === p.structureId));
+    (!['jefe_estructura','integrante','participante','colaborador_base'].includes(p.role) || (!!p.structureId && t.structureId === p.structureId));
 }
 function deadline(value) {
   if (value == null || value === '') return null;

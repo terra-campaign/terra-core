@@ -237,7 +237,8 @@ function validateMissionModuleAccess(profile) {
     "jefe_estructura",
     "integrante",
     "participante",
-    "colaborador_base"
+    "colaborador_base",
+    "apoyo_territorial"
   ];
 
   if (!profile || !allowedRoles.includes(profile.role)) {

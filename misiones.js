@@ -138,7 +138,7 @@ evidenceCountStatus.style.fontSize = "0.8rem";
 evidenceCountStatus.setAttribute("aria-live", "polite");
 totalEvidenceElement.after(evidenceCountStatus);
 function renderSession() {
-  const roles = {admin:"Administrador", coordinador_municipal:"Responsable de organización", jefe_estructura:"Responsable de estructura", integrante:"Integrante", participante:"Participante", colaborador_base:"Colaborador de base"};
+  const roles = {admin:"Administrador", coordinador_municipal:"Responsable de organización", jefe_estructura:"Responsable de estructura", integrante:"Integrante", participante:"Participante", colaborador_base:"Colaborador de base", apoyo_territorial:"Apoyo territorial"};
   sessionLabel.textContent = currentUserProfile ? `Sesión: ${currentUserProfile.name || currentUser?.email || "Sin nombre"} · ${roles[currentUserProfile.role] || currentUserProfile.role}` : "";
 }
 async function loadEvidenceTotal(version) {
@@ -211,7 +211,8 @@ function validateMissionAccess(profile) {
     "jefe_estructura",
     "integrante",
     "participante",
-    "colaborador_base"
+    "colaborador_base",
+    "apoyo_territorial"
   ];
 
   if (!allowedRoles.includes(profile.role)) {
@@ -246,6 +247,9 @@ function getAssignableRole(profile) {
       return "colaborador_base";
 
     case "colaborador_base":
+      return "apoyo_territorial";
+
+    case "apoyo_territorial":
       return null;
 
     default:
@@ -427,7 +431,10 @@ async function loadAvailableAssignees() {
         "Participante",
 
       colaborador_base:
-        "Colaborador de base"
+        "Colaborador de base",
+
+      apoyo_territorial:
+        "Apoyo territorial"
     };
 
     people.forEach(

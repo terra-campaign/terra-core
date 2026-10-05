@@ -1,6 +1,6 @@
 'use strict';
 const WINDOW_MS = 3 * 60 * 60 * 1000;
-const NEXT = {admin:'coordinador_municipal',coordinador_municipal:'jefe_estructura',jefe_estructura:'integrante',integrante:'participante',participante:'colaborador_base'};
+const NEXT = {admin:'coordinador_municipal',coordinador_municipal:'jefe_estructura',jefe_estructura:'integrante',integrante:'participante',participante:'colaborador_base',colaborador_base:'apoyo_territorial'};
 function parentOf(parent, child) {
   return !!parent && !!child && parent.active === true && child.active === true &&
     !!parent.campaignId && parent.campaignId === child.campaignId && NEXT[parent.role] === child.role &&

@@ -30,6 +30,17 @@ const collaborator = {
 };
 
 
+const support = {
+  uid: 'SUPPORT-001',
+  role: 'apoyo_territorial',
+  active: true,
+  campaignId: 'CAM-001',
+  municipalityId: 'MUN-001',
+  structureId: 'EST-001',
+  parentUserId: 'BASE-001'
+};
+
+
 assert.equal(
   parentOf(
     participant,
@@ -54,10 +65,19 @@ assert.equal(
 assert.equal(
   parentOf(
     collaborator,
+    support
+  ),
+  true
+);
+
+
+assert.equal(
+  parentOf(
+    support,
     {
-      ...collaborator,
-      uid: 'BASE-002',
-      parentUserId: 'BASE-001'
+      ...support,
+      uid: 'SUPPORT-002',
+      parentUserId: 'SUPPORT-001'
     }
   ),
   false
@@ -65,5 +85,5 @@ assert.equal(
 
 
 console.log(
-  'OK: participante -> colaborador_base habilitado para revisión; colaborador_base permanece terminal.'
+  'OK: participante -> colaborador_base y colaborador_base -> apoyo_territorial habilitados; apoyo_territorial permanece terminal.'
 );

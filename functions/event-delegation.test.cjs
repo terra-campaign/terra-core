@@ -260,6 +260,11 @@ assert.equal(
 
 assert.equal(
   NEXT.colaborador_base,
+  'apoyo_territorial'
+);
+
+assert.equal(
+  NEXT.apoyo_territorial,
   undefined
 );
 
@@ -285,10 +290,30 @@ const baseCollaboratorTarget = {
 };
 
 
+const territorialSupportTarget = {
+  uid: 'SUPPORT-001',
+  role: 'apoyo_territorial',
+  active: true,
+  campaignId: 'CAM-001',
+  municipalityId: 'MUN-001',
+  structureId: 'EST-001',
+  parentUserId: 'BASE-001'
+};
+
+
 assert.equal(
   targetAllowed(
     baseParticipantForDelegation,
     baseCollaboratorTarget
+  ),
+  true
+);
+
+
+assert.equal(
+  targetAllowed(
+    baseCollaboratorTarget,
+    territorialSupportTarget
   ),
   true
 );
@@ -1173,6 +1198,23 @@ assert.equal(
       municipalityId: 'MUN-001',
       structureId: 'EST-001',
       parentUserId: 'PART-001'
+    },
+    attendanceMasterEvent
+  ),
+  'direct'
+);
+
+
+assert.equal(
+  eventAttendanceWorkspaceScope(
+    {
+      uid: 'SUPPORT-ATTENDANCE',
+      role: 'apoyo_territorial',
+      active: true,
+      campaignId: 'CAM-001',
+      municipalityId: 'MUN-001',
+      structureId: 'EST-001',
+      parentUserId: 'BASE-ATTENDANCE'
     },
     attendanceMasterEvent
   ),

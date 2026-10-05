@@ -38,6 +38,22 @@ assert.equal(
 
 assert.equal(
   test.nextAffiliationRole(
+    'colaborador_base'
+  ),
+  'apoyo_territorial'
+);
+
+
+assert.equal(
+  test.nextAffiliationRole(
+    'apoyo_territorial'
+  ),
+  null
+);
+
+
+assert.equal(
+  test.nextAffiliationRole(
     'coordinador_municipal'
   ),
   null
@@ -57,6 +73,14 @@ assert.equal(
     'colaborador_base'
   ),
   'Colaborador de base'
+);
+
+
+assert.equal(
+  test.roleLabel(
+    'apoyo_territorial'
+  ),
+  'Apoyo territorial'
 );
 
 

@@ -58,7 +58,10 @@ const NEXT_AFFILIATION_ROLE = {
     'participante',
 
   participante:
-    'colaborador_base'
+    'colaborador_base',
+
+  colaborador_base:
+    'apoyo_territorial'
 };
 
 
@@ -74,7 +77,10 @@ const ROLE_LABELS = {
     'Participante',
 
   colaborador_base:
-    'Colaborador de base'
+    'Colaborador de base',
+
+  apoyo_territorial:
+    'Apoyo territorial'
 };
 
 

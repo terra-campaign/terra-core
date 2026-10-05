@@ -314,7 +314,10 @@ const ROLE_LABELS = {
     "Participante",
 
   colaborador_base:
-    "Colaborador de base"
+    "Colaborador de base",
+
+  apoyo_territorial:
+    "Apoyo territorial"
 };
 
 
@@ -2935,7 +2938,7 @@ function mountEventShortcuts() {
 
   const isBaseCollaborator =
     workspace?.viewer?.role ===
-    "colaborador_base";
+    "apoyo_territorial";
 
   const items = [
     {
@@ -3065,7 +3068,7 @@ function renderTransportEventChooser() {
 
   const visible =
     workspace?.viewer?.role !==
-      "colaborador_base" &&
+      "apoyo_territorial" &&
     ids.length > 0;
 
 
@@ -8869,7 +8872,7 @@ function renderWorkspace() {
 
   const isBaseCollaborator =
     workspace.viewer.role ===
-    "colaborador_base";
+    "apoyo_territorial";
 
 
   renderEventFilters();

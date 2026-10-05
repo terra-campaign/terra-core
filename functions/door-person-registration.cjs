@@ -82,7 +82,9 @@ const DOOR_CALLER_ROLES =
     'coordinador_municipal',
     'jefe_estructura',
     'integrante',
-    'participante'
+    'participante',
+    'colaborador_base',
+    'apoyo_territorial'
   ]);
 
 
@@ -329,6 +331,25 @@ function tutorMatchesInviter(
     );
   }
 
+
+
+
+  if (
+    inviter.role ===
+      'colaborador_base' ||
+    inviter.role ===
+      'apoyo_territorial'
+  ) {
+
+    return (
+      Array.isArray(
+        inviter.ancestorUserIds
+      ) &&
+      inviter.ancestorUserIds.includes(
+        tutor.uid
+      )
+    );
+  }
 
   return false;
 }
@@ -829,8 +850,8 @@ exports.createDoorRegistrationHandoff =
       // BUILD-123B3
       // IDENTIDADES CANONICAS DEL HANDOFF
       //
-      // invitador -> referredByPersonId
-      // tutor     -> parent / introducedBy / mentor
+      // invitador -> introducedBy / referredBy
+      // tutor     -> parent / mentor
       // ==================================================
 
       const [
@@ -1746,10 +1767,10 @@ exports.completeDoorRegistrationHandoff =
                 'event_door',
 
               introducedByUserId:
-                caller.uid,
+                handoff.inviterUserId,
 
               introducedByPersonId:
-                callerPersonId,
+                inviterPersonId,
 
               referredByUserId:
                 handoff.inviterUserId,
@@ -1825,10 +1846,10 @@ exports.completeDoorRegistrationHandoff =
                 callerPersonId,
 
               introducedByUserId:
-                caller.uid,
+                handoff.inviterUserId,
 
               introducedByPersonId:
-                callerPersonId,
+                inviterPersonId,
 
               referredByUserId:
                 handoff.inviterUserId,

@@ -37,7 +37,8 @@ const NEXT = {
   coordinador_municipal: 'jefe_estructura',
   jefe_estructura: 'integrante',
   integrante: 'participante',
-  participante: 'colaborador_base'
+  participante: 'colaborador_base',
+  colaborador_base: 'apoyo_territorial'
 };
 
 
@@ -919,7 +920,7 @@ async function caller(tx, db, request) {
     !profile.campaignId ||
     ![
       ...Object.keys(NEXT),
-      'colaborador_base'
+      'apoyo_territorial'
     ].includes(profile.role)
   ) {
     fail(
@@ -2111,7 +2112,7 @@ async function readCaller(db, request) {
     !profile.campaignId ||
     ![
       ...Object.keys(NEXT),
-      'colaborador_base'
+      'apoyo_territorial'
     ].includes(profile.role)
   ) {
     fail(
@@ -4157,12 +4158,12 @@ function eventAttendanceWorkspaceScope(
   }
 
 
-  // El Colaborador de base es destinatario operativo.
-  // Puede responder su propia invitación, pero no
+  // El Apoyo territorial es destinatario operativo terminal.
+  // Puede responder su propia invitacion, pero no
   // administra el control de asistencia de terceros.
   if (
     profile.role ===
-    'colaborador_base'
+    'apoyo_territorial'
   ) {
     return 'none';
   }

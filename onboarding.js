@@ -167,7 +167,10 @@ function roleLabel(role) {
       "Participante",
 
     colaborador_base:
-      "Colaborador de base"
+      "Colaborador de base",
+
+    apoyo_territorial:
+      "Apoyo territorial"
   };
 
   return labels[role] ||
