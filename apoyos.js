@@ -160,7 +160,7 @@ function showStatus(
 
   if (type) {
     element.classList.add(
-      \`status--\${type}\`
+      `status--${type}`
     );
   }
 }
@@ -304,21 +304,21 @@ function renderContext(
   setText(
     ownerRole,
     caller.roleLabel
-      ? \`Rol: \${caller.roleLabel}\`
+      ? `Rol: ${caller.roleLabel}`
       : ""
   );
 
   setText(
     ownerStructure,
     caller.structureName
-      ? \`Estructura: \${caller.structureName}\`
+      ? `Estructura: ${caller.structureName}`
       : ""
   );
 
   setText(
     ownerMunicipality,
     caller.municipalityName
-      ? \`Municipio: \${caller.municipalityName}\`
+      ? `Municipio: ${caller.municipalityName}`
       : ""
   );
 }
@@ -462,7 +462,7 @@ function renderSupports(
     ) {
       article.appendChild(
         createMutedLine(
-          \`Localidad: \${member.locality}\`
+          `Localidad: ${member.locality}`
         )
       );
     }
@@ -472,7 +472,7 @@ function renderSupports(
     ) {
       article.appendChild(
         createMutedLine(
-          \`Tel: \${member.phone}\`
+          `Tel: ${member.phone}`
         )
       );
     }
@@ -629,7 +629,7 @@ function showCreatedSupport(
 
   message.textContent =
     person?.name
-      ? \`\u2713 \${person.name} fue registrado como Apoyo territorial.\`
+      ? `\u2713 ${person.name} fue registrado como Apoyo territorial.`
       : "\u2713 Apoyo territorial registrado correctamente.";
 
   supportFormStatus.appendChild(
@@ -656,11 +656,11 @@ function showCreatedSupport(
   const welcomeMessage = [
     "TERRA CAMPAIGN",
     "",
-    \`Hola, \${person.name || ""}.\`,
+    `Hola, ${person.name || ""}.`,
     "",
     "Has sido incorporado(a) como Apoyo territorial.",
     responsibleName
-      ? \`Responsable directo: \${responsibleName}.\`
+      ? `Responsable directo: ${responsibleName}.`
       : "",
     "",
     "Gracias por formar parte de la organizaci\u00f3n territorial."
