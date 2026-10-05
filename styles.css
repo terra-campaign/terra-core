@@ -2779,3 +2779,29 @@ body.persona-page {
   border-left: 4px solid #b42318;
   color: #8a2525;
 }
+
+
+/* =====================================================
+   TERRA - FORMULARIO APOYO TERRITORIAL
+   ===================================================== */
+
+#supportForm input:not([type="radio"]) {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid #b9c9d8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17212b;
+}
+
+#supportForm input:not([type="radio"]):focus {
+  outline: none;
+  border-color: #17324d;
+  box-shadow: 0 0 0 3px rgba(23, 50, 77, 0.12);
+}
+
+#supportForm label {
+  gap: 6px;
+}
