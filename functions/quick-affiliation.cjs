@@ -1218,6 +1218,9 @@ exports.createQuickAffiliation =
         affiliationAncestry
           .ancestorPersonIds;
 
+      const now =
+        FieldValue.serverTimestamp();
+
 
       await db.runTransaction(
         async tx => {
