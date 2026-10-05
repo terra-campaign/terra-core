@@ -100,6 +100,7 @@ const logoutButton =
 let currentUser = null;
 let currentContext = null;
 let savingSupport = false;
+let supportCreated = false;
 let sessionVersion = 0;
 
 const functions =
@@ -275,7 +276,8 @@ function updateControls() {
   ) {
     saveSupportButton.disabled =
       !allowed ||
-      savingSupport;
+      savingSupport ||
+      supportCreated;
 
     saveSupportButton.textContent =
       savingSupport
@@ -584,6 +586,9 @@ function openModal() {
 
   supportForm?.reset();
 
+  supportCreated = false;
+  updateControls();
+
   clearFormStatus();
 
   supportModal.hidden =
@@ -598,6 +603,9 @@ function closeModal() {
     true;
 
   supportForm?.reset();
+
+  supportCreated = false;
+  updateControls();
 
   clearFormStatus();
 }
@@ -725,7 +733,8 @@ async function handleSubmit(
 
   if (
     !canManageSupports() ||
-    savingSupport
+    savingSupport ||
+    supportCreated
   ) {
     return;
   }
@@ -837,9 +846,13 @@ async function handleSubmit(
 
     supportForm?.reset();
 
+    supportCreated = true;
+
     showCreatedSupport(
       person
     );
+
+    updateControls();
 
     await loadSupports(
       version
