@@ -1527,6 +1527,221 @@ exports.createQuickAffiliation =
   );
 
 
+
+// ======================================================
+// LISTAR MIS AFILIACIONES DIRECTAS
+// ======================================================
+
+exports.getMyQuickAffiliations =
+  onCall(
+    OPTIONS,
+
+    async request => {
+
+      const db =
+        getFirestore();
+
+      const caller =
+        await readCaller(
+          db,
+          request
+        );
+
+      const membershipsSnapshot =
+        await db
+          .collection(
+            'territorialMemberships'
+          )
+          .where(
+            'parentUserId',
+            '==',
+            caller.uid
+          )
+          .limit(
+            1001
+          )
+          .get();
+
+      if (
+        membershipsSnapshot.size >
+          1000
+      ) {
+        fail(
+          'resource-exhausted',
+          'La campa\u00f1a requiere un \u00edndice escalable antes de continuar.'
+        );
+      }
+
+      const memberships =
+        membershipsSnapshot.docs
+          .map(
+            document => ({
+              ...document.data(),
+              membershipId:
+                document.id
+            })
+          )
+          .filter(
+            membership =>
+              membership.active ===
+                true &&
+              membership.campaignId ===
+                caller.campaignId &&
+              membership.role ===
+                caller.targetRole
+          );
+
+      const personSnapshots =
+        await Promise.all(
+          memberships.map(
+            membership =>
+              db
+                .collection(
+                  'persons'
+                )
+                .doc(
+                  membership.personId
+                )
+                .get()
+          )
+        );
+
+      const members = [];
+
+      for (
+        let index = 0;
+        index <
+          memberships.length;
+        index++
+      ) {
+        const membership =
+          memberships[index];
+
+        const snapshot =
+          personSnapshots[index];
+
+        if (
+          !snapshot.exists
+        ) {
+          continue;
+        }
+
+        const person =
+          snapshot.data();
+
+        if (
+          person.campaignId !==
+            caller.campaignId
+        ) {
+          continue;
+        }
+
+        const accountUid =
+          typeof person.accountUid ===
+            'string'
+            ? person.accountUid.trim()
+            : '';
+
+        members.push({
+
+          personRef:
+            hash(
+              'quick-affiliation-member',
+              caller.campaignId,
+              caller.uid,
+              snapshot.id
+            ),
+
+          name:
+            typeof person.name ===
+              'string'
+              ? person.name
+              : '',
+
+          locality:
+            typeof person.locality ===
+              'string'
+              ? person.locality
+              : '',
+
+          phone:
+            typeof person.phone ===
+              'string'
+              ? person.phone
+              : '',
+
+          hasWhatsApp:
+            person.hasWhatsApp ===
+              true,
+
+          active:
+            person.active !==
+              false,
+
+          role:
+            membership.role,
+
+          roleLabel:
+            roleLabel(
+              membership.role
+            ),
+
+          hasDigitalAccount:
+            Boolean(
+              accountUid
+            )
+        });
+      }
+
+      members.sort(
+        (a, b) =>
+          String(
+            a.name
+          ).localeCompare(
+            String(
+              b.name
+            ),
+            'es',
+            {
+              sensitivity:
+                'base'
+            }
+          )
+      );
+
+      return {
+
+        success:
+          true,
+
+        caller: {
+
+          name:
+            caller.name ||
+            '',
+
+          role:
+            caller.role,
+
+          roleLabel:
+            roleLabel(
+              caller.role
+            )
+        },
+
+        targetRole:
+          caller.targetRole,
+
+        targetRoleLabel:
+          roleLabel(
+            caller.targetRole
+          ),
+
+        members
+      };
+    }
+  );
+
 exports._test = {
   normalizePhone,
   normalizeText,

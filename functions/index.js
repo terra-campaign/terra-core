@@ -6220,6 +6220,9 @@ exports.createQuickAffiliation =
 exports.getStructureMembers =
   require("./quick-affiliation.cjs").getStructureMembers;
 
+exports.getMyQuickAffiliations =
+  require("./quick-affiliation.cjs").getMyQuickAffiliations;
+
 
 // BUILD-118C-3B3E-3E-A
 // Participante -> Colaborador de base digital.

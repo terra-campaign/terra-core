@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>
+    Apoyos territoriales | TERRA Campaign
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css?v=apoyos-001"
+  >
+</head>
+
+<body>
+
+  <header class="topbar">
+
+    <div>
+
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1>
+        Mi organización
+      </h1>
+
+    </div>
+
+    <div class="topbar__actions">
+
+      <button
+        id="backButton"
+        class="button button--secondary"
+        type="button"
+      >
+        Volver
+      </button>
+
+      <button
+        id="logoutButton"
+        class="button button--small button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <main class="workspace">
+
+    <section class="card">
+
+      <p class="eyebrow">
+        COLABORADOR DE BASE
+      </p>
+
+      <h2 id="ownerName">
+        Cargando organización...
+      </h2>
+
+      <p
+        id="ownerRole"
+        class="muted"
+      ></p>
+
+      <p
+        id="ownerStructure"
+        class="muted"
+      ></p>
+
+      <p
+        id="ownerMunicipality"
+        class="muted"
+      ></p>
+
+      <div
+        id="pageStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+
+    <section class="card">
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            BASE TERRITORIAL
+          </p>
+
+          <h2>
+            Mis apoyos territoriales
+          </h2>
+
+          <p class="muted">
+            Personas incorporadas directamente bajo tu responsabilidad territorial.
+          </p>
+
+        </div>
+
+        <button
+          id="newSupportButton"
+          class="button"
+          type="button"
+        >
+          + Nuevo apoyo territorial
+        </button>
+
+      </div>
+
+      <div
+        id="supportStatus"
+        class="status"
+        hidden
+      ></div>
+
+      <div
+        id="supportList"
+        class="stack"
+      >
+
+        <p class="muted">
+          Todavía no tienes apoyos territoriales registrados.
+        </p>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <div
+    id="supportModal"
+    class="modal"
+    hidden
+  >
+
+    <div
+      id="supportModalBackdrop"
+      class="modal__backdrop"
+    ></div>
+
+    <section
+      class="modal__content card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="supportModalTitle"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            INCORPORACIÓN TERRITORIAL
+          </p>
+
+          <h2 id="supportModalTitle">
+            Nuevo apoyo territorial
+          </h2>
+
+          <p class="muted">
+            La persona puede formar parte de TERRA aunque todavía no tenga cuenta digital.
+          </p>
+
+        </div>
+
+        <button
+          id="closeSupportModalButton"
+          class="button button--small button--secondary"
+          type="button"
+        >
+          Cerrar
+        </button>
+
+      </div>
+
+
+      <form id="supportForm">
+
+        <label>
+          Nombre completo *
+
+          <input
+            id="supportName"
+            type="text"
+            maxlength="120"
+            autocomplete="name"
+            required
+          >
+        </label>
+
+
+        <label>
+          Teléfono
+
+          <input
+            id="supportPhone"
+            type="tel"
+            maxlength="30"
+            autocomplete="tel"
+          >
+        </label>
+
+
+        <fieldset class="binary-choice">
+
+          <legend>
+            ¿Este teléfono tiene WhatsApp?
+          </legend>
+
+          <div class="binary-choice__options">
+
+            <label>
+              <input
+                id="supportWhatsAppYes"
+                type="radio"
+                name="supportHasWhatsApp"
+                value="yes"
+              >
+              Sí
+            </label>
+
+            <label>
+              <input
+                id="supportWhatsAppNo"
+                type="radio"
+                name="supportHasWhatsApp"
+                value="no"
+              >
+              No
+            </label>
+
+          </div>
+
+        </fieldset>
+
+
+        <label>
+          Población *
+
+          <input
+            id="supportLocality"
+            type="text"
+            maxlength="120"
+            required
+          >
+        </label>
+
+
+        <label>
+          Calle
+
+          <input
+            id="supportStreet"
+            type="text"
+            maxlength="160"
+          >
+        </label>
+
+
+        <label>
+          Número
+
+          <input
+            id="supportHouseNumber"
+            type="text"
+            maxlength="40"
+            placeholder="Ej. 125 o S/N"
+          >
+        </label>
+
+
+        <div class="form-actions">
+
+          <button
+            id="saveSupportButton"
+            class="button"
+            type="submit"
+          >
+            Guardar apoyo territorial
+          </button>
+
+        </div>
+
+      </form>
+
+
+      <div
+        id="supportFormStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+  </div>
+
+
+  <script
+    type="module"
+    src="./apoyos.js?v=apoyos-001"
+  ></script>
+
+</body>
+</html>

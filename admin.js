@@ -1086,7 +1086,8 @@ function applyRoleInterface() {
     "coordinador_municipal",
     "jefe_estructura",
     "integrante",
-    "participante"
+    "participante",
+    "colaborador_base",
   ].includes(role);
 
   const canAccessMissions = [
@@ -1150,6 +1151,11 @@ function applyRoleInterface() {
         `./colaboradores.html?id=${encodeURIComponent(
           currentUser.uid
         )}`;
+    }
+
+    if (role === "colaborador_base") {
+      organizationButton.href =
+        "./apoyos.html";
     }
 
     // El Responsable de estructura obtiene el documento
@@ -1277,6 +1283,13 @@ organizationButton?.addEventListener("click", async (event) => {
       case "participante": {
         destination =
           `./colaboradores.html?id=${encodeURIComponent(user.uid)}`;
+
+        break;
+      }
+
+      case "colaborador_base": {
+        destination =
+          "./apoyos.html";
 
         break;
       }
