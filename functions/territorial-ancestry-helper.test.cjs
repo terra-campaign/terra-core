@@ -322,3 +322,107 @@ test(
     );
   }
 );
+
+
+test(
+  'accountless territorial parent is valid canonical ancestry',
+  () => {
+
+    const result =
+      canonicalChildAncestry({
+
+        parentUid:
+          null,
+
+        parentPersonId:
+          'participant-person',
+
+        parentProfile: {
+
+          personId:
+            'participant-person',
+
+          role:
+            'participante'
+        }
+      });
+
+    assert.deepEqual(
+      result,
+      {
+        parentUserId:
+          null,
+
+        parentPersonId:
+          'participant-person',
+
+        ancestorUserIds: [],
+
+        ancestorPersonIds: [
+          'participant-person'
+        ]
+      }
+    );
+  }
+);
+
+
+test(
+  'person ancestry may be longer than digital account ancestry',
+  () => {
+
+    const result =
+      canonicalChildAncestry({
+
+        parentUid:
+          null,
+
+        parentPersonId:
+          'collaborator-person',
+
+        parentProfile: {
+
+          personId:
+            'collaborator-person',
+
+          role:
+            'colaborador_base',
+
+          ancestorUserIds: [
+            'integrante-uid'
+          ],
+
+          ancestorPersonIds: [
+            'participant-person',
+            'integrante-person'
+          ]
+        }
+      });
+
+    assert.deepEqual(
+      result.parentUserId,
+      null
+    );
+
+    assert.deepEqual(
+      result.parentPersonId,
+      'collaborator-person'
+    );
+
+    assert.deepEqual(
+      result.ancestorUserIds,
+      [
+        'integrante-uid'
+      ]
+    );
+
+    assert.deepEqual(
+      result.ancestorPersonIds,
+      [
+        'collaborator-person',
+        'participant-person',
+        'integrante-person'
+      ]
+    );
+  }
+);

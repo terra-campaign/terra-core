@@ -98,3 +98,68 @@ assert.equal(
 console.log(
   'OK: BUILD-118C-3B3E-3C canonical structure member static contract passed.'
 );
+
+
+/*
+  optional digital account contract
+*/
+
+for (
+  const expected of [
+    'createDigitalAccount',
+    'authUser ?',
+    'authUser.uid',
+    'accountUid:',
+    'mustChangePassword:',
+    'if (authUser?.uid)',
+    'if (authUser)'
+  ]
+) {
+
+  assert.ok(
+    block.includes(
+      expected
+    ),
+    `Falta contrato de cuenta digital opcional: ${expected}`
+  );
+}
+
+
+assert.match(
+  block,
+  /createDigitalAccount\s*=\s*data\.createDigitalAccount\s*!==\s*false/,
+  'Integrante debe conservar compatibilidad: si no se envía createDigitalAccount, se crea cuenta digital.'
+);
+
+
+assert.match(
+  block,
+  /if\s*\(\s*createDigitalAccount\s*\)\s*\{/,
+  'La creación de Firebase Auth debe depender de createDigitalAccount.'
+);
+
+
+assert.match(
+  block,
+  /accountUid:\s*authUser\s*\?\s*authUser\.uid\s*:\s*null/,
+  'Person y membership deben admitir accountUid null.'
+);
+
+
+assert.match(
+  block,
+  /if\s*\(\s*authUser\s*\)\s*\{[\s\S]*batch\.set\(/,
+  'usuarios/{uid} sólo debe escribirse cuando existe cuenta digital.'
+);
+
+
+assert.match(
+  block,
+  /if\s*\(\s*authUser\?\.uid\s*\)\s*\{[\s\S]*auth\.deleteUser/,
+  'El rollback de Authentication sólo debe ejecutarse si existe authUser.'
+);
+
+
+console.log(
+  'OK: optional digital account contract passed.'
+);

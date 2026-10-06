@@ -44,6 +44,13 @@ const {
 );
 
 const {
+  membershipMatchesSubject,
+  actorCanAssistTarget
+} = require(
+  "./territorial-assistance-policy.cjs"
+);
+
+const {
   resolveCanonicalPersonForAccount
 } = require("./person-identity.cjs");
 
@@ -4263,6 +4270,9 @@ exports.createStructureMember = onCall(
     const data =
       request.data || {};
 
+    const createDigitalAccount =
+      data.createDigitalAccount !== false;
+
     const name =
       cleanText(
         data.name || ""
@@ -4325,7 +4335,10 @@ const password =
       );
     }
 
-    if (!isValidEmail(email)) {
+    if (
+      createDigitalAccount &&
+      !isValidEmail(email)
+    ) {
       throw new HttpsError(
         "invalid-argument",
         "Ingrese un correo electrónico válido."
@@ -4395,6 +4408,7 @@ const password =
     }
 
     if (
+      createDigitalAccount &&
       password.length < 6
     ) {
       throw new HttpsError(
@@ -4559,65 +4573,67 @@ const password =
     let authUser =
       null;
 
-    try {
+    if (createDigitalAccount) {
 
-      authUser =
-        await auth.createUser({
+      try {
 
-          email,
+        authUser =
+          await auth.createUser({
 
-          password,
+            email,
 
-          displayName:
-            name,
+            password,
 
-          disabled:
-            false
-        });
+            displayName:
+              name,
 
-    } catch (error) {
+            disabled:
+              false
+          });
 
-      console.error(
-        "Error al crear integrante en Authentication:",
-        error
-      );
+      } catch (error) {
 
-      if (
-        error?.code ===
-        "auth/email-already-exists"
-      ) {
+        console.error(
+          "Error al crear integrante en Authentication:",
+          error
+        );
+
+        if (
+          error?.code ===
+          "auth/email-already-exists"
+        ) {
+          throw new HttpsError(
+            "already-exists",
+            "Ya existe un usuario registrado con ese correo."
+          );
+        }
+
+        if (
+          error?.code ===
+          "auth/invalid-email"
+        ) {
+          throw new HttpsError(
+            "invalid-argument",
+            "El correo electrónico no es válido."
+          );
+        }
+
+        if (
+          error?.code ===
+          "auth/invalid-password"
+        ) {
+          throw new HttpsError(
+            "invalid-argument",
+            "La contraseña temporal no cumple los requisitos."
+          );
+        }
+
         throw new HttpsError(
-          "already-exists",
-          "Ya existe un usuario registrado con ese correo."
+          "internal",
+          "No fue posible crear la cuenta del integrante."
         );
       }
-
-      if (
-        error?.code ===
-        "auth/invalid-email"
-      ) {
-        throw new HttpsError(
-          "invalid-argument",
-          "El correo electrónico no es válido."
-        );
-      }
-
-      if (
-        error?.code ===
-        "auth/invalid-password"
-      ) {
-        throw new HttpsError(
-          "invalid-argument",
-          "La contraseña temporal no cumple los requisitos."
-        );
-      }
-
-      throw new HttpsError(
-        "internal",
-        "No fue posible crear la cuenta del integrante."
-      );
     }
-
 
 
     // ==================================================
@@ -4625,16 +4641,20 @@ const password =
     // ==================================================
 
     const memberRef =
-      db
-        .collection("usuarios")
-        .doc(authUser.uid);
+      authUser
+        ? db
+            .collection("usuarios")
+            .doc(authUser.uid)
+        : null;
 
     try {
 
       const memberProfile = {
 
         uid:
-          authUser.uid,
+          authUser
+            ? authUser.uid
+            : null,
 
         name,
 
@@ -4700,7 +4720,7 @@ createdBy:
           creatorProfile.role,
 
         mustChangePassword:
-          true,
+          createDigitalAccount,
 
         createdAt:
           FieldValue.serverTimestamp(),
@@ -4766,7 +4786,7 @@ createdBy:
         personId,
 
         accountUid:
-          authUser.uid,
+          authUser ? authUser.uid : null,
 
         name,
 
@@ -4805,7 +4825,9 @@ createdBy:
           "",
 
         identityStatus:
-          "digital",
+          createDigitalAccount
+            ? "digital"
+            : "minimal",
 
         source:
           "hierarchy_registration",
@@ -4846,7 +4868,7 @@ createdBy:
         personId,
 
         accountUid:
-          authUser.uid,
+          authUser ? authUser.uid : null,
 
         campaignId,
 
@@ -4957,7 +4979,9 @@ createdBy:
           "",
 
         targetUserId:
-          authUser.uid,
+          authUser
+            ? authUser.uid
+            : null,
 
         targetUserName:
           name,
@@ -4997,10 +5021,13 @@ createdBy:
         db.batch();
 
 
-      batch.set(
-        memberRef,
-        memberProfile
-      );
+      if (authUser) {
+
+        batch.set(
+          memberRef,
+          memberProfile
+        );
+      }
 
 
       batch.create(
@@ -5036,7 +5063,9 @@ createdBy:
         user: {
 
           uid:
-            authUser.uid,
+            authUser
+              ? authUser.uid
+              : null,
 
           name,
 
@@ -5090,7 +5119,7 @@ createdBy:
           parentUserId,
 
           mustChangePassword:
-            true
+            createDigitalAccount
         },
 
         message:
@@ -5109,20 +5138,23 @@ createdBy:
       // ROLLBACK AUTH
       // ==================================================
 
-      try {
+      if (authUser?.uid) {
 
-        await auth.deleteUser(
-          authUser.uid
-        );
+        try {
 
-      } catch (
-        rollbackError
-      ) {
+          await auth.deleteUser(
+            authUser.uid
+          );
 
-        console.error(
-          "No fue posible revertir Authentication:",
+        } catch (
           rollbackError
-        );
+        ) {
+
+          console.error(
+            "No fue posible revertir Authentication:",
+            rollbackError
+          );
+        }
       }
 
 
@@ -5155,13 +5187,13 @@ exports.createParticipant = onCall(
   async (request) => {
 
     // ==================================================
-    // 1. AUTENTICACIÓN
+    // 1. AUTENTICACI?N
     // ==================================================
 
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
-        "Debe iniciar sesión."
+        "Debe iniciar sesi?n."
       );
     }
 
@@ -5170,7 +5202,7 @@ exports.createParticipant = onCall(
 
 
     // ==================================================
-    // 2. PERFIL DEL CREADOR
+    // 2. PERFIL DEL ACTOR DIGITAL
     // ==================================================
 
     const creatorRef =
@@ -5196,22 +5228,7 @@ exports.createParticipant = onCall(
     ) {
       throw new HttpsError(
         "permission-denied",
-        "El usuario está desactivado."
-      );
-    }
-
-    const allowedRoles = [
-  "integrante"
-];
-
-    if (
-      !allowedRoles.includes(
-        creatorProfile.role
-      )
-    ) {
-      throw new HttpsError(
-        "permission-denied",
-        "No tiene permisos para crear participantes."
+        "El usuario est? desactivado."
       );
     }
 
@@ -5221,7 +5238,7 @@ exports.createParticipant = onCall(
     if (!campaignId) {
       throw new HttpsError(
         "failed-precondition",
-        "El usuario no tiene campaña asignada."
+        "El usuario no tiene campa?a asignada."
       );
     }
 
@@ -5238,237 +5255,360 @@ exports.createParticipant = onCall(
         data.name || ""
       );
 
+    const createDigitalAccount =
+      data.createDigitalAccount !== false;
+
     const email =
       normalizeEmail(
         data.email || ""
       );
 
-   const phone =
-  normalizePhone(
-    data.phone || ""
-  );
+    const phone =
+      normalizePhone(
+        data.phone || ""
+      );
 
-const locality =
-  cleanText(
-    data.locality || ""
-  );
+    const locality =
+      cleanText(
+        data.locality || ""
+      );
 
-const hasWhatsApp =
-  typeof data.hasWhatsApp === "boolean"
-    ? data.hasWhatsApp
-    : null;
+    const hasWhatsApp =
+      typeof data.hasWhatsApp === "boolean"
+        ? data.hasWhatsApp
+        : null;
 
-const street =
-  cleanText(
-    data.street || ""
-  );
+    const street =
+      cleanText(
+        data.street || ""
+      );
 
-const houseNumber =
-  cleanText(
-    data.houseNumber || ""
-  );
+    const houseNumber =
+      cleanText(
+        data.houseNumber || ""
+      );
 
-const password =
-  String(
-    data.password || ""
-  );
+    const password =
+      String(
+        data.password || ""
+      );
 
-const parentUserId =
-  creatorUid;
-
-
-
-   // ==================================================
-// 4. VALIDACIONES BÁSICAS
-// ==================================================
-
-if (
-  name.length < 2 ||
-  name.length > 120
-) {
-  throw new HttpsError(
-    "invalid-argument",
-    "Ingrese un nombre válido."
-  );
-}
-
-if (!isValidEmail(email)) {
-  throw new HttpsError(
-    "invalid-argument",
-    "Ingrese un correo electrónico válido."
-  );
-}
-
-if (
-  phone &&
-  (
-    phone.length < 10 ||
-    phone.length > 15
-  )
-) {
-  throw new HttpsError(
-    "invalid-argument",
-    "Ingrese un teléfono válido de entre 10 y 15 dígitos."
-  );
-}
-
-if (
-  hasWhatsApp === null
-) {
-  throw new HttpsError(
-    "invalid-argument",
-    "Debe indicar si el teléfono tiene WhatsApp."
-  );
-}
-
-if (
-  hasWhatsApp === true &&
-  !phone
-) {
-  throw new HttpsError(
-    "invalid-argument",
-    "Debe ingresar el teléfono que tiene WhatsApp."
-  );
-}
-
-if (
-  locality.length < 2 ||
-  locality.length > 120
-) {
-  throw new HttpsError(
-    "invalid-argument",
-    "Ingrese una población válida."
-  );
-}
-
-if (
-  street.length < 2 ||
-  street.length > 160
-) {
-  throw new HttpsError(
-    "invalid-argument",
-    "Ingrese una calle válida."
-  );
-}
-
-if (
-  houseNumber.length < 1 ||
-  houseNumber.length > 30
-) {
-  throw new HttpsError(
-    "invalid-argument",
-    "Ingrese un número válido o S/N."
-  );
-}
-
-if (
-  password.length < 6
-) {
-  throw new HttpsError(
-    "invalid-argument",
-    "La contraseña temporal debe tener al menos 6 caracteres."
-  );
-}
-
-if (!parentUserId) {
-  throw new HttpsError(
-    "invalid-argument",
-    "No se recibió el integrante responsable."
-  );
-}
+    const requestedParentPersonId =
+      cleanText(
+        data.parentPersonId || ""
+      );
 
 
     // ==================================================
-    // 5. VALIDAR INTEGRANTE PADRE
+    // 4. VALIDACIONES B?SICAS
     // ==================================================
 
-    const parentRef =
+    if (
+      name.length < 2 ||
+      name.length > 120
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un nombre v?lido."
+      );
+    }
+
+    if (
+      createDigitalAccount &&
+      !isValidEmail(email)
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un correo electr?nico v?lido."
+      );
+    }
+
+    if (
+      phone &&
+      (
+        phone.length < 10 ||
+        phone.length > 15
+      )
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un tel?fono v?lido de entre 10 y 15 d?gitos."
+      );
+    }
+
+    if (
+      hasWhatsApp === null
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Debe indicar si el tel?fono tiene WhatsApp."
+      );
+    }
+
+    if (
+      hasWhatsApp === true &&
+      !phone
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Debe ingresar el tel?fono que tiene WhatsApp."
+      );
+    }
+
+    if (
+      locality.length < 2 ||
+      locality.length > 120
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese una poblaci?n v?lida."
+      );
+    }
+
+    if (
+      street.length < 2 ||
+      street.length > 160
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese una calle v?lida."
+      );
+    }
+
+    if (
+      houseNumber.length < 1 ||
+      houseNumber.length > 30
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ingrese un n?mero v?lido o S/N."
+      );
+    }
+
+    if (
+      createDigitalAccount &&
+      password.length < 6
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "La contrase?a temporal debe tener al menos 6 caracteres."
+      );
+    }
+
+
+    // ==================================================
+    // 5. IDENTIDAD CAN?NICA DEL ACTOR
+    // ==================================================
+
+    const actorIdentity =
+      await resolveCanonicalPersonForAccount({
+        db,
+        accountUid:
+          creatorUid,
+        profile:
+          creatorProfile,
+        campaignId
+      });
+
+    const actorPersonId =
+      actorIdentity.personId;
+
+
+    // ==================================================
+    // 6. RESOLVER INTEGRANTE PADRE POR PERSONA
+    // ==================================================
+
+    const parentPersonId =
+      requestedParentPersonId ||
+      actorPersonId;
+
+    const parentPersonRef =
       db
-        .collection("usuarios")
-        .doc(parentUserId);
+        .collection("persons")
+        .doc(parentPersonId);
 
-    const parentSnapshot =
-      await parentRef.get();
+    const parentPersonSnapshot =
+      await parentPersonRef.get();
 
-    if (!parentSnapshot.exists) {
+    if (!parentPersonSnapshot.exists) {
       throw new HttpsError(
         "not-found",
         "El integrante responsable no existe."
       );
     }
 
-    const parentProfile =
-      parentSnapshot.data();
+    const parentPerson =
+      parentPersonSnapshot.data();
 
     if (
-      parentProfile.role !==
-      "integrante"
+      parentPerson.active !== true
     ) {
       throw new HttpsError(
         "failed-precondition",
-        "El usuario responsable no es un integrante."
+        "El integrante responsable est? desactivado."
       );
     }
 
     if (
-      parentProfile.active !== true
-    ) {
-      throw new HttpsError(
-        "failed-precondition",
-        "El integrante responsable está desactivado."
-      );
-    }
-
-    if (
-      parentProfile.campaignId !==
+      parentPerson.campaignId !==
       campaignId
     ) {
       throw new HttpsError(
         "permission-denied",
-        "El integrante pertenece a otra campaña."
+        "El integrante pertenece a otra campa?a."
       );
     }
 
+    const parentMembershipId =
+      canonicalMembershipDocumentId(
+        campaignId,
+        parentPersonId
+      );
 
-    // ==================================================
-    // 6. RESTRICCIONES POR ROL
-    // ==================================================
+    const parentMembershipRef =
+      db
+        .collection(
+          "territorialMemberships"
+        )
+        .doc(
+          parentMembershipId
+        );
+
+    const parentMembershipSnapshot =
+      await parentMembershipRef.get();
+
+    if (!parentMembershipSnapshot.exists) {
+      throw new HttpsError(
+        "failed-precondition",
+        "El integrante responsable no tiene membres?a territorial can?nica."
+      );
+    }
+
+    const parentMembership =
+      parentMembershipSnapshot.data();
 
     if (
-      creatorProfile.role ===
+      !membershipMatchesSubject({
+        membership:
+          parentMembership,
+        membershipId:
+          parentMembershipId,
+        campaignId,
+        personId:
+          parentPersonId
+      })
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "La membres?a territorial del integrante responsable no es v?lida."
+      );
+    }
+
+    if (
+      parentMembership.role !==
       "integrante"
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "La persona responsable no es un integrante."
+      );
+    }
+
+    const parentUserId =
+      cleanText(
+        parentPerson.accountUid || ""
+      ) || null;
+
+
+    // ==================================================
+    // 7. AUTORIDAD PROPIA O ASISTIDA
+    // ==================================================
+
+    const recordingMode =
+      actorPersonId === parentPersonId
+        ? "self"
+        : "assisted";
+
+    if (
+      recordingMode === "self"
     ) {
 
       if (
-        creatorUid !==
-        parentUserId
+        creatorProfile.role !==
+        "integrante"
       ) {
         throw new HttpsError(
           "permission-denied",
-          "Un integrante solo puede registrar participantes dentro de su propia base."
+          "Solo un integrante puede registrar participantes directamente en su propia base."
+        );
+      }
+
+    } else {
+
+      const actorMembershipId =
+        canonicalMembershipDocumentId(
+          campaignId,
+          actorPersonId
+        );
+
+      const actorMembershipSnapshot =
+        await db
+          .collection(
+            "territorialMemberships"
+          )
+          .doc(
+            actorMembershipId
+          )
+          .get();
+
+      if (
+        !actorMembershipSnapshot.exists
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "No tiene una membres?a territorial activa para registrar participantes de forma asistida."
+        );
+      }
+
+      const actorMembership =
+        actorMembershipSnapshot.data();
+
+      if (
+        !actorCanAssistTarget({
+          actorPersonId,
+          actorMembership,
+          targetMembership:
+            parentMembership,
+          campaignId
+        })
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "No tiene autoridad territorial activa sobre este integrante."
         );
       }
     }
-  
 
 
     // ==================================================
-    // BUILD-123D4I-B2I
-    // PADRE TERRITORIAL CANONICO
+    // 8. CONTEXTO TERRITORIAL DEL PADRE
     // ==================================================
 
-    const parentIdentity =
-      await resolveCanonicalPersonForAccount({
-        db,
-        accountUid:
-          parentUserId,
-        profile:
-          parentProfile,
-        campaignId
-      });
+    const parentProfile = {
+      ...parentPerson,
+      ...parentMembership,
 
-    const parentPersonId =
-      parentIdentity.personId;
+      uid:
+        parentUserId,
+
+      accountUid:
+        parentUserId,
+
+      name:
+        parentPerson.name ||
+        parentMembership.name ||
+        ""
+    };
 
     const participantAncestry =
       canonicalChildAncestry({
@@ -5488,87 +5628,97 @@ if (!parentUserId) {
 
 
     // ==================================================
-    // 7. CREAR USUARIO EN FIREBASE AUTH
+    // 9. CUENTA DIGITAL OPCIONAL
     // ==================================================
 
     let authUser =
       null;
 
-    try {
+    if (
+      createDigitalAccount
+    ) {
 
-      authUser =
-        await auth.createUser({
+      try {
 
-          email,
+        authUser =
+          await auth.createUser({
 
-          password,
+            email,
 
-          displayName:
-            name,
+            password,
 
-          disabled:
-            false
-        });
+            displayName:
+              name,
 
-    } catch (error) {
+            disabled:
+              false
+          });
 
-      console.error(
-        "Error al crear participante en Authentication:",
-        error
-      );
+      } catch (error) {
 
-      if (
-        error?.code ===
-        "auth/email-already-exists"
-      ) {
+        console.error(
+          "Error al crear participante en Authentication:",
+          error
+        );
+
+        if (
+          error?.code ===
+          "auth/email-already-exists"
+        ) {
+          throw new HttpsError(
+            "already-exists",
+            "Ya existe un usuario registrado con ese correo."
+          );
+        }
+
+        if (
+          error?.code ===
+          "auth/invalid-email"
+        ) {
+          throw new HttpsError(
+            "invalid-argument",
+            "El correo electr?nico no es v?lido."
+          );
+        }
+
+        if (
+          error?.code ===
+          "auth/invalid-password"
+        ) {
+          throw new HttpsError(
+            "invalid-argument",
+            "La contrase?a temporal no cumple los requisitos."
+          );
+        }
+
         throw new HttpsError(
-          "already-exists",
-          "Ya existe un usuario registrado con ese correo."
+          "internal",
+          "No fue posible crear la cuenta del participante."
         );
       }
-
-      if (
-        error?.code ===
-        "auth/invalid-email"
-      ) {
-        throw new HttpsError(
-          "invalid-argument",
-          "El correo electrónico no es válido."
-        );
-      }
-
-      if (
-        error?.code ===
-        "auth/invalid-password"
-      ) {
-        throw new HttpsError(
-          "invalid-argument",
-          "La contraseña temporal no cumple los requisitos."
-        );
-      }
-
-      throw new HttpsError(
-        "internal",
-        "No fue posible crear la cuenta del participante."
-      );
     }
 
 
-    // ==================================================
-    // 8. CREAR PERFIL EN FIRESTORE
-    // ==================================================
-
     const participantRef =
-      db
-        .collection("usuarios")
-        .doc(authUser.uid);
+      authUser
+        ? db
+            .collection("usuarios")
+            .doc(authUser.uid)
+        : null;
+
+
+    // ==================================================
+    // 10. IDENTIDAD + MEMBRES?A + PERFIL
+    // ==================================================
 
     try {
 
       const participantProfile = {
 
         uid:
-          authUser.uid,
+          authUser
+            ? authUser.uid
+            : null,
 
         name,
 
@@ -5593,51 +5743,70 @@ if (!parentUserId) {
         campaignId,
 
         municipalityId:
-          parentProfile.municipalityId || "",
+          parentMembership.municipalityId ||
+          parentPerson.municipalityId ||
+          "",
 
         municipalityName:
-          parentProfile.municipalityName || "",
+          parentMembership.municipalityName ||
+          parentPerson.municipalityName ||
+          "",
 
         coordinatorId:
-          parentProfile.coordinatorId || "",
+          parentMembership.coordinatorId ||
+          parentPerson.coordinatorId ||
+          "",
 
         coordinatorName:
-          parentProfile.coordinatorName || "",
+          parentMembership.coordinatorName ||
+          parentPerson.coordinatorName ||
+          "",
 
         structureId:
-          parentProfile.structureId || "",
+          parentMembership.structureId ||
+          parentPerson.structureId ||
+          "",
 
         structureDocumentId:
-          parentProfile.structureDocumentId || "",
+          parentMembership.structureDocumentId ||
+          parentPerson.structureDocumentId ||
+          "",
 
         structureName:
-          parentProfile.structureName || "",
+          parentMembership.structureName ||
+          parentPerson.structureName ||
+          "",
 
         structureChiefId:
-          parentProfile.structureChiefId || null,
+          parentMembership.structureChiefId ||
+          parentPerson.structureChiefId ||
+          null,
 
         structureChiefName:
-          parentProfile.structureChiefName || "",
+          parentMembership.structureChiefName ||
+          parentPerson.structureChiefName ||
+          "",
 
         parentUserId,
 
         parentPersonId,
 
         parentUserName:
-  parentProfile.name || "",
+          parentPerson.name ||
+          "",
 
-ancestorIds,
+        ancestorIds,
 
         ancestorPersonIds,
 
-createdBy:
-  creatorUid,
+        createdBy:
+          creatorUid,
 
         createdByRole:
           creatorProfile.role,
 
         mustChangePassword:
-          true,
+          createDigitalAccount,
 
         createdAt:
           FieldValue.serverTimestamp(),
@@ -5649,27 +5818,20 @@ createdBy:
           1
       };
 
-      // ==================================================
-      // 9. IDENTIDAD CANONICA + MEMBRESIA + PERFIL
-      // BUILD-118C-3B3E-3D
-      // ==================================================
 
       const personRef =
         db
           .collection("persons")
           .doc();
 
-
       const personId =
         personRef.id;
-
 
       const membershipId =
         canonicalMembershipDocumentId(
           campaignId,
           personId
         );
-
 
       const membershipRef =
         db
@@ -5680,18 +5842,14 @@ createdBy:
             membershipId
           );
 
-
       const logRef =
         db
           .collection("logs")
           .doc();
 
 
-
-
       participantProfile.personId =
         personId;
-
 
       participantProfile.membershipId =
         membershipId;
@@ -5702,7 +5860,7 @@ createdBy:
         personId,
 
         accountUid:
-          authUser.uid,
+          authUser ? authUser.uid : null,
 
         name,
 
@@ -5724,45 +5882,48 @@ createdBy:
         campaignId,
 
         municipalityId:
-          parentProfile.municipalityId ||
-          "",
+          participantProfile.municipalityId,
 
         municipalityName:
-          parentProfile.municipalityName ||
-          "",
+          participantProfile.municipalityName,
 
         structureId:
-          parentProfile.structureId ||
-          "",
+          participantProfile.structureId,
 
         structureDocumentId:
-          parentProfile.structureDocumentId ||
-          "",
+          participantProfile.structureDocumentId,
 
         structureName:
-          parentProfile.structureName ||
-          "",
+          participantProfile.structureName,
 
         identityStatus:
-          "digital",
+          createDigitalAccount
+            ? "digital"
+            : "minimal",
 
         source:
           "hierarchy_registration",
 
         introducedByUserId:
-          creatorUid,
+          parentUserId,
 
         introducedByPersonId:
           parentPersonId,
 
         referredByUserId:
-          creatorUid,
+          parentUserId,
 
         mentorUserId:
-          creatorUid,
+          parentUserId,
+
+        mentorPersonId:
+          parentPersonId,
 
         createdByUserId:
           creatorUid,
+
+        createdByPersonId:
+          actorPersonId,
 
         createdByRole:
           creatorProfile.role,
@@ -5785,29 +5946,24 @@ createdBy:
         personId,
 
         accountUid:
-          authUser.uid,
+          authUser ? authUser.uid : null,
 
         campaignId,
 
         municipalityId:
-          parentProfile.municipalityId ||
-          "",
+          participantProfile.municipalityId,
 
         municipalityName:
-          parentProfile.municipalityName ||
-          "",
+          participantProfile.municipalityName,
 
         structureId:
-          parentProfile.structureId ||
-          "",
+          participantProfile.structureId,
 
         structureDocumentId:
-          parentProfile.structureDocumentId ||
-          "",
+          participantProfile.structureDocumentId,
 
         structureName:
-          parentProfile.structureName ||
-          "",
+          participantProfile.structureName,
 
         role:
           "participante",
@@ -5820,20 +5976,23 @@ createdBy:
         parentPersonId,
 
         parentUserName:
-          parentProfile.name ||
+          parentPerson.name ||
           "",
 
         mentorUserId:
-          creatorUid,
+          parentUserId,
+
+        mentorPersonId:
+          parentPersonId,
 
         introducedByUserId:
-          creatorUid,
+          parentUserId,
 
         introducedByPersonId:
           parentPersonId,
 
         referredByUserId:
-          creatorUid,
+          parentUserId,
 
         ancestorUserIds:
           ancestorIds,
@@ -5867,25 +6026,26 @@ createdBy:
         campaignId,
 
         municipalityId:
-          parentProfile.municipalityId ||
-          "",
+          participantProfile.municipalityId,
 
         structureId:
-          parentProfile.structureId ||
-          "",
+          participantProfile.structureId,
 
         structureDocumentId:
-          parentProfile.structureDocumentId ||
-          "",
+          participantProfile.structureDocumentId,
 
         parentUserId,
 
+        parentPersonId,
+
         parentUserName:
-          parentProfile.name ||
+          parentPerson.name ||
           "",
 
         targetUserId:
-          authUser.uid,
+          authUser
+            ? authUser.uid
+            : null,
 
         targetUserName:
           name,
@@ -5907,6 +6067,13 @@ createdBy:
 
         membershipId,
 
+        actorUserId:
+          creatorUid,
+
+        actorPersonId,
+
+        recordingMode,
+
         createdBy:
           creatorUid,
 
@@ -5922,10 +6089,15 @@ createdBy:
         db.batch();
 
 
-      batch.set(
-        participantRef,
-        participantProfile
-      );
+      if (
+        authUser
+      ) {
+
+        batch.set(
+          participantRef,
+          participantProfile
+        );
+      }
 
 
       batch.create(
@@ -5950,7 +6122,7 @@ createdBy:
 
 
       // ==================================================
-      // 10. RESPUESTA
+      // 11. RESPUESTA
       // ==================================================
 
       return {
@@ -5961,7 +6133,13 @@ createdBy:
         user: {
 
           uid:
-            authUser.uid,
+            authUser
+              ? authUser.uid
+              : null,
+
+          personId,
+
+          membershipId,
 
           name,
 
@@ -5986,31 +6164,31 @@ createdBy:
           campaignId,
 
           municipalityId:
-            parentProfile.municipalityId || "",
+            participantProfile.municipalityId,
 
           municipalityName:
-            parentProfile.municipalityName || "",
+            participantProfile.municipalityName,
 
           structureId:
-            parentProfile.structureId || "",
+            participantProfile.structureId,
 
           structureDocumentId:
-            parentProfile.structureDocumentId || "",
+            participantProfile.structureDocumentId,
 
           structureName:
-            parentProfile.structureName || "",
+            participantProfile.structureName,
 
           parentUserId,
 
+          parentPersonId,
+
           parentUserName:
-            parentProfile.name || "",
+            parentPerson.name ||
+            "",
 
           mustChangePassword:
-            true
-        },
-
-        message:
-          `${name} fue registrado como participante de ${parentProfile.name}.`
+            createDigitalAccount
+        }
       };
 
     } catch (error) {
@@ -6025,20 +6203,25 @@ createdBy:
       // ROLLBACK AUTH
       // ==================================================
 
-      try {
-
-        await auth.deleteUser(
-          authUser.uid
-        );
-
-      } catch (
-        rollbackError
+      if (
+        authUser?.uid
       ) {
 
-        console.error(
-          "No fue posible revertir Authentication:",
+        try {
+
+          await auth.deleteUser(
+            authUser.uid
+          );
+
+        } catch (
           rollbackError
-        );
+        ) {
+
+          console.error(
+            "No fue posible revertir Authentication:",
+            rollbackError
+          );
+        }
       }
 
 
@@ -6056,7 +6239,6 @@ createdBy:
     }
   }
 );
-
 
 exports.getStructureProgress =
   require("./structure-progress.cjs").getStructureProgress;

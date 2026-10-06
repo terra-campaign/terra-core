@@ -149,7 +149,6 @@ function canonicalChildAncestry({
 
 
   if (
-    !canonicalParentUid ||
     !canonicalParentPersonId ||
     !parentProfile
   ) {
@@ -181,8 +180,11 @@ function canonicalChildAncestry({
 
   if (
     profileUid &&
-    profileUid !==
-      canonicalParentUid
+    (
+      !canonicalParentUid ||
+      profileUid !==
+        canonicalParentUid
+    )
   ) {
 
     fail(
@@ -211,12 +213,25 @@ function canonicalChildAncestry({
   }
 
 
-  const inheritedAncestorUserIds =
-    inheritedIds(
-      parentProfile,
-      'ancestorIds',
-      'parentUserId'
+  const canonicalInheritedAncestorUserIds =
+    uniqueIds(
+      Array.isArray(
+        parentProfile?.ancestorUserIds
+      )
+        ? parentProfile
+            .ancestorUserIds
+        : []
     );
+
+
+  const inheritedAncestorUserIds =
+    canonicalInheritedAncestorUserIds.length
+      ? canonicalInheritedAncestorUserIds
+      : inheritedIds(
+          parentProfile,
+          'ancestorIds',
+          'parentUserId'
+        );
 
 
   const inheritedAncestorPersonIds =
@@ -242,7 +257,7 @@ function canonicalChildAncestry({
 
 
   if (
-    ancestorUserIds.length !==
+    ancestorUserIds.length >
       ancestorPersonIds.length
   ) {
 
@@ -256,7 +271,8 @@ function canonicalChildAncestry({
   return {
 
     parentUserId:
-      canonicalParentUid,
+      canonicalParentUid ||
+      null,
 
     parentPersonId:
       canonicalParentPersonId,
