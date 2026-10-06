@@ -1653,6 +1653,9 @@ exports.getMyQuickAffiliations =
 
         members.push({
 
+          personId:
+            snapshot.id,
+
           personRef:
             hash(
               'quick-affiliation-member',

@@ -495,6 +495,31 @@ function renderSupports(
       )
     );
 
+    if (
+      member?.personId
+    ) {
+      const profileLink =
+        document.createElement(
+          "a"
+        );
+
+      profileLink.className =
+        "button";
+
+      profileLink.textContent =
+        "Ver perfil";
+
+      profileLink.href =
+        "./persona.html?id=" +
+        encodeURIComponent(
+          member.personId
+        );
+
+      article.appendChild(
+        profileLink
+      );
+    }
+
     supportList.appendChild(
       article
     );
