@@ -3,11 +3,16 @@
 // Pantalla inicial — BUILD-001
 // ======================================================
 
-import { app, auth } from "./firebase-config.js";
+import { app, auth, db } from "./firebase-config.js";
 
 import {
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+
+import {
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 import { PROJECT_CONFIG } from "./project-config.js";
 
 const connectionStatus =
@@ -32,27 +37,63 @@ const myPerformanceButton =
 
 onAuthStateChanged(
   auth,
-  (user) => {
+  async (user) => {
 
     if (!myPerformanceButton) {
       return;
     }
 
-    if (!user) {
-      myPerformanceButton.hidden = true;
-      myPerformanceButton.href =
-        "./persona.html";
+    myPerformanceButton.hidden = true;
+    myPerformanceButton.href =
+      "./persona.html";
 
+    if (!user) {
       return;
     }
 
-    myPerformanceButton.href =
-      "./persona.html?id=" +
-      encodeURIComponent(user.uid);
+    try {
 
-    myPerformanceButton.hidden = false;
+      const snapshot =
+        await getDoc(
+          doc(
+            db,
+            "usuarios",
+            user.uid
+          )
+        );
+
+      if (!snapshot.exists()) {
+        return;
+      }
+
+      const profile =
+        snapshot.data() || {};
+
+      const personId =
+        String(
+          profile.personId || ""
+        ).trim();
+
+      if (!personId) {
+        return;
+      }
+
+      myPerformanceButton.href =
+        "./persona.html?id=" +
+        encodeURIComponent(personId);
+
+      myPerformanceButton.hidden = false;
+
+    } catch (error) {
+
+      console.error(
+        "No fue posible resolver el personId para Mi desempe\u00f1o:",
+        error
+      );
+    }
   }
 );
+
 
 
 // ------------------------------------------------------
