@@ -1139,10 +1139,13 @@ function applyRoleInterface() {
         )}`;
     }
 
-    if (role === "integrante" && currentUser?.uid) {
+    if (
+      role === "integrante" &&
+      currentUserProfile?.personId
+    ) {
       organizationButton.href =
         `./participantes.html?id=${encodeURIComponent(
-          currentUser.uid
+          currentUserProfile.personId
         )}`;
     }
 
@@ -1280,8 +1283,20 @@ organizationButton?.addEventListener("click", async (event) => {
       }
 
       case "integrante": {
+
+        const personId =
+          String(
+            profile.personId || ""
+          ).trim();
+
+        if (!personId) {
+          throw new Error(
+            "Tu perfil no tiene personId can\u00f3nico."
+          );
+        }
+
         destination =
-          `./participantes.html?id=${encodeURIComponent(user.uid)}`;
+          `./participantes.html?id=${encodeURIComponent(personId)}`;
 
         break;
       }
