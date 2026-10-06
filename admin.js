@@ -1171,14 +1171,20 @@ function applyRoleInterface() {
   }
 
   if (myPerformanceButton) {
-    myPerformanceButton.hidden =
-      !currentUser?.uid;
 
-    if (currentUser?.uid) {
-      myPerformanceButton.href =
-        "./persona.html?id=" +
-        encodeURIComponent(currentUser.uid);
-    }
+    const currentPersonId =
+      String(
+        currentUserProfile?.personId || ""
+      ).trim();
+
+    myPerformanceButton.hidden =
+      !currentPersonId;
+
+    myPerformanceButton.href =
+      currentPersonId
+        ? "./persona.html?id=" +
+          encodeURIComponent(currentPersonId)
+        : "./persona.html";
   }
 
   // BUILD-119A3:
