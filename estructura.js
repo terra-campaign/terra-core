@@ -739,7 +739,7 @@ function renderMembers(
       <a
         class="button button--secondary"
         href="./participantes.html?id=${encodeURIComponent(
-          member.uid
+          member.personId
         )}"
       >
         Administrar participantes
@@ -748,7 +748,7 @@ function renderMembers(
 <a
   class="button button--secondary button--small"
   href="./persona.html?id=${encodeURIComponent(
-    member.uid
+    member.personId
   )}"
 >
   Ver perfil
@@ -759,7 +759,7 @@ ${currentUserProfile.role === "jefe_estructura"
 <a
   class="button button--secondary button--small"
   href="./persona.html?id=${encodeURIComponent(
-    member.uid
+    member.personId
   )}#desempeno"
 >
   Ver desempeño
