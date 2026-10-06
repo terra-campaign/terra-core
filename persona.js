@@ -829,6 +829,14 @@ async function loadPersonPerformance(personId) {
       );
     }
 
+    if (
+      summary.runtimeScoringActivated !== true
+    ) {
+
+      performanceStatus.textContent =
+        "Contribución operativa disponible. No se muestra una calificación ni un índice general porque la calificación global todavía no está activada.";
+    }
+
     performanceContributionCount.textContent =
       performanceNumber(
         historical.contributionCount
@@ -872,10 +880,15 @@ async function loadPersonPerformance(personId) {
 
     renderPerformanceContributions();
 
-    performanceStatus.textContent =
-      summary.generalPerformanceIndex?.calculated === true
-        ? "Contribución operativa verificada."
-        : "Contribución operativa verificada. El índice general todavía no se calcula.";
+    if (
+      summary.runtimeScoringActivated === true
+    ) {
+
+      performanceStatus.textContent =
+        summary.generalPerformanceIndex?.calculated === true
+          ? "Contribución operativa verificada."
+          : "Contribución operativa verificada. El índice general todavía no se calcula.";
+    }
 
   } catch (error) {
 

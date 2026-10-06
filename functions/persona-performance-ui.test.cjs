@@ -68,7 +68,7 @@ test(
 
     assert.match(
       html,
-      /persona\.js\?v=build-124-b2b16-r2/
+      /persona\.js\?v=build-124-b2b16-r10/
     );
   }
 );
