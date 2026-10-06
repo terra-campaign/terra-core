@@ -38,6 +38,12 @@ const getPersonActivitySummary =
     "getPersonActivitySummary"
   );
 
+const getPersonProfileContext =
+  httpsCallable(
+    functions,
+    "getPersonProfileContext"
+  );
+
 let actorProfile = null;
 
 const getPersonPerformanceSummary =
@@ -686,10 +692,10 @@ function renderPerformanceContributions() {
 function isOwnPerformanceProfile() {
 
   return Boolean(
-    cleanText(actorProfile?.uid) &&
-    cleanText(targetUid) &&
-    cleanText(actorProfile.uid) ===
-      cleanText(targetUid)
+    cleanText(actorProfile?.personId) &&
+    cleanText(targetPersonId) &&
+    cleanText(actorProfile.personId) ===
+      cleanText(targetPersonId)
   );
 }
 
@@ -920,45 +926,41 @@ performanceContributionsButton.addEventListener(
 );
 
 
-async function loadPersonProfile(uid) {
+async function loadPersonProfile(personId) {
 
   try {
 
-    const personReference =
-      doc(
-        db,
-        "usuarios",
-        uid
-      );
+    const canonicalPersonId =
+      cleanText(personId);
 
-    const personSnapshot =
-      await getDoc(
-        personReference
-      );
+    const response =
+      await getPersonProfileContext({
+        personId:
+          canonicalPersonId
+      });
 
-    if (!personSnapshot.exists()) {
-
-      showError(
-        "La persona solicitada no existe."
-      );
-
-      return;
-    }
+    const data =
+      response?.data || {};
 
     const person =
-      personSnapshot.data();
+      data.person;
 
+    if (
+      data.success !== true ||
+      !person ||
+      cleanText(person.personId) !==
+        canonicalPersonId
+    ) {
 
-    // ==================================================
-    // RESPONSABLE DIRECTO
-    // ==================================================
+      throw new Error(
+        "INVALID_PERSON_PROFILE_CONTEXT"
+      );
+    }
+
 
     const parentName =
       getParentName(
-        person.parentUserName,
-        person.parentName,
-        person.structureChiefName,
-        person.chiefName
+        person.parentName
       );
 
 
@@ -970,26 +972,26 @@ async function loadPersonProfile(uid) {
       cleanText(person.name) || "Sin nombre";
 
     personEmail.textContent =
-      cleanText(person.email) || "—";
+      cleanText(person.email) || "\u2014";
 
     personPhone.textContent =
-      cleanText(person.phone) || "—";
+      cleanText(person.phone) || "\u2014";
 
     personWhatsApp.textContent =
       person.hasWhatsApp === true
-        ? "Sí"
+        ? "S\u00ed"
         : person.hasWhatsApp === false
           ? "No"
           : "No registrado";
 
     personLocality.textContent =
-      cleanText(person.locality) || "—";
+      cleanText(person.locality) || "\u2014";
 
     personStreet.textContent =
-      cleanText(person.street) || "—";
+      cleanText(person.street) || "\u2014";
 
     personHouseNumber.textContent =
-      cleanText(person.houseNumber) || "—";
+      cleanText(person.houseNumber) || "\u2014";
 
     personStatus.textContent =
       person.active === true
@@ -1000,7 +1002,7 @@ async function loadPersonProfile(uid) {
 
 
     // ==================================================
-    // ORGANIZACIÓN
+    // ORGANIZACI\u00d3N
     // ==================================================
 
     personRole.textContent =
@@ -1013,7 +1015,7 @@ async function loadPersonProfile(uid) {
       cleanText(
         person.municipalityId
       ) ||
-      "—";
+      "\u2014";
 
     personStructure.textContent =
       cleanText(
@@ -1022,7 +1024,8 @@ async function loadPersonProfile(uid) {
       cleanText(
         person.structureId
       ) ||
-      "—";
+      "\u2014";
+
 
     if (
       person.role === "admin" ||
@@ -1042,7 +1045,7 @@ async function loadPersonProfile(uid) {
 
       personStructureChief.textContent =
         cleanText(person.name) ||
-        "—";
+        "\u2014";
 
     } else {
 
@@ -1050,27 +1053,29 @@ async function loadPersonProfile(uid) {
         cleanText(
           person.structureChiefName
         ) ||
-        cleanText(
-          person.chiefName
-        ) ||
-        "—";
+        "\u2014";
     }
+
 
     personParent.textContent =
       parentName;
 
 
     // ==================================================
-    // TRAZABILIDAD
+    // TRAZABILIDAD CAN\u00d3NICA
     // ==================================================
 
     personUid.textContent =
-      person.uid || uid;
+      cleanText(
+        person.accountUid
+      ) ||
+      "Sin cuenta digital";
 
     personCampaign.textContent =
       cleanText(
         person.campaignId
-      ) || "—";
+      ) ||
+      "\u2014";
 
 
     // ==================================================
@@ -1081,9 +1086,10 @@ async function loadPersonProfile(uid) {
     errorSection.hidden = true;
     profileSection.hidden = false;
 
+
     if (
       window.location.hash ===
-      "#desempeno"
+        "#desempeno"
     ) {
 
       const performanceSection =
@@ -1095,6 +1101,7 @@ async function loadPersonProfile(uid) {
 
         requestAnimationFrame(
           () => {
+
             performanceSection
               .scrollIntoView({
                 behavior: "smooth",
@@ -1107,29 +1114,51 @@ async function loadPersonProfile(uid) {
 
 
     // ==================================================
-    // ACTIVIDAD
-    // BUILD-117B-2
+    // ACTIVIDAD OPERATIVA
     //
-    // Se consulta después de mostrar el perfil.
-    // Una demora o falla de métricas no bloquea
-    // los datos generales de la persona.
+    // El servicio hist\u00f3rico todav\u00eda trabaja por UID.
+    // No se inventa UID para una persona sin cuenta.
     // ==================================================
 
-    void loadPersonActivity(
-      uid
-    );
+    const accountUid =
+      cleanText(
+        person.accountUid
+      );
+
+    if (accountUid) {
+
+      void loadPersonActivity(
+        accountUid
+      );
+
+    } else {
+
+      missionsAssigned.textContent =
+        "\u2014";
+
+      missionsCompleted.textContent =
+        "\u2014";
+
+      evidenceCount.textContent =
+        "\u2014";
+
+      eventsCount.textContent =
+        "\u2014";
+
+      activityStatus.textContent =
+        "La actividad operativa por persona sin cuenta digital est\u00e1 pendiente de migraci\u00f3n al identificador can\u00f3nico.";
+    }
+
 
     // ==================================================
-    // DESEMPEÑO OPERATIVO
-    // BUILD-124 B4-B2B16
-    //
-    // person.personId es la identidad canónica.
-    // Nunca se sustituye con UID.
+    // DESEMPE\u00d1O OPERATIVO
+    // personId es la identidad can\u00f3nica.
     // ==================================================
 
     void loadPersonPerformance(
       person.personId
     );
+
 
   } catch (error) {
 
@@ -1143,23 +1172,29 @@ async function loadPersonProfile(uid) {
 
     const permissionDenied =
       code === "permission-denied" ||
-      code === "firestore/permission-denied" ||
       code === "functions/permission-denied";
+
+    const notFound =
+      code === "not-found" ||
+      code === "functions/not-found";
 
     showError(
       permissionDenied
         ? "No tienes autorizaci\u00f3n para consultar el perfil de esta persona."
-        : "No fue posible consultar el perfil operativo.",
+        : notFound
+          ? "La persona solicitada no existe."
+          : "No fue posible consultar el perfil operativo.",
       permissionDenied
         ? "Acceso no autorizado"
-        : "No fue posible cargar el perfil"
+        : notFound
+          ? "Persona no encontrada"
+          : "No fue posible cargar el perfil"
     );
   }
 }
 
-
 // ======================================================
-// OBTENER UID DESDE URL
+// OBTENER personId CAN\u00d3NICO DESDE URL
 // ======================================================
 
 const parameters =
@@ -1167,7 +1202,7 @@ const parameters =
     window.location.search
   );
 
-const targetUid =
+const targetPersonId =
   cleanText(
     parameters.get("id")
   );
@@ -1194,7 +1229,7 @@ onAuthStateChanged(
 
     applyPerformanceContextLabels();
 
-    if (!targetUid) {
+    if (!targetPersonId) {
 
       showError(
         "No se recibió el identificador de la persona."
@@ -1204,7 +1239,7 @@ onAuthStateChanged(
     }
 
     await loadPersonProfile(
-      targetUid
+      targetPersonId
     );
   }
 );

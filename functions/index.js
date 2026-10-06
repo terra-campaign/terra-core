@@ -6610,3 +6610,7 @@ exports.reconcileContributionRecovery = onSchedule(
     return runContributionRecoverySweep({ db });
   }
 );
+
+exports.getPersonProfileContext =
+  require("./person-profile-context.cjs")
+    .getPersonProfileContext;
