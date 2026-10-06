@@ -942,3 +942,45 @@ test(
 
   }
 );
+
+test(
+  "base collaborator may read direct accountless territorial support",
+  () => {
+
+    assert.equal(
+      canReadPerformanceSummary({
+        actorProfile:
+          actor({
+            role:
+              "colaborador_base"
+          }),
+
+        actorPersonId:
+          "PER-ACTOR",
+
+        actorMembership:
+          actorMembership({
+            role:
+              "colaborador_base"
+          }),
+
+        targetPerson:
+          targetPerson({
+            accountUid:
+              null
+          }),
+
+        targetMembership:
+          targetMembership({
+            role:
+              "apoyo_territorial",
+
+            parentPersonId:
+              "PER-ACTOR"
+          })
+      }),
+
+      true
+    );
+  }
+);

@@ -21,7 +21,8 @@ const DIRECT_PARENT_ROLES =
     "coordinador_municipal",
     "jefe_estructura",
     "integrante",
-    "participante"
+    "participante",
+    "colaborador_base"
   ]);
 
 function cleanId(
