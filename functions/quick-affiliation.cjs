@@ -851,6 +851,12 @@ exports.getStructureMembers =
 
         members.push({
 
+          personId:
+            snapshot.id,
+
+          membershipId:
+            membership.membershipId,
+
           personRef:
             hash(
               'structure-member',

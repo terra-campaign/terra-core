@@ -6402,6 +6402,10 @@ exports.createQuickAffiliation =
 exports.getStructureMembers =
   require("./quick-affiliation.cjs").getStructureMembers;
 
+exports.getParticipantManagementContext =
+  require("./participant-management.cjs")
+    .getParticipantManagementContext;
+
 exports.getMyQuickAffiliations =
   require("./quick-affiliation.cjs").getMyQuickAffiliations;
 

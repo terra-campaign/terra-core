@@ -213,9 +213,54 @@
           >
         </label>
 
+        <fieldset class="binary-choice">
+          <legend>
+            ¿Esta persona tendrá cuenta digital en TERRA? *
+          </legend>
 
-        <label>
-          Correo electrónico *
+          <p class="muted">
+            Con cuenta digital podrá ingresar directamente a TERRA.
+            Sin cuenta digital no necesita dispositivo propio,
+            teléfono, WhatsApp ni correo electrónico; seguirá
+            formando parte del equipo y conservará su actividad,
+            evidencia, desempeño, puntos y reconocimiento.
+          </p>
+
+          <div class="binary-choice__options">
+
+            <label>
+              <input
+                id="participantDigitalAccountYes"
+                type="radio"
+                name="participantCreateDigitalAccount"
+                value="yes"
+                checked
+                required
+              >
+              Sí, crear cuenta digital
+            </label>
+
+            <label>
+              <input
+                id="participantDigitalAccountNo"
+                type="radio"
+                name="participantCreateDigitalAccount"
+                value="no"
+                required
+              >
+              No, registrar únicamente como miembro del equipo
+            </label>
+
+          </div>
+        </fieldset>
+
+
+
+
+        <div id="participantDigitalEmailGroup">
+
+          <label>
+            Correo electrónico *
 
           <input
             id="participantEmail"
@@ -225,6 +270,8 @@
             required
           >
         </label>
+
+        </div>
 
 
         <label>
@@ -308,8 +355,11 @@
           >
         </label>
 
-        <label>
-          Contraseña temporal *
+
+        <div id="participantDigitalPasswordGroup">
+
+          <label>
+            Contraseña temporal *
 
           <input
             id="participantPassword"
@@ -319,6 +369,8 @@
             required
           >
         </label>
+
+        </div>
 
 
         <div class="form-actions">

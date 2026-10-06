@@ -120,6 +120,83 @@ assert.equal(
 );
 
 
+
+// CONTRATO PERSON-CENTRIC GET STRUCTURE MEMBERS
+
+const fs =
+  require(
+    'node:fs'
+  );
+
+const path =
+  require(
+    'node:path'
+  );
+
+const source =
+  fs.readFileSync(
+    path.join(
+      __dirname,
+      'quick-affiliation.cjs'
+    ),
+    'utf8'
+  );
+
+const structureMembersStart =
+  source.indexOf(
+    'exports.getStructureMembers ='
+  );
+
+const structureMembersEnd =
+  source.indexOf(
+    'exports.getMyQuickAffiliations =',
+    structureMembersStart
+  );
+
+assert.notEqual(
+  structureMembersStart,
+  -1,
+  'Debe existir getStructureMembers.'
+);
+
+assert.notEqual(
+  structureMembersEnd,
+  -1,
+  'Debe existir el límite posterior de getStructureMembers.'
+);
+
+const structureMembersBlock =
+  source.slice(
+    structureMembersStart,
+    structureMembersEnd
+  );
+
+
+for (
+  const expected of [
+    'personId:',
+    'membershipId:',
+    'accountUid:',
+    'hasDigitalAccount:'
+  ]
+) {
+
+  assert.ok(
+    structureMembersBlock.includes(
+      expected
+    ),
+    `Falta contrato person-centric en getStructureMembers: ${expected}`
+  );
+}
+
+
+assert.match(
+  structureMembersBlock,
+  /members\.push\(\{[\s\S]*personId:[\s\S]*membershipId:[\s\S]*accountUid:[\s\S]*hasDigitalAccount:/,
+  'getStructureMembers debe devolver identidad canónica y estado de cuenta digital.'
+);
+
+
 console.log(
   'OK: BUILD-118C-3B3E-3B canonical structure members authorization tests passed.'
 );

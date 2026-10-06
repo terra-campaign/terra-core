@@ -10,12 +10,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 
 import {
-  collection,
   doc,
-  getDoc,
-  onSnapshot,
-  query,
-  where
+  getDoc
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 import {
@@ -48,6 +44,19 @@ const participantForm = document.querySelector("#participantForm");
 
 const participantNameInput = document.querySelector("#participantName");
 const participantEmailInput = document.querySelector("#participantEmail");
+
+const participantDigitalAccountYesInput =
+  document.querySelector("#participantDigitalAccountYes");
+
+const participantDigitalAccountNoInput =
+  document.querySelector("#participantDigitalAccountNo");
+
+const participantDigitalEmailGroup =
+  document.querySelector("#participantDigitalEmailGroup");
+
+const participantDigitalPasswordGroup =
+  document.querySelector("#participantDigitalPasswordGroup");
+
 const participantPhoneInput = document.querySelector("#participantPhone");
 const participantWhatsAppYesInput =
   document.querySelector("#participantWhatsAppYes");
@@ -93,16 +102,24 @@ const participantWelcomeManual =
 let currentUser = null;
 let currentUserProfile = null;
 let currentMember = null;
-let stopParticipantListener = null;
+let currentParticipants = [];
+let currentManagementMode = "";
 let savingParticipant = false;
 let sessionVersion = 0;
 
 const urlParams = new URLSearchParams(window.location.search);
-const requestedMemberUid = String(urlParams.get("id") || "").trim();
+const requestedMemberPersonId =
+  String(urlParams.get("id") || "").trim();
 
 const functions = getFunctions(undefined, "us-central1");
 const createParticipantFunction =
   httpsCallable(functions, "createParticipant");
+
+const getParticipantManagementContextFunction =
+  httpsCallable(
+    functions,
+    "getParticipantManagementContext"
+  );
 
 // ======================================================
 // UTILIDADES
@@ -153,26 +170,63 @@ function getErrorMessage(error) {
   return error?.message || "No fue posible completar la operación.";
 }
 
-function stopListening() {
-  if (stopParticipantListener) {
-    stopParticipantListener();
-    stopParticipantListener = null;
-  }
-}
-
 function canCreateParticipant() {
   return Boolean(
     currentUser &&
     auth.currentUser?.uid === currentUser.uid &&
     currentUserProfile?.active === true &&
-    currentUserProfile.role === "integrante" &&
     currentMember?.active === true &&
     currentMember.role === "integrante" &&
-    currentMember.uid === currentUser.uid &&
-    currentUserProfile.campaignId &&
-    currentMember.campaignId === currentUserProfile.campaignId
+    currentMember.personId &&
+    (
+      currentManagementMode === "self" ||
+      currentManagementMode === "assisted"
+    )
   );
 }
+
+function participantCreatesDigitalAccount() {
+
+  return !participantDigitalAccountNoInput?.checked;
+}
+
+
+function updateDigitalAccountFields() {
+
+  const createDigitalAccount =
+    participantCreatesDigitalAccount();
+
+  if (participantDigitalEmailGroup) {
+    participantDigitalEmailGroup.hidden =
+      !createDigitalAccount;
+  }
+
+  if (participantDigitalPasswordGroup) {
+    participantDigitalPasswordGroup.hidden =
+      !createDigitalAccount;
+  }
+
+  if (participantEmailInput) {
+
+    participantEmailInput.required =
+      createDigitalAccount;
+
+    if (!createDigitalAccount) {
+      participantEmailInput.value = "";
+    }
+  }
+
+  if (participantPasswordInput) {
+
+    participantPasswordInput.required =
+      createDigitalAccount;
+
+    if (!createDigitalAccount) {
+      participantPasswordInput.value = "";
+    }
+  }
+}
+
 
 function updateCreateControls() {
   const allowed = canCreateParticipant();
@@ -226,8 +280,13 @@ async function loadCurrentUserProfile(user) {
     throw new Error("No tienes autorización para consultar participantes.");
   }
 
-  if (!profile.campaignId) {
-    throw new Error("El usuario no tiene campaña asignada.");
+  if (
+    profile.role !== "admin" &&
+    !profile.campaignId
+  ) {
+    throw new Error(
+      "El usuario no tiene campaña asignada."
+    );
   }
 
   if (
@@ -247,46 +306,47 @@ async function loadCurrentUserProfile(user) {
 // CARGAR INTEGRANTE
 // ======================================================
 
-async function loadMember(profile, user) {
-  const targetUid =
-    requestedMemberUid ||
-    (profile.role === "integrante" ? user.uid : "");
+async function loadParticipantManagementContext(
+  profile
+) {
 
-  if (!targetUid) {
-    throw new Error("No se especificó un integrante.");
-  }
-
-  if (profile.role === "integrante" && targetUid !== user.uid) {
-    throw new Error("Sólo puedes consultar tus propios participantes.");
-  }
-
-  const snapshot = await getDoc(doc(db, "usuarios", targetUid));
-
-  if (!snapshot.exists()) {
-    throw new Error("El integrante no existe.");
-  }
-
-  const member = {
-    ...snapshot.data(),
-    uid: snapshot.id
-  };
-
-  if (member.role !== "integrante") {
-    throw new Error("El usuario seleccionado no es un integrante.");
-  }
-
-  if (member.campaignId !== profile.campaignId) {
-    throw new Error("El integrante pertenece a otra campaña.");
-  }
+  let parentPersonId =
+    requestedMemberPersonId;
 
   if (
-    profile.role === "jefe_estructura" &&
-    member.structureId !== profile.structureId
+    !parentPersonId &&
+    profile.role === "integrante"
   ) {
-    throw new Error("El integrante no pertenece a tu estructura.");
+    parentPersonId =
+      String(
+        profile.personId || ""
+      ).trim();
   }
 
-  return member;
+  if (!parentPersonId) {
+    throw new Error(
+      "No se especificó un integrante."
+    );
+  }
+
+  const result =
+    await getParticipantManagementContextFunction({
+      parentPersonId
+    });
+
+  const data =
+    result?.data || {};
+
+  if (
+    !data.member ||
+    data.member.role !== "integrante"
+  ) {
+    throw new Error(
+      "No fue posible cargar al integrante."
+    );
+  }
+
+  return data;
 }
 
 function renderMember(member) {
@@ -356,7 +416,7 @@ function renderParticipants(participants) {
 
       <a
         class="button button--secondary button--small"
-        href="./persona.html?id=${encodeURIComponent(participant.uid)}"
+        href="./persona.html?id=${encodeURIComponent(participant.personId)}"
       >
         Ver perfil
       </a>
@@ -368,61 +428,29 @@ function renderParticipants(participants) {
 // CONSULTAR PARTICIPANTES
 // ======================================================
 
-function listenParticipants(version) {
-  stopListening();
+function loadParticipantsFromContext(
+  participants
+) {
 
-  const filters = [
-    where("campaignId", "==", currentUserProfile.campaignId),
-    where("parentUserId", "==", currentMember.uid),
-    where("role", "==", "participante")
-  ];
+  currentParticipants =
+    Array.isArray(participants)
+      ? participants
+      : [];
 
-  // La consulta del Responsable de estructura debe incluir
-  // el mismo alcance que autorizan las reglas de Firestore.
-  if (currentUserProfile.role === "jefe_estructura") {
-    filters.push(
-      where("structureId", "==", currentUserProfile.structureId)
-    );
-  }
+  renderParticipants(
+    currentParticipants
+  );
 
-  showStatus(participantStatus, "Cargando participantes...");
-
-  stopParticipantListener = onSnapshot(
-    query(collection(db, "usuarios"), ...filters),
-
-    (snapshot) => {
-      if (version !== sessionVersion) return;
-
-      const participants = snapshot.docs.map((item) => ({
-        ...item.data(),
-        uid: item.id
-      }));
-
-      renderParticipants(participants);
-      showStatus(participantStatus, "");
-    },
-
-    (error) => {
-      if (version !== sessionVersion) return;
-
-      console.error("Error al consultar participantes:", error);
-
-      if (participantList) {
-        participantList.innerHTML = "";
-      }
-
-      showStatus(
-        participantStatus,
-        getErrorMessage(error),
-        "error"
-      );
-    }
+  showStatus(
+    participantStatus,
+    currentParticipants.length
+      ? String(currentParticipants.length) +
+        " participante(s) registrado(s)."
+      : ""
   );
 }
 
-// ======================================================
-// WHATSAPP · BIENVENIDA PARTICIPANTE
-// BUILD-116E-2
+
 // ======================================================
 
 function normalizeParticipantWhatsAppPhone(value) {
@@ -490,6 +518,10 @@ function showParticipantWelcome(user) {
   const hasWhatsApp =
     user?.hasWhatsApp === true;
 
+  const hasDigitalAccount =
+    user?.hasDigitalAccount === true ||
+    user?.createDigitalAccount === true;
+
   const parentUserName =
     String(
       user?.parentUserName ||
@@ -542,8 +574,11 @@ function showParticipantWelcome(user) {
   if (!hasWhatsApp) {
 
     if (participantWelcomeChannelStatus) {
+
       participantWelcomeChannelStatus.textContent =
-        "WhatsApp: No. Entregue el usuario y la contraseña temporal por otro medio.";
+        hasDigitalAccount
+          ? "WhatsApp: No. Entregue el usuario y la contraseña temporal por otro medio."
+          : "Registrado sin cuenta digital y sin WhatsApp. El integrante responsable dará seguimiento operativo.";
     }
 
     if (participantWelcomeWhatsApp) {
@@ -565,47 +600,74 @@ function showParticipantWelcome(user) {
   }
 
 
-  const message = [
-    "TERRA CAMPAIGN · Bienvenida",
-    "",
-    `Hola, ${name}.`,
-    "",
-    "Has sido registrado como Participante de TERRA CAMPAIGN.",
-    parentUserName
-      ? `Integrante responsable: ${parentUserName}.`
-      : "",
-    structureName
-      ? `Estructura: ${structureName}.`
-      : "",
-    municipalityName
-      ? `Municipio: ${municipalityName}.`
-      : "",
-    "",
-    "Tu acceso a TERRA CAMPAIGN ya está habilitado.",
-    "",
-    "Usuario:",
-    email,
-    "",
-    "Ingresa aquí:",
-    "https://terra-campaign.github.io/terra-core/login.html",
-    "",
-    "Por seguridad, tu contraseña temporal no se comparte en este mensaje.",
-    "Recíbela por separado de la persona que realizó tu registro.",
-    "",
-    "Bienvenido al equipo territorial."
-  ]
-    .filter(
-      (line, index, array) =>
-        line !== "" ||
-        index === 0 ||
-        array[index - 1] !== ""
-    )
-    .join("\n");
+  const message =
+    hasDigitalAccount
+      ? [
+          "TERRA CAMPAIGN \u00b7 Bienvenida",
+          "",
+          `Hola, ${name}.`,
+          "",
+          "Has sido registrado como Participante de TERRA CAMPAIGN.",
+          parentUserName
+            ? `Integrante responsable: ${parentUserName}.`
+            : "",
+          structureName
+            ? `Estructura: ${structureName}.`
+            : "",
+          municipalityName
+            ? `Municipio: ${municipalityName}.`
+            : "",
+          "",
+          "Tu acceso a TERRA CAMPAIGN ya est\u00e1 habilitado.",
+          "",
+          "Usuario:",
+          email,
+          "",
+          "Ingresa aqu\u00ed:",
+          "https://terra-campaign.github.io/terra-core/login.html",
+          "",
+          "Por seguridad, tu contrase\u00f1a temporal no se comparte en este mensaje.",
+          "Rec\u00edbela por separado de la persona que realiz\u00f3 tu registro.",
+          "",
+          "Bienvenido al equipo territorial."
+        ]
+      : [
+          "TERRA CAMPAIGN \u00b7 Registro territorial",
+          "",
+          `Hola, ${name}.`,
+          "",
+          "Has sido registrado como Participante de TERRA CAMPAIGN.",
+          parentUserName
+            ? `Integrante responsable: ${parentUserName}.`
+            : "",
+          structureName
+            ? `Estructura: ${structureName}.`
+            : "",
+          municipalityName
+            ? `Municipio: ${municipalityName}.`
+            : "",
+          "",
+          "Tu registro no requiere cuenta digital propia.",
+          "Tu actividad, evidencia, desempe\u00f1o, puntos y reconocimiento seguir\u00e1n formando parte de TERRA.",
+          "Tu integrante responsable dar\u00e1 seguimiento a las operaciones que correspondan.",
+          "",
+          "Bienvenido al equipo territorial."
+        ];
+
+  const preparedWelcomeMessage =
+    message
+      .filter(
+        (line, index, array) =>
+          line !== "" ||
+          index === 0 ||
+          array[index - 1] !== ""
+      )
+      .join("\n");
 
 
   if (participantWelcomeMessage) {
     participantWelcomeMessage.value =
-      message;
+      preparedWelcomeMessage;
   }
 
 
@@ -613,7 +675,7 @@ function showParticipantWelcome(user) {
 
     const preparedMessage =
       participantWelcomeMessage?.value ||
-      message;
+      preparedWelcomeMessage;
 
     if (participantWelcomeManual) {
       participantWelcomeManual.href =
@@ -675,6 +737,7 @@ function openParticipantModal() {
   if (!canCreateParticipant() || savingParticipant) return;
 
   participantForm?.reset();
+  updateDigitalAccountFields();
   resetParticipantWelcome();
   showStatus(participantFormStatus, "");
 
@@ -691,6 +754,7 @@ function closeParticipantModal() {
   }
 
   participantForm?.reset();
+  updateDigitalAccountFields();
   resetParticipantWelcome();
   showStatus(participantFormStatus, "");
 }
@@ -705,7 +769,7 @@ async function handleCreateParticipant(event) {
   if (!canCreateParticipant()) {
     showStatus(
       participantFormStatus,
-      "Sólo el integrante puede registrar sus propios participantes.",
+      "No tienes autorización para registrar participantes para este integrante.",
       "error"
     );
     return;
@@ -717,11 +781,18 @@ async function handleCreateParticipant(event) {
     .trim()
     .replace(/\s+/g, " ");
 
-  const email = String(participantEmailInput?.value || "")
-    .trim()
-    .toLowerCase();
+  const createDigitalAccount =
+    participantCreatesDigitalAccount();
 
-  const phone = String(participantPhoneInput?.value || "").trim();
+  const email =
+    createDigitalAccount
+      ? String(participantEmailInput?.value || "")
+          .trim()
+          .toLowerCase()
+      : "";
+
+  const phone =
+    String(participantPhoneInput?.value || "").trim();
 
   const hasWhatsApp =
     participantWhatsAppYesInput?.checked
@@ -750,8 +821,16 @@ async function handleCreateParticipant(event) {
     return;
   }
 
-  if (!email) {
-    showStatus(participantFormStatus, "Ingrese un correo electrónico.", "error");
+  if (
+    createDigitalAccount &&
+    !email
+  ) {
+    showStatus(
+      participantFormStatus,
+      "Ingrese un correo electrónico para crear la cuenta digital.",
+      "error"
+    );
+
     participantEmailInput?.focus();
     return;
   }
@@ -808,12 +887,16 @@ async function handleCreateParticipant(event) {
     return;
   }
 
-  if (password.length < 6) {
+  if (
+    createDigitalAccount &&
+    password.length < 6
+  ) {
     showStatus(
       participantFormStatus,
       "La contraseña temporal debe tener al menos 6 caracteres.",
       "error"
     );
+
     participantPasswordInput?.focus();
     return;
   }
@@ -825,8 +908,9 @@ async function handleCreateParticipant(event) {
   showStatus(participantFormStatus, "Registrando participante...");
 
   try {
-    // El backend debe validar el rol y que parentUserId
-    // corresponda al usuario autenticado.
+    // La jerarquía se resuelve por identidad canónica.
+    // La cuenta que registra puede ser distinta del
+    // Integrante responsable.
     const result = await createParticipantFunction({
       name,
       email,
@@ -835,8 +919,13 @@ async function handleCreateParticipant(event) {
       locality,
       street,
       houseNumber,
-      password,
-      parentUserId: currentUser.uid
+      password:
+        createDigitalAccount
+          ? password
+          : "",
+      createDigitalAccount,
+      parentPersonId:
+        currentMember.personId
     });
 
     if (version !== sessionVersion) return;
@@ -844,29 +933,39 @@ async function handleCreateParticipant(event) {
     const participant =
       result?.data?.user;
 
-    const createdParticipant =
-      participant || {
-        name,
-        email,
-        phone,
-        hasWhatsApp,
-        locality,
-        street,
-        houseNumber,
-        parentUserId:
-          currentUser.uid,
-        parentUserName:
-          currentMember?.name || "",
-        structureName:
-          currentMember?.structureName || "",
-        municipalityName:
-          currentMember?.municipalityName || "",
-        mustChangePassword:
-          true
-      };
+    const createdParticipant = {
+      name,
+      email,
+      phone,
+      hasWhatsApp,
+      locality,
+      street,
+      houseNumber,
+      parentPersonId:
+        currentMember?.personId || "",
+      parentUserName:
+        currentMember?.name || "",
+      structureName:
+        currentMember?.structureName || "",
+      municipalityName:
+        currentMember?.municipalityName || "",
+      createDigitalAccount,
+      hasDigitalAccount:
+        createDigitalAccount,
+      mustChangePassword:
+        createDigitalAccount,
+      ...(participant || {})
+    };
+
+    createdParticipant.createDigitalAccount =
+      createDigitalAccount;
+
+    createdParticipant.hasDigitalAccount =
+      createDigitalAccount;
 
 
     participantForm?.reset();
+    updateDigitalAccountFields();
 
 
     showStatus(
@@ -880,6 +979,30 @@ async function handleCreateParticipant(event) {
 
     showParticipantWelcome(
       createdParticipant
+    );
+
+
+    const refreshedContext =
+      await loadParticipantManagementContext(
+        currentUserProfile
+      );
+
+    if (version !== sessionVersion) return;
+
+    currentMember =
+      refreshedContext.member;
+
+    currentManagementMode =
+      String(
+        refreshedContext.recordingMode || ""
+      );
+
+    renderMember(
+      currentMember
+    );
+
+    loadParticipantsFromContext(
+      refreshedContext.participants
     );
 
 
@@ -921,6 +1044,16 @@ closeParticipantModalButton?.addEventListener(
 
 participantForm?.addEventListener("submit", handleCreateParticipant);
 
+participantDigitalAccountYesInput?.addEventListener(
+  "change",
+  updateDigitalAccountFields
+);
+
+participantDigitalAccountNoInput?.addEventListener(
+  "change",
+  updateDigitalAccountFields
+);
+
 participantWelcomeDirect?.addEventListener("click", () => {
   window.setTimeout(() => {
     closeParticipantModal();
@@ -959,11 +1092,12 @@ backButton?.addEventListener("click", () => {
 
 logoutButton?.addEventListener("click", async () => {
   sessionVersion++;
-  stopListening();
 
   currentUser = null;
   currentUserProfile = null;
   currentMember = null;
+  currentParticipants = [];
+  currentManagementMode = "";
 
   clearMemberDisplay();
   closeParticipantModal();
@@ -988,11 +1122,11 @@ updateCreateControls();
 onAuthStateChanged(auth, async (user) => {
   const version = ++sessionVersion;
 
-  stopListening();
-
   currentUser = null;
   currentUserProfile = null;
   currentMember = null;
+  currentParticipants = [];
+  currentManagementMode = "";
   savingParticipant = false;
 
   clearMemberDisplay();
@@ -1012,17 +1146,39 @@ onAuthStateChanged(auth, async (user) => {
 
     if (version !== sessionVersion) return;
 
-    const member = await loadMember(profile, user);
+    const context =
+      await loadParticipantManagementContext(
+        profile
+      );
 
     if (version !== sessionVersion) return;
 
     currentUser = user;
     currentUserProfile = profile;
-    currentMember = member;
+    currentMember =
+      context.member;
 
-    renderMember(member);
+    currentParticipants =
+      Array.isArray(
+        context.participants
+      )
+        ? context.participants
+        : [];
+
+    currentManagementMode =
+      String(
+        context.recordingMode || ""
+      );
+
+    renderMember(
+      currentMember
+    );
+
     updateCreateControls();
-    listenParticipants(version);
+
+    loadParticipantsFromContext(
+      currentParticipants
+    );
   } catch (error) {
     if (version !== sessionVersion) return;
 
