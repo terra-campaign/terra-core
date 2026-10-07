@@ -7639,6 +7639,11 @@ async function validateDoorCandidateAttendance(
     }
 
 
+
+    await openAttendanceControl(
+      eventId
+    );
+
   } catch (error) {
 
     $("attendanceIdentityStatus")
