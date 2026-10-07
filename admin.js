@@ -942,6 +942,7 @@ function profileRoleLabel(role) {
     integrante: "Integrante",
     participante: "Participante",
     colaborador_base: "Colaborador de base",
+    apoyo_territorial: "Apoyo territorial",
     brigadista: "Brigadista",
     consulta: "Consulta"
   };
@@ -1050,6 +1051,7 @@ async function loadCurrentUserProfile(user) {
   "integrante",
   "participante",
   "colaborador_base",
+  "apoyo_territorial",
   "brigadista",
   "consulta",
   "lider_principal"
@@ -1096,7 +1098,8 @@ function applyRoleInterface() {
     "jefe_estructura",
     "integrante",
     "participante",
-    "colaborador_base"
+    "colaborador_base",
+    "apoyo_territorial"
   ].includes(role);
 
   const canAccessEvents = [
@@ -1105,7 +1108,8 @@ function applyRoleInterface() {
     "jefe_estructura",
     "integrante",
     "participante",
-    "colaborador_base"
+    "colaborador_base",
+    "apoyo_territorial"
   ].includes(role);
 
   if (brigadistasAdminButton) {
