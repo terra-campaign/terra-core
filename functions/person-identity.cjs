@@ -372,23 +372,16 @@ function personCandidateMatch(
   // REGLAS PARA MOSTRAR CANDIDATO
   //
   // A) teléfono equivalente
-  // B) nombre exacto + población exacta
-  // C) nombre exacto + calle + número
+  // B) nombre exacto
   //
-  // Nombre solo NO basta.
+  // Población, calle y número refuerzan el score
+  // y ayudan a la revisión humana, pero no son
+  // requisitos para localizar una persona canónica.
   // ==================================================
 
   const candidate =
     phoneMatch ||
-    (
-      nameMatch &&
-      localityMatch
-    ) ||
-    (
-      nameMatch &&
-      streetMatch &&
-      houseMatch
-    );
+    nameMatch;
 
 
   if (!candidate) {
@@ -663,23 +656,22 @@ exports.searchPersonCandidates =
       }
 
 
-      // Para evitar consultas abiertas que
-      // puedan convertirse en directorio de campaña:
+      // Para evitar consultas completamente abiertas:
       //
       // - teléfono válido
       //   O
-      // - nombre + población.
+      // - nombre completo de al menos 4 caracteres.
+      //
+      // La población es opcional y sirve para
+      // reforzar/desambiguar la coincidencia.
       if (
         !phone &&
-        (
-          name.length < 4 ||
-          locality.length < 2
-        )
+        name.length < 4
       ) {
 
         fail(
           'invalid-argument',
-          'Ingresa teléfono o nombre completo y población para buscar coincidencias.'
+          'Ingresa teléfono o nombre completo para buscar coincidencias.'
         );
       }
 

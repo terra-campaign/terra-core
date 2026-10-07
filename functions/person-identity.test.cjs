@@ -155,14 +155,44 @@ assert.deepEqual(
 
 
 // ======================================================
-// NOMBRE SOLO NO BASTA
+// NOMBRE EXACTO SOLO ES CANDIDATO
+// ======================================================
+
+const nameOnlyCandidate =
+  personCandidateMatch(
+    {
+      name:
+        'Juan Pérez'
+    },
+    {
+      name:
+        'Juan Perez'
+    }
+  );
+
+
+assert.ok(
+  nameOnlyCandidate
+);
+
+
+assert.deepEqual(
+  nameOnlyCandidate.reasons,
+  [
+    'name'
+  ]
+);
+
+
+// ======================================================
+// NOMBRE PARCIAL NO ES CANDIDATO
 // ======================================================
 
 assert.equal(
   personCandidateMatch(
     {
       name:
-        'Juan Pérez'
+        'Juan'
     },
     {
       name:

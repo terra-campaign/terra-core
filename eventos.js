@@ -7905,15 +7905,12 @@ async function searchAttendanceIdentity() {
 
   if (
     !phoneDigits &&
-    (
-      name.length < 4 ||
-      locality.length < 2
-    )
+    name.length < 4
   ) {
 
     $("attendanceIdentityStatus")
       .textContent =
-      "Ingresa un teléfono o escribe nombre completo y población.";
+      "Ingresa un teléfono o escribe el nombre completo.";
 
     return;
   }
