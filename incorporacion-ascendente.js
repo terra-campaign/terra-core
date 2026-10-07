@@ -370,7 +370,7 @@ function renderParentCandidates() {
 
   initialOption.textContent =
     members.length
-      ? "Selecciona responsable"
+      ? "Selecciona a quién aportarás el nuevo invitado"
       : "No hay responsables disponibles";
 
   parentPersonIdInput.appendChild(
@@ -544,7 +544,7 @@ async function handleSubmit(
   if (!parentPersonId) {
     showStatus(
       formStatus,
-      "Selecciona al responsable jerárquico.",
+      "Selecciona a qué responsable aportarás el nuevo invitado.",
       "error"
     );
     return;
