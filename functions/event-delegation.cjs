@@ -24,6 +24,18 @@ const {
   deriveAttendanceContributionCandidateSafely
 } = require('./contribution-verified-fact-bridge.cjs');
 
+const {
+  completeGrowthValidationInternal
+} = require('./growth-validation-writer.cjs');
+
+const {
+  GROWTH_MILESTONES
+} = require('./growth-validation.cjs');
+
+const {
+  SOURCE_TYPES
+} = require('./activity-catalog-v1.cjs');
+
 
 const OPTIONS = {
   region: 'us-central1',
@@ -691,6 +703,103 @@ async function deriveAttendanceContributionAfterCommitSafely({
       {
         eventId,
         attendanceId
+      }
+    );
+
+    return null;
+  }
+}
+
+
+async function completeAttendanceGrowthAfterCommitSafely({
+  db,
+  attendanceId
+}) {
+  try {
+    const attendanceSnapshot =
+      await db.collection(
+        'eventAttendance'
+      ).doc(
+        attendanceId
+      ).get();
+
+    if (!attendanceSnapshot.exists) {
+      console.error(
+        'ATTENDANCE_GROWTH_BRIDGE_SOURCE_MISSING',
+        {
+          attendanceId
+        }
+      );
+
+      return null;
+    }
+
+    const attendance =
+      attendanceSnapshot.data();
+
+    const actorUid =
+      typeof attendance.validatedByUserId ===
+        'string'
+        ? attendance.validatedByUserId.trim()
+        : '';
+
+    const personId =
+      typeof attendance.personId ===
+        'string'
+        ? attendance.personId.trim()
+        : '';
+
+    if (
+      !actorUid ||
+      !personId
+    ) {
+      console.error(
+        'ATTENDANCE_GROWTH_BRIDGE_CONTEXT_MISSING',
+        {
+          attendanceId,
+          hasActorUid:
+            Boolean(actorUid),
+          hasPersonId:
+            Boolean(personId)
+        }
+      );
+
+      return null;
+    }
+
+    return await completeGrowthValidationInternal({
+      db,
+
+      actorUid,
+
+      requestedPersonId:
+        personId,
+
+      milestone:
+        GROWTH_MILESTONES
+          .FIRST_VERIFIED_ACTIVITY,
+
+      requestedSourceType:
+        SOURCE_TYPES
+          .ATTENDANCE_RECORD,
+
+      requestedSourceDocumentId:
+        attendanceSnapshot.id
+    });
+
+  } catch (error) {
+    console.error(
+      'ATTENDANCE_GROWTH_BRIDGE_UNEXPECTED_FAILURE',
+      {
+        attendanceId,
+
+        error:
+          error &&
+          error.message
+            ? error.message
+            : String(
+                error
+              )
       }
     );
 
@@ -4114,6 +4223,13 @@ exports.recordDoorEventAttendance =
           attendanceId:
             contributionFact.attendanceId
         });
+
+        await completeAttendanceGrowthAfterCommitSafely({
+          db,
+
+          attendanceId:
+            contributionFact.attendanceId
+        });
       }
 
       // Preserve the original public callable contract.
@@ -5798,6 +5914,13 @@ exports.recordEventAttendance =
 
           eventId:
             contributionFact.eventId,
+
+          attendanceId:
+            contributionFact.attendanceId
+        });
+
+        await completeAttendanceGrowthAfterCommitSafely({
+          db,
 
           attendanceId:
             contributionFact.attendanceId

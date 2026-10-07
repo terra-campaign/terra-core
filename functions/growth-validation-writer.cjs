@@ -1913,6 +1913,69 @@ async function completeGrowthValidationCore({
   );
 }
 
+async function completeGrowthValidationInternal({
+  db,
+  actorUid,
+  requestedPersonId,
+  milestone,
+  requestedSourceType = null,
+  requestedSourceDocumentId = null,
+}) {
+
+  const transactionResult =
+    await completeGrowthValidationCore({
+      db,
+      actorUid,
+      requestedPersonId,
+      milestone,
+      requestedSourceType,
+      requestedSourceDocumentId,
+    });
+
+  try {
+
+    if (
+      transactionResult &&
+      transactionResult.recoveryRecord
+    ) {
+
+      await processMissionContributionRecovery({
+        db,
+
+        record:
+          transactionResult.recoveryRecord,
+      });
+    }
+
+  } catch (recoveryError) {
+
+    console.error(
+      'COMPLETE_GROWTH_VALIDATION_RECOVERY_FAILURE',
+      {
+        operationId:
+          transactionResult
+            ?.recoveryRecord
+            ?.operationId,
+
+        error:
+          recoveryError &&
+          recoveryError.message
+            ? recoveryError.message
+            : String(
+                recoveryError
+              ),
+      }
+    );
+  }
+
+  return transactionResult;
+}
+
+
+exports.completeGrowthValidationInternal =
+  completeGrowthValidationInternal;
+
+
 exports.completeGrowthValidation =
   onCall(
     OPTIONS,
@@ -1975,7 +2038,7 @@ exports.completeGrowthValidation =
       try {
 
         const transactionResult =
-          await completeGrowthValidationCore({
+          await completeGrowthValidationInternal({
             db,
 
             actorUid,
@@ -1988,42 +2051,6 @@ exports.completeGrowthValidation =
 
             requestedSourceDocumentId,
           });
-
-        try {
-
-          if (
-            transactionResult &&
-            transactionResult.recoveryRecord
-          ) {
-
-            await processMissionContributionRecovery({
-              db,
-
-              record:
-                transactionResult.recoveryRecord,
-            });
-          }
-
-        } catch (recoveryError) {
-
-          console.error(
-            "COMPLETE_GROWTH_VALIDATION_RECOVERY_FAILURE",
-            {
-              operationId:
-                transactionResult
-                  ?.recoveryRecord
-                  ?.operationId,
-
-              error:
-                recoveryError &&
-                recoveryError.message
-                  ? recoveryError.message
-                  : String(
-                      recoveryError
-                    ),
-            }
-          );
-        }
 
         const publicResult = {
           ...transactionResult,
