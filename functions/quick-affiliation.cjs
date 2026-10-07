@@ -15,6 +15,12 @@ const {
 );
 
 const {
+  getAuth
+} = require(
+  'firebase-admin/auth'
+);
+
+const {
   createHash
 } = require(
   'node:crypto'
@@ -1035,6 +1041,9 @@ exports.createQuickAffiliation =
       const db =
         getFirestore();
 
+      const auth =
+        getAuth();
+
 
       const caller =
         await readCaller(
@@ -1074,6 +1083,23 @@ exports.createQuickAffiliation =
       const data =
         request.data ||
         {};
+
+      const createDigitalAccount =
+        data.createDigitalAccount === true;
+
+      const email =
+        String(
+          data.email ||
+          ''
+        )
+          .trim()
+          .toLowerCase();
+
+      const password =
+        String(
+          data.password ||
+          ''
+        );
 
 
       const name =
@@ -1140,6 +1166,32 @@ exports.createQuickAffiliation =
 
 
       if (
+        createDigitalAccount &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+          email
+        )
+      ) {
+
+        fail(
+          'invalid-argument',
+          'Ingrese un correo electrónico válido.'
+        );
+      }
+
+
+      if (
+        createDigitalAccount &&
+        password.length < 6
+      ) {
+
+        fail(
+          'invalid-argument',
+          'La contraseña temporal debe tener al menos 6 caracteres.'
+        );
+      }
+
+
+      if (
         phone &&
         (
           phone.length < 10 ||
@@ -1171,6 +1223,72 @@ exports.createQuickAffiliation =
 
         houseNumber
       });
+
+
+      let authUser =
+        null;
+
+      if (createDigitalAccount) {
+
+        try {
+
+          authUser =
+            await auth.createUser({
+
+              email,
+
+              password,
+
+              displayName:
+                name,
+
+              disabled:
+                false
+            });
+
+        } catch (error) {
+
+          console.error(
+            'Error al crear cuenta digital de afiliación rápida:',
+            error
+          );
+
+          if (
+            error?.code ===
+              'auth/email-already-exists'
+          ) {
+
+            fail(
+              'already-exists',
+              'Ya existe un usuario registrado con ese correo.'
+            );
+          }
+
+          if (
+            error?.code ===
+              'auth/invalid-email'
+          ) {
+
+            fail(
+              'invalid-argument',
+              'El correo electrónico no es válido.'
+            );
+          }
+
+          if (
+            error?.code ===
+              'auth/invalid-password'
+          ) {
+
+            fail(
+              'invalid-argument',
+              'La contraseña temporal no es válida.'
+            );
+          }
+
+          throw error;
+        }
+      }
 
 
       const personRef =
@@ -1205,6 +1323,17 @@ exports.createQuickAffiliation =
           )
           .doc();
 
+      const userRef =
+        authUser
+          ? db
+              .collection(
+                'usuarios'
+              )
+              .doc(
+                authUser.uid
+              )
+          : null;
+
 
       const affiliationAncestry =
         canonicalChildAncestry({
@@ -1228,8 +1357,10 @@ exports.createQuickAffiliation =
         FieldValue.serverTimestamp();
 
 
-      await db.runTransaction(
-        async tx => {
+      try {
+
+        await db.runTransaction(
+          async tx => {
 
           const [
             personSnapshot,
@@ -1267,6 +1398,8 @@ exports.createQuickAffiliation =
                 personRef.id,
 
               name,
+
+              email,
 
               locality,
 
@@ -1308,10 +1441,12 @@ exports.createQuickAffiliation =
                 '',
 
               accountUid:
-                null,
+                authUser ? authUser.uid : null,
 
               identityStatus:
-                'minimal',
+                createDigitalAccount
+                  ? 'digital'
+                  : 'minimal',
 
               source:
                 'quick_affiliation',
@@ -1354,6 +1489,9 @@ exports.createQuickAffiliation =
 
               personId:
                 personRef.id,
+
+              accountUid:
+                authUser ? authUser.uid : null,
 
               campaignId:
                 caller.campaignId,
@@ -1433,6 +1571,101 @@ exports.createQuickAffiliation =
           );
 
 
+          if (
+            authUser &&
+            userRef
+          ) {
+
+            tx.create(
+              userRef,
+              {
+
+                uid:
+                  authUser.uid,
+
+                personId:
+                  personRef.id,
+
+                membershipId,
+
+                name,
+
+                email,
+
+                phone,
+
+                hasWhatsApp,
+
+                locality,
+
+                street,
+
+                houseNumber,
+
+                role:
+                  caller.targetRole,
+
+                active:
+                  true,
+
+                campaignId:
+                  caller.campaignId,
+
+                municipalityId:
+                  caller.municipalityId,
+
+                municipalityName:
+                  caller.municipalityName ||
+                  '',
+
+                structureId:
+                  caller.structureId,
+
+                structureDocumentId:
+                  caller.structureDocumentId ||
+                  '',
+
+                structureName:
+                  caller.structureName ||
+                  '',
+
+                parentUserId:
+                  caller.uid,
+
+                parentPersonId:
+                  callerPersonId,
+
+                parentUserName:
+                  caller.name ||
+                  '',
+
+                ancestorIds:
+                  ancestorUserIds,
+
+                ancestorPersonIds,
+
+                createdBy:
+                  caller.uid,
+
+                createdByRole:
+                  caller.role,
+
+                mustChangePassword:
+                  createDigitalAccount,
+
+                createdAt:
+                  now,
+
+                updatedAt:
+                  now,
+
+                version:
+                  1
+              }
+            );
+          }
+
+
           tx.create(
             logRef,
             {
@@ -1462,6 +1695,14 @@ exports.createQuickAffiliation =
               targetName:
                 name,
 
+              targetUserId:
+                authUser ? authUser.uid : null,
+
+              targetUserEmail:
+                email,
+
+              createDigitalAccount,
+
               createdBy:
                 caller.uid,
 
@@ -1472,8 +1713,44 @@ exports.createQuickAffiliation =
                 now
             }
           );
+          }
+        );
+
+      } catch (error) {
+
+        console.error(
+          'Error al guardar afiliación rápida:',
+          error
+        );
+
+        if (authUser) {
+
+          try {
+
+            await auth.deleteUser(
+              authUser.uid
+            );
+
+          } catch (rollbackError) {
+
+            console.error(
+              'No fue posible revertir Authentication:',
+              rollbackError
+            );
+          }
         }
-      );
+
+        if (
+          error instanceof HttpsError
+        ) {
+          throw error;
+        }
+
+        throw new HttpsError(
+          'internal',
+          'No fue posible guardar la afiliación.'
+        );
+      }
 
 
       return {
@@ -1488,6 +1765,8 @@ exports.createQuickAffiliation =
 
           name,
 
+          email,
+
           locality,
 
           phone,
@@ -1499,7 +1778,15 @@ exports.createQuickAffiliation =
           houseNumber,
 
           accountUid:
-            null
+            authUser ? authUser.uid : null,
+
+          hasDigitalAccount:
+            Boolean(
+              authUser
+            ),
+
+          mustChangePassword:
+            createDigitalAccount
         },
 
         membership: {

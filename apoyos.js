@@ -80,6 +80,24 @@ const supportStreetInput =
 const supportHouseNumberInput =
   $("#supportHouseNumber");
 
+const supportDigitalAccountYesInput =
+  $("#supportDigitalAccountYes");
+
+const supportDigitalAccountNoInput =
+  $("#supportDigitalAccountNo");
+
+const supportDigitalEmailGroup =
+  $("#supportDigitalEmailGroup");
+
+const supportDigitalPasswordGroup =
+  $("#supportDigitalPasswordGroup");
+
+const supportEmailInput =
+  $("#supportEmail");
+
+const supportPasswordInput =
+  $("#supportPassword");
+
 const saveSupportButton =
   $("#saveSupportButton");
 
@@ -588,6 +606,44 @@ async function loadSupports(
 // MODAL
 // ======================================================
 
+function updateDigitalAccountFields() {
+
+  const createDigitalAccount =
+    supportDigitalAccountYesInput?.checked ===
+      true;
+
+  if (supportDigitalEmailGroup) {
+    supportDigitalEmailGroup.hidden =
+      !createDigitalAccount;
+  }
+
+  if (supportDigitalPasswordGroup) {
+    supportDigitalPasswordGroup.hidden =
+      !createDigitalAccount;
+  }
+
+  if (supportEmailInput) {
+    supportEmailInput.required =
+      createDigitalAccount;
+
+    if (!createDigitalAccount) {
+      supportEmailInput.value =
+        "";
+    }
+  }
+
+  if (supportPasswordInput) {
+    supportPasswordInput.required =
+      createDigitalAccount;
+
+    if (!createDigitalAccount) {
+      supportPasswordInput.value =
+        "";
+    }
+  }
+}
+
+
 function clearFormStatus() {
   if (!supportFormStatus) {
     return;
@@ -611,6 +667,8 @@ function openModal() {
 
   supportForm?.reset();
 
+  updateDigitalAccountFields();
+
   supportCreated = false;
   updateControls();
 
@@ -628,6 +686,8 @@ function closeModal() {
     true;
 
   supportForm?.reset();
+
+  updateDigitalAccountFields();
 
   supportCreated = false;
   updateControls();
@@ -809,6 +869,24 @@ async function handleSubmit(
       .trim()
       .replace(/\s+/g, " ");
 
+  const createDigitalAccount =
+    supportDigitalAccountYesInput?.checked ===
+      true;
+
+  const email =
+    String(
+      supportEmailInput?.value ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+  const password =
+    String(
+      supportPasswordInput?.value ||
+      ""
+    );
+
   if (
     name.length < 2 ||
     locality.length < 2
@@ -829,6 +907,34 @@ async function handleSubmit(
     showStatus(
       supportFormStatus,
       "Ingresa el tel\u00e9fono que tiene WhatsApp.",
+      "error"
+    );
+
+    return;
+  }
+
+  if (
+    createDigitalAccount &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+      email
+    )
+  ) {
+    showStatus(
+      supportFormStatus,
+      "Ingresa un correo electrónico válido.",
+      "error"
+    );
+
+    return;
+  }
+
+  if (
+    createDigitalAccount &&
+    password.length < 6
+  ) {
+    showStatus(
+      supportFormStatus,
+      "La contraseña temporal debe tener al menos 6 caracteres.",
       "error"
     );
 
@@ -856,7 +962,10 @@ async function handleSubmit(
         phone,
         street,
         houseNumber,
-        hasWhatsApp
+        hasWhatsApp,
+        createDigitalAccount,
+        email,
+        password
       });
 
     if (
@@ -921,6 +1030,16 @@ closeSupportModalButton?.addEventListener(
 supportModalBackdrop?.addEventListener(
   "click",
   closeModal
+);
+
+supportDigitalAccountYesInput?.addEventListener(
+  "change",
+  updateDigitalAccountFields
+);
+
+supportDigitalAccountNoInput?.addEventListener(
+  "change",
+  updateDigitalAccountFields
 );
 
 supportForm?.addEventListener(

@@ -81,14 +81,19 @@ assert.equal(
 // RELACIONES CANONICAS
 // ======================================================
 
-const parentPersonMatches =
+const membershipBlockMatch =
   source.match(
-    /parentUserId:\s*caller\.uid,\s*parentPersonId:\s*callerPersonId/g
-  ) || [];
+    /tx\.create\(\s*membershipRef,\s*\{[\s\S]*?\n\s*\}\s*\);/
+  );
 
-assert.equal(
-  parentPersonMatches.length,
-  1,
+assert.ok(
+  membershipBlockMatch,
+  'Debe existir la creación de la membresía territorial.'
+);
+
+assert.match(
+  membershipBlockMatch[0],
+  /parentUserId:\s*caller\.uid,\s*parentPersonId:\s*callerPersonId/,
   'La membresía debe persistir la relación canónica parentUserId + parentPersonId.'
 );
 

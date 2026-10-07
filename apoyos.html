@@ -288,6 +288,75 @@
         </label>
 
 
+        <fieldset class="binary-choice">
+
+          <legend>
+            ¿Crear cuenta digital?
+          </legend>
+
+          <div class="binary-choice__options">
+
+            <label>
+              <input
+                id="supportDigitalAccountYes"
+                type="radio"
+                name="supportCreateDigitalAccount"
+                value="yes"
+              >
+              Sí
+            </label>
+
+            <label>
+              <input
+                id="supportDigitalAccountNo"
+                type="radio"
+                name="supportCreateDigitalAccount"
+                value="no"
+                checked
+              >
+              No
+            </label>
+
+          </div>
+
+        </fieldset>
+
+
+        <div
+          id="supportDigitalEmailGroup"
+          hidden
+        >
+          <label>
+            Correo electrónico *
+
+            <input
+              id="supportEmail"
+              type="email"
+              maxlength="160"
+              autocomplete="email"
+            >
+          </label>
+        </div>
+
+
+        <div
+          id="supportDigitalPasswordGroup"
+          hidden
+        >
+          <label>
+            Contraseña temporal *
+
+            <input
+              id="supportPassword"
+              type="password"
+              minlength="6"
+              maxlength="128"
+              autocomplete="new-password"
+            >
+          </label>
+        </div>
+
+
         <div class="form-actions">
 
           <button
@@ -316,7 +385,7 @@
 
   <script
     type="module"
-    src="./apoyos.js?v=apoyos-002"
+    src="./apoyos.js?v=apoyos-003"
   ></script>
 
 </body>
