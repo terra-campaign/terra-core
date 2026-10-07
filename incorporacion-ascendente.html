@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>
+    Incorporación territorial | TERRA Campaign
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css?v=incorporacion-ascendente-001"
+  >
+</head>
+
+<body>
+
+  <header class="topbar">
+
+    <div>
+
+      <p class="eyebrow">
+        TERRA CAMPAIGN
+      </p>
+
+      <h1>
+        Mi organización
+      </h1>
+
+    </div>
+
+    <div class="topbar__actions">
+
+      <button
+        id="backButton"
+        class="button button--secondary"
+        type="button"
+      >
+        Volver
+      </button>
+
+      <button
+        id="logoutButton"
+        class="button button--small button--secondary"
+        type="button"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <main class="workspace">
+
+    <section class="card">
+
+      <p class="eyebrow">
+        APOYO TERRITORIAL
+      </p>
+
+      <h2 id="ownerName">
+        Cargando organización...
+      </h2>
+
+      <p
+        id="ownerRole"
+        class="muted"
+      ></p>
+
+      <p
+        id="ownerStructure"
+        class="muted"
+      ></p>
+
+      <p
+        id="ownerMunicipality"
+        class="muted"
+      ></p>
+
+      <div
+        id="pageStatus"
+        class="status"
+        hidden
+      ></div>
+
+    </section>
+
+
+    <section class="card">
+
+      <div class="section-header">
+
+        <div>
+
+          <p class="eyebrow">
+            INCORPORACIÓN TERRITORIAL
+          </p>
+
+          <h2>
+            Incorporar persona
+          </h2>
+
+          <p class="muted">
+            Puedes incorporar una persona a la estructura sin convertirla en subordinado tuyo.
+            TERRA asignará la relación jerárquica al responsable autorizado que selecciones.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <form id="incorporationForm">
+
+        <label>
+          Nivel de la persona *
+
+          <select
+            id="targetRole"
+            name="targetRole"
+            required
+          >
+            <option value="">
+              Selecciona el nivel
+            </option>
+          </select>
+        </label>
+
+
+        <label>
+          Responsable jerárquico *
+
+          <select
+            id="parentPersonId"
+            name="parentPersonId"
+            required
+            disabled
+          >
+            <option value="">
+              Primero selecciona el nivel
+            </option>
+          </select>
+        </label>
+
+        <p
+          id="parentHelp"
+          class="muted"
+        ></p>
+
+
+        <label>
+          Nombre completo *
+
+          <input
+            id="personName"
+            type="text"
+            maxlength="120"
+            autocomplete="name"
+            required
+          >
+        </label>
+
+
+        <label>
+          Teléfono
+
+          <input
+            id="personPhone"
+            type="tel"
+            maxlength="30"
+            autocomplete="tel"
+          >
+        </label>
+
+
+        <fieldset class="binary-choice">
+
+          <legend>
+            ¿Este teléfono tiene WhatsApp?
+          </legend>
+
+          <div class="binary-choice__options">
+
+            <label>
+              <input
+                id="personWhatsAppYes"
+                type="radio"
+                name="hasWhatsApp"
+                value="yes"
+              >
+              Sí
+            </label>
+
+            <label>
+              <input
+                id="personWhatsAppNo"
+                type="radio"
+                name="hasWhatsApp"
+                value="no"
+                checked
+              >
+              No
+            </label>
+
+          </div>
+
+        </fieldset>
+
+
+        <label>
+          Población *
+
+          <input
+            id="personLocality"
+            type="text"
+            maxlength="120"
+            required
+          >
+        </label>
+
+
+        <label>
+          Calle
+
+          <input
+            id="personStreet"
+            type="text"
+            maxlength="160"
+          >
+        </label>
+
+
+        <label>
+          Número de casa
+
+          <input
+            id="personHouseNumber"
+            type="text"
+            maxlength="40"
+          >
+        </label>
+
+
+        <section class="card">
+
+          <p class="eyebrow">
+            CUENTA DIGITAL OBLIGATORIA
+          </p>
+
+          <p class="muted">
+            La incorporación realizada desde Apoyo Territorial requiere que la nueva persona tenga su propia cuenta digital.
+          </p>
+
+
+          <label>
+            Correo electrónico *
+
+            <input
+              id="personEmail"
+              type="email"
+              maxlength="240"
+              autocomplete="email"
+              required
+            >
+          </label>
+
+
+          <label>
+            Contraseña temporal *
+
+            <input
+              id="personPassword"
+              type="password"
+              minlength="6"
+              maxlength="128"
+              autocomplete="new-password"
+              required
+            >
+          </label>
+
+        </section>
+
+
+        <div
+          id="formStatus"
+          class="status"
+          hidden
+        ></div>
+
+
+        <div class="form-actions">
+
+          <button
+            id="saveButton"
+            class="button"
+            type="submit"
+          >
+            Incorporar persona
+          </button>
+
+        </div>
+
+      </form>
+
+    </section>
+
+  </main>
+
+
+  <script
+    type="module"
+    src="./incorporacion-ascendente.js?v=incorporacion-ascendente-001"
+  ></script>
+
+</body>
+
+</html>

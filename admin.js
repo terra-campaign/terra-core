@@ -1090,6 +1090,7 @@ function applyRoleInterface() {
     "integrante",
     "participante",
     "colaborador_base",
+    "apoyo_territorial"
   ].includes(role);
 
   const canAccessMissions = [
@@ -1163,6 +1164,11 @@ function applyRoleInterface() {
     if (role === "colaborador_base") {
       organizationButton.href =
         "./apoyos.html";
+    }
+
+    if (role === "apoyo_territorial") {
+      organizationButton.href =
+        "./incorporacion-ascendente.html";
     }
 
     // El Responsable de estructura obtiene el documento
@@ -1315,6 +1321,13 @@ organizationButton?.addEventListener("click", async (event) => {
       case "colaborador_base": {
         destination =
           "./apoyos.html";
+
+        break;
+      }
+
+      case "apoyo_territorial": {
+        destination =
+          "./incorporacion-ascendente.html";
 
         break;
       }

@@ -9,6 +9,7 @@ const path =
 const assert =
   require('node:assert/strict');
 
+
 const source =
   fs.readFileSync(
     path.join(
@@ -18,6 +19,7 @@ const source =
     ),
     'utf8'
   );
+
 
 const allowedRolesMatch =
   source.match(
@@ -32,8 +34,9 @@ assert.ok(
 assert.match(
   allowedRolesMatch[0],
   /"apoyo_territorial"/,
-  'Apoyo Territorial debe ser un rol válido en admin.html.'
+  'Apoyo Territorial debe ser un rol válido en admin.'
 );
+
 
 const missionRolesMatch =
   source.match(
@@ -51,6 +54,7 @@ assert.match(
   'Apoyo Territorial debe tener acceso a Misiones.'
 );
 
+
 const eventRolesMatch =
   source.match(
     /const canAccessEvents = \[[\s\S]*?\]\.includes\(role\);/
@@ -67,6 +71,7 @@ assert.match(
   'Apoyo Territorial debe tener acceso a Eventos.'
 );
 
+
 const organizationRolesMatch =
   source.match(
     /const canAccessOrganization = \[[\s\S]*?\]\.includes\(role\);/
@@ -77,11 +82,26 @@ assert.ok(
   'Debe existir canAccessOrganization.'
 );
 
-assert.doesNotMatch(
+assert.match(
   organizationRolesMatch[0],
   /"apoyo_territorial"/,
-  'Apoyo Territorial debe seguir siendo terminal y no abrir Mi organización.'
+  'Apoyo Territorial debe poder abrir Mi organización para incorporación ascendente.'
 );
+
+
+assert.match(
+  source,
+  /role === "apoyo_territorial"[\s\S]*?incorporacion-ascendente\.html/,
+  'Mi organización de Apoyo Territorial debe dirigir a incorporación ascendente.'
+);
+
+
+assert.match(
+  source,
+  /case "apoyo_territorial"[\s\S]*?incorporacion-ascendente\.html/,
+  'El switch de navegación debe soportar Apoyo Territorial.'
+);
+
 
 assert.match(
   source,
@@ -89,6 +109,7 @@ assert.match(
   'Debe existir la etiqueta visual de Apoyo Territorial.'
 );
 
+
 console.log(
-  'OK: contrato de acceso del Apoyo Territorial en admin validado.'
+  'OK: acceso de Apoyo Territorial a Mi organización validado.'
 );

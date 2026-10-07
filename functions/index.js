@@ -6397,6 +6397,12 @@ exports.getQuickAffiliationContext =
 exports.createQuickAffiliation =
   require("./quick-affiliation.cjs").createQuickAffiliation;
 
+exports.getUpwardIncorporationContext =
+  require("./upward-incorporation.cjs").getUpwardIncorporationContext;
+
+exports.createUpwardIncorporation =
+  require("./upward-incorporation.cjs").createUpwardIncorporation;
+
 
 
 exports.getStructureMembers =
