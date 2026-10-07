@@ -491,6 +491,10 @@ function buildGeneralMunicipalScopeMembers({
         person.localidad ||
         '',
 
+      attendanceRequired:
+        event.attendanceRequired ===
+          true,
+
       active:
         true,
 

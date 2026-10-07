@@ -44,6 +44,9 @@ const event = {
   active:
     true,
 
+
+  attendanceRequired:
+    true,
   campaignId:
     'CAM-001',
 
@@ -310,6 +313,15 @@ const members =
 assert.equal(
   members.length,
   2
+);
+
+assert.equal(
+  members.every(
+    member =>
+      member.attendanceRequired ===
+        true
+  ),
+  true
 );
 
 

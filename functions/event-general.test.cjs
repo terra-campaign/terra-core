@@ -190,6 +190,11 @@ assert.equal(
   'COORD-001'
 );
 
+assert.equal(
+  event.attendanceRequired,
+  true
+);
+
 
 // ======================================================
 // BUILD-118D1F2

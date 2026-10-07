@@ -372,6 +372,9 @@ function buildGeneralMunicipalEvent({
         confirmationClosesAtMillis
       ).toISOString(),
 
+    attendanceRequired:
+      true,
+
     active:
       true,
 
@@ -558,22 +561,10 @@ exports.createGeneralEvent =
           input.recordMode
         );
 
-      let activityClassification =
-        null;
-
-      try {
-        activityClassification =
-          classifyEventAttendanceActivity(
-            input.activityCode
-          );
-      } catch {
-        fail(
-          'invalid-argument',
-          'El tipo de actividad no es v?lido para este evento.'
+      const activityClassification =
+        classifyEventAttendanceActivity(
+          'EVENT_GENERAL_ATTENDANCE'
         );
-      }
-
-
       const startsAt =
         eventDate(
           input.startsAt

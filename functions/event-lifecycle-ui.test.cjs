@@ -270,6 +270,27 @@ assert.match(
 );
 
 
+assert.doesNotMatch(
+  html,
+  /eventActivityCode/
+);
+
+assert.doesNotMatch(
+  js,
+  /eventActivityCode/
+);
+
+assert.match(
+  backend,
+  /classifyEventAttendanceActivity\(\s*'EVENT_GENERAL_ATTENDANCE'\s*\)/
+);
+
+assert.match(
+  backend,
+  /attendanceRequired:\s*true/
+);
+
+
 console.log(
   'OK: BUILD-118D1F3 canonical attendance UI contract passed.'
 );
