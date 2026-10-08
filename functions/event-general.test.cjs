@@ -6,6 +6,7 @@ const assert =
   );
 
 const {
+  archiveScopeAuditFields,
   canCreateGeneralMunicipalEvent,
   canManageEventArchive,
   buildGeneralMunicipalEvent,
@@ -547,6 +548,56 @@ assert.throws(
 
 console.log(
   'OK: BUILD-118D1F1 event record mode contract passed.'
+);
+
+assert.deepEqual(
+  archiveScopeAuditFields({
+    uid:
+      'LEADER-001',
+
+    role:
+      'lider_principal',
+
+    campaignId:
+      'CAM-001'
+  }),
+  {}
+);
+
+assert.deepEqual(
+  archiveScopeAuditFields(
+    coordinator
+  ),
+  {
+    municipalityId:
+      'MUN-001'
+  }
+);
+
+assert.deepEqual(
+  archiveScopeAuditFields({
+    uid:
+      'CHIEF-001',
+
+    role:
+      'jefe_estructura',
+
+    campaignId:
+      'CAM-001',
+
+    municipalityId:
+      'MUN-001',
+
+    structureId:
+      'EST-001'
+  }),
+  {
+    municipalityId:
+      'MUN-001',
+
+    structureId:
+      'EST-001'
+  }
 );
 
 console.log(

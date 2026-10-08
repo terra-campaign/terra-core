@@ -358,6 +358,42 @@ function buildGeneralOrganizationalScopeDescriptor(
 // CONSTRUCCIÓN DEL EVENTO
 // ======================================================
 
+function archiveScopeAuditFields(
+  profile
+) {
+
+  const municipalityId =
+    typeof profile?.municipalityId ===
+      'string'
+      ? profile.municipalityId.trim()
+      : '';
+
+  const structureId =
+    typeof profile?.structureId ===
+      'string'
+      ? profile.structureId.trim()
+      : '';
+
+
+  return {
+    ...(
+      municipalityId
+        ? {
+            municipalityId
+          }
+        : {}
+    ),
+
+    ...(
+      structureId
+        ? {
+            structureId
+          }
+        : {}
+    )
+  };
+}
+
 function canManageEventArchive(
   profile,
   event
@@ -1329,8 +1365,9 @@ exports.setEventArchived =
               campaignId:
                 profile.campaignId,
 
-              municipalityId:
-                profile.municipalityId,
+              ...archiveScopeAuditFields(
+                profile
+              ),
 
               eventId,
 
@@ -1366,6 +1403,7 @@ exports.setEventArchived =
 // ======================================================
 
 exports._test = {
+  archiveScopeAuditFields,
   expectedGeneralEventScopeForRole,
   canCreateGeneralOrganizationalEvent,
   canCreateGeneralMunicipalEvent,
