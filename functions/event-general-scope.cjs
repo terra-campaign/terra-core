@@ -135,7 +135,36 @@ function scopeMemberId(
 // POLITICA
 // ======================================================
 
-function canResolveGeneralMunicipalScope({
+function expectedScopeTypeForRole(
+  role
+) {
+
+  if (
+    role ===
+      'lider_principal'
+  ) {
+    return 'campaign';
+  }
+
+  if (
+    role ===
+      'coordinador_municipal'
+  ) {
+    return 'municipality';
+  }
+
+  if (
+    role ===
+      'jefe_estructura'
+  ) {
+    return 'structure';
+  }
+
+  return '';
+}
+
+
+function canResolveGeneralOrganizationalScope({
   profile,
   event,
   scope
@@ -145,13 +174,24 @@ function canResolveGeneralMunicipalScope({
     !profile ||
     profile.active !==
       true ||
-    profile.role !==
-      'coordinador_municipal'
+    typeof profile.uid !==
+      'string' ||
+    !profile.uid.trim() ||
+    typeof profile.campaignId !==
+      'string' ||
+    !profile.campaignId.trim()
   ) {
-
     return false;
   }
 
+  const expectedScopeType =
+    expectedScopeTypeForRole(
+      profile.role
+    );
+
+  if (!expectedScopeType) {
+    return false;
+  }
 
   if (
     !event ||
@@ -160,12 +200,10 @@ function canResolveGeneralMunicipalScope({
     event.scopeMode !==
       'organizational' ||
     event.scopeType !==
-      'municipality'
+      expectedScopeType
   ) {
-
     return false;
   }
-
 
   if (
     !scope ||
@@ -174,12 +212,10 @@ function canResolveGeneralMunicipalScope({
     scope.scopeMode !==
       'organizational' ||
     scope.scopeType !==
-      'municipality'
+      expectedScopeType
   ) {
-
     return false;
   }
-
 
   if (
     profile.campaignId !==
@@ -187,21 +223,42 @@ function canResolveGeneralMunicipalScope({
     profile.campaignId !==
       scope.campaignId
   ) {
-
     return false;
   }
-
 
   if (
-    profile.municipalityId !==
-      event.scopeMunicipalityId ||
-    profile.municipalityId !==
-      scope.municipalityId
+    expectedScopeType ===
+      'municipality' ||
+    expectedScopeType ===
+      'structure'
   ) {
 
-    return false;
+    if (
+      !profile.municipalityId ||
+      profile.municipalityId !==
+        event.scopeMunicipalityId ||
+      profile.municipalityId !==
+        scope.municipalityId
+    ) {
+      return false;
+    }
   }
 
+  if (
+    expectedScopeType ===
+      'structure'
+  ) {
+
+    if (
+      !profile.structureId ||
+      profile.structureId !==
+        event.scopeStructureId ||
+      profile.structureId !==
+        scope.structureId
+    ) {
+      return false;
+    }
+  }
 
   return (
     event.createdBy ===
@@ -212,11 +269,79 @@ function canResolveGeneralMunicipalScope({
 }
 
 
+function canResolveGeneralMunicipalScope({
+  profile,
+  event,
+  scope
+}) {
+
+  return Boolean(
+    profile &&
+    profile.role ===
+      'coordinador_municipal' &&
+    canResolveGeneralOrganizationalScope({
+      profile,
+      event,
+      scope
+    })
+  );
+}
+
+
+function membershipMatchesScope({
+  membership,
+  event,
+  scope
+}) {
+
+  if (
+    !membership ||
+    membership.active !==
+      true ||
+    membership.campaignId !==
+      event.campaignId
+  ) {
+    return false;
+  }
+
+  if (
+    scope.scopeType ===
+      'campaign'
+  ) {
+    return true;
+  }
+
+  if (
+    scope.scopeType ===
+      'municipality'
+  ) {
+    return (
+      membership.municipalityId ===
+      scope.municipalityId
+    );
+  }
+
+  if (
+    scope.scopeType ===
+      'structure'
+  ) {
+    return (
+      membership.municipalityId ===
+        scope.municipalityId &&
+      membership.structureId ===
+        scope.structureId
+    );
+  }
+
+  return false;
+}
+
+
 // ======================================================
 // RESOLVER UNIVERSO EN MEMORIA
 // ======================================================
 
-function buildGeneralMunicipalScopeMembers({
+function buildGeneralOrganizationalScopeMembers({
   event,
   scope,
   memberships,
@@ -285,13 +410,11 @@ function buildGeneralMunicipalScopeMembers({
   ) {
 
     if (
-      !membership ||
-      membership.active !==
-        true ||
-      membership.campaignId !==
-        event.campaignId ||
-      membership.municipalityId !==
-        scope.municipalityId
+      !membershipMatchesScope({
+        membership,
+        event,
+        scope
+      })
     ) {
 
       continue;
@@ -502,7 +625,7 @@ function buildGeneralMunicipalScopeMembers({
         'event_scope_resolution',
 
       scopeType:
-        'municipality'
+        scope.scopeType
     });
   }
 
@@ -530,6 +653,16 @@ function buildGeneralMunicipalScopeMembers({
   return members;
 }
 
+
+
+function buildGeneralMunicipalScopeMembers(
+  args
+) {
+
+  return buildGeneralOrganizationalScopeMembers(
+    args
+  );
+}
 
 // ======================================================
 // CARGAR CALLER
@@ -833,7 +966,7 @@ exports.resolveGeneralEventScope =
 
 
       if (
-        !canResolveGeneralMunicipalScope({
+        !canResolveGeneralOrganizationalScope({
           profile,
           event,
           scope
@@ -848,20 +981,62 @@ exports.resolveGeneralEventScope =
 
 
       // ==================================================
-      // MEMBERSHIPS DEL MUNICIPIO
+      // MEMBERSHIPS DEL ALCANCE ORGANIZACIONAL
       // ==================================================
 
-      const membershipsSnapshot =
-        await db
-          .collection(
-            'territorialMemberships'
-          )
-          .where(
+      let membershipsQuery =
+        db.collection(
+          'territorialMemberships'
+        );
+
+
+      if (
+        scope.scopeType ===
+          'campaign'
+      ) {
+
+        membershipsQuery =
+          membershipsQuery.where(
+            'campaignId',
+            '==',
+            event.campaignId
+          );
+
+      } else if (
+        scope.scopeType ===
+          'municipality'
+      ) {
+
+        membershipsQuery =
+          membershipsQuery.where(
             'municipalityId',
             '==',
             scope.municipalityId
-          )
-          .get();
+          );
+
+      } else if (
+        scope.scopeType ===
+          'structure'
+      ) {
+
+        membershipsQuery =
+          membershipsQuery.where(
+            'structureId',
+            '==',
+            scope.structureId
+          );
+
+      } else {
+
+        fail(
+          'failed-precondition',
+          'El tipo de alcance del evento no es valido.'
+        );
+      }
+
+
+      const membershipsSnapshot =
+        await membershipsQuery.get();
 
 
       const memberships =
@@ -879,10 +1054,11 @@ exports.resolveGeneralEventScope =
           )
           .filter(
             membership =>
-              membership.active ===
-                true &&
-              membership.campaignId ===
-                event.campaignId
+              membershipMatchesScope({
+                membership,
+                event,
+                scope
+              })
           );
 
 
@@ -933,7 +1109,7 @@ exports.resolveGeneralEventScope =
       try {
 
         members =
-          buildGeneralMunicipalScopeMembers({
+          buildGeneralOrganizationalScopeMembers({
             event,
             scope,
             memberships,
@@ -1362,7 +1538,11 @@ exports.resolveGeneralEventScope =
 // ======================================================
 
 exports._test = {
+  expectedScopeTypeForRole,
+  canResolveGeneralOrganizationalScope,
   canResolveGeneralMunicipalScope,
+  membershipMatchesScope,
+  buildGeneralOrganizationalScopeMembers,
   buildGeneralMunicipalScopeMembers,
   scopeMemberId
 };

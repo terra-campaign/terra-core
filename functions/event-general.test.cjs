@@ -295,6 +295,113 @@ assert.equal(
   false
 );
 
+
+
+// ======================================================
+// ARCHIVO ORGANIZACIONAL POR ALCANCE
+// ======================================================
+
+const leaderArchiveProfile = {
+  uid:
+    'LEADER-001',
+
+  name:
+    'Leader',
+
+  active:
+    true,
+
+  role:
+    'lider_principal',
+
+  campaignId:
+    'CAM-001'
+};
+
+
+const leaderArchiveEvent = {
+  campaignId:
+    'CAM-001',
+
+  scopeType:
+    'campaign',
+
+  operationalOwnerId:
+    'LEADER-001'
+};
+
+
+assert.equal(
+  canManageEventArchive(
+    leaderArchiveProfile,
+    leaderArchiveEvent
+  ),
+  true
+);
+
+
+const chiefArchiveProfile = {
+  uid:
+    'CHIEF-001',
+
+  name:
+    'Chief',
+
+  active:
+    true,
+
+  role:
+    'jefe_estructura',
+
+  campaignId:
+    'CAM-001',
+
+  municipalityId:
+    'MUN-001',
+
+  structureId:
+    'EST-001'
+};
+
+
+const chiefArchiveEvent = {
+  campaignId:
+    'CAM-001',
+
+  scopeType:
+    'structure',
+
+  scopeMunicipalityId:
+    'MUN-001',
+
+  scopeStructureId:
+    'EST-001',
+
+  operationalOwnerId:
+    'CHIEF-001'
+};
+
+
+assert.equal(
+  canManageEventArchive(
+    chiefArchiveProfile,
+    chiefArchiveEvent
+  ),
+  true
+);
+
+
+assert.equal(
+  canManageEventArchive(
+    {
+      ...chiefArchiveProfile,
+      structureId:
+        'EST-999'
+    },
+    chiefArchiveEvent
+  ),
+  false
+);
 assert.equal(
   event.createdBy,
   'COORD-001'

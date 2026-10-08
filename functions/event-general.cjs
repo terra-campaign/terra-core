@@ -238,26 +238,119 @@ function confirmationLeadMinutes(
 // POLÍTICA OPERACIONAL
 // ======================================================
 
+function expectedGeneralEventScopeForRole(
+  role
+) {
+
+  if (role === 'lider_principal') {
+    return 'campaign';
+  }
+
+  if (role === 'coordinador_municipal') {
+    return 'municipality';
+  }
+
+  if (role === 'jefe_estructura') {
+    return 'structure';
+  }
+
+  return '';
+}
+
+
+function canCreateGeneralOrganizationalEvent(
+  profile
+) {
+
+  if (
+    !profile ||
+    profile.active !== true ||
+    typeof profile.uid !== 'string' ||
+    !profile.uid.trim() ||
+    typeof profile.campaignId !== 'string' ||
+    !profile.campaignId.trim()
+  ) {
+    return false;
+  }
+
+  const scopeType =
+    expectedGeneralEventScopeForRole(
+      profile.role
+    );
+
+  if (!scopeType) {
+    return false;
+  }
+
+  if (scopeType === 'municipality') {
+    return Boolean(
+      typeof profile.municipalityId === 'string' &&
+      profile.municipalityId.trim()
+    );
+  }
+
+  if (scopeType === 'structure') {
+    return Boolean(
+      typeof profile.municipalityId === 'string' &&
+      profile.municipalityId.trim() &&
+      typeof profile.structureId === 'string' &&
+      profile.structureId.trim()
+    );
+  }
+
+  return true;
+}
+
+
 function canCreateGeneralMunicipalEvent(
   profile
 ) {
 
   return Boolean(
     profile &&
-    profile.active ===
-      true &&
-    profile.role ===
-      'coordinador_municipal' &&
-    typeof profile.uid ===
-      'string' &&
-    profile.uid &&
-    typeof profile.campaignId ===
-      'string' &&
-    profile.campaignId &&
-    typeof profile.municipalityId ===
-      'string' &&
-    profile.municipalityId
+    profile.role === 'coordinador_municipal' &&
+    canCreateGeneralOrganizationalEvent(profile)
   );
+}
+
+
+function buildGeneralOrganizationalScopeDescriptor(
+  profile
+) {
+
+  if (!canCreateGeneralOrganizationalEvent(profile)) {
+    return null;
+  }
+
+  const scopeType =
+    expectedGeneralEventScopeForRole(
+      profile.role
+    );
+
+  if (scopeType === 'campaign') {
+    return {
+      scopeType: 'campaign'
+    };
+  }
+
+  if (scopeType === 'municipality') {
+    return {
+      scopeType: 'municipality',
+      municipalityId: profile.municipalityId,
+      municipalityName:
+        profile.municipalityName || ''
+    };
+  }
+
+  return {
+    scopeType: 'structure',
+    municipalityId: profile.municipalityId,
+    municipalityName:
+      profile.municipalityName || '',
+    structureId: profile.structureId,
+    structureName:
+      profile.structureName || ''
+  };
 }
 
 
@@ -270,20 +363,41 @@ function canManageEventArchive(
   event
 ) {
 
-  return Boolean(
-    canCreateGeneralMunicipalEvent(
+  const scope =
+    buildGeneralOrganizationalScopeDescriptor(
       profile
-    ) &&
-    event &&
-    event.campaignId ===
-      profile.campaignId &&
-    event.scopeType ===
-      'municipality' &&
-    event.scopeMunicipalityId ===
-      profile.municipalityId &&
-    event.operationalOwnerId ===
+    );
+
+  if (
+    !scope ||
+    !event ||
+    event.campaignId !==
+      profile.campaignId ||
+    event.scopeType !==
+      scope.scopeType ||
+    event.operationalOwnerId !==
       profile.uid
-  );
+  ) {
+    return false;
+  }
+
+  if (
+    scope.municipalityId &&
+    event.scopeMunicipalityId !==
+      scope.municipalityId
+  ) {
+    return false;
+  }
+
+  if (
+    scope.structureId &&
+    event.scopeStructureId !==
+      scope.structureId
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 
@@ -291,7 +405,7 @@ function canManageEventArchive(
 // CONSTRUCCIÓN DEL EVENTO
 // ======================================================
 
-function buildGeneralMunicipalEvent({
+function buildGeneralOrganizationalEvent({
   profile,
   eventId,
   title,
@@ -328,6 +442,17 @@ function buildGeneralMunicipalEvent({
     60 *
     1000;
 
+
+  const scope =
+    buildGeneralOrganizationalScopeDescriptor(
+      profile
+    );
+
+  if (!scope) {
+    throw new Error(
+      'Perfil no autorizado para crear evento general.'
+    );
+  }
 
   return {
     id:
@@ -398,14 +523,29 @@ function buildGeneralMunicipalEvent({
       'organizational',
 
     scopeType:
-      'municipality',
+      scope.scopeType,
 
-    scopeMunicipalityId:
-      profile.municipalityId,
+    ...(
+      scope.municipalityId
+        ? {
+            scopeMunicipalityId:
+              scope.municipalityId,
+            scopeMunicipalityName:
+              scope.municipalityName || ''
+          }
+        : {}
+    ),
 
-    scopeMunicipalityName:
-      profile.municipalityName ||
-      '',
+    ...(
+      scope.structureId
+        ? {
+            scopeStructureId:
+              scope.structureId,
+            scopeStructureName:
+              scope.structureName || ''
+          }
+        : {}
+    ),
 
     // ================================================
     // RESPONSABILIDAD OPERACIONAL
@@ -435,6 +575,16 @@ function buildGeneralMunicipalEvent({
     version:
       1
   };
+}
+
+
+function buildGeneralMunicipalEvent(
+  args
+) {
+
+  return buildGeneralOrganizationalEvent(
+    args
+  );
 }
 
 
@@ -488,14 +638,14 @@ async function loadCaller(
 
 
   if (
-    !canCreateGeneralMunicipalEvent(
+    !canCreateGeneralOrganizationalEvent(
       profile
     )
   ) {
 
     fail(
       'permission-denied',
-      'Solo el Responsable de Organización puede crear un evento general dentro de su municipio.'
+      'Tu nivel no puede crear eventos generales o tu alcance organizacional está incompleto.'
     );
   }
 
@@ -610,6 +760,20 @@ exports.createGeneralEvent =
         );
 
 
+      const scope =
+        buildGeneralOrganizationalScopeDescriptor(
+          profile
+        );
+
+
+      if (!scope) {
+        fail(
+          'permission-denied',
+          'No se pudo determinar el alcance organizacional del evento.'
+        );
+      }
+
+
       const eventId =
         hash(
           profile.uid,
@@ -622,7 +786,9 @@ exports.createGeneralEvent =
         hash(
           profile.uid,
           profile.campaignId,
-          profile.municipalityId,
+          scope.scopeType,
+          scope.municipalityId || '',
+          scope.structureId || '',
           title,
           description,
           venue,
@@ -643,7 +809,7 @@ exports.createGeneralEvent =
 
 
       const eventRecord =
-        buildGeneralMunicipalEvent({
+        buildGeneralOrganizationalEvent({
           profile,
           eventId,
           title,
@@ -828,14 +994,29 @@ exports.createGeneralEvent =
                 'organizational',
 
               scopeType:
-                'municipality',
+                scope.scopeType,
 
-              municipalityId:
-                profile.municipalityId,
+              ...(
+                scope.municipalityId
+                  ? {
+                      municipalityId:
+                        scope.municipalityId,
+                      municipalityName:
+                        scope.municipalityName || ''
+                    }
+                  : {}
+              ),
 
-              municipalityName:
-                profile.municipalityName ||
-                '',
+              ...(
+                scope.structureId
+                  ? {
+                      structureId:
+                        scope.structureId,
+                      structureName:
+                        scope.structureName || ''
+                    }
+                  : {}
+              ),
 
               createdBy:
                 profile.uid,
@@ -867,14 +1048,29 @@ exports.createGeneralEvent =
               'organizational',
 
             scopeType:
-              'municipality',
+              scope.scopeType,
 
-            municipalityId:
-              profile.municipalityId,
+            ...(
+              scope.municipalityId
+                ? {
+                    municipalityId:
+                      scope.municipalityId,
+                    municipalityName:
+                      scope.municipalityName || ''
+                  }
+                : {}
+            ),
 
-            municipalityName:
-              profile.municipalityName ||
-              ''
+            ...(
+              scope.structureId
+                ? {
+                    structureId:
+                      scope.structureId,
+                    structureName:
+                      scope.structureName || ''
+                  }
+                : {}
+            )
           };
 
 
@@ -919,8 +1115,23 @@ exports.createGeneralEvent =
               campaignId:
                 profile.campaignId,
 
-              municipalityId:
-                profile.municipalityId,
+              ...(
+                scope.municipalityId
+                  ? {
+                      municipalityId:
+                        scope.municipalityId
+                    }
+                  : {}
+              ),
+
+              ...(
+                scope.structureId
+                  ? {
+                      structureId:
+                        scope.structureId
+                    }
+                  : {}
+              ),
 
               eventId,
 
@@ -931,7 +1142,7 @@ exports.createGeneralEvent =
                 profile.role,
 
               scopeType:
-                'municipality',
+                scope.scopeType,
 
               createdAt:
                 FieldValue
@@ -1155,8 +1366,12 @@ exports.setEventArchived =
 // ======================================================
 
 exports._test = {
+  expectedGeneralEventScopeForRole,
+  canCreateGeneralOrganizationalEvent,
   canCreateGeneralMunicipalEvent,
+  buildGeneralOrganizationalScopeDescriptor,
   canManageEventArchive,
+  buildGeneralOrganizationalEvent,
   buildGeneralMunicipalEvent,
   eventRecordMode
 };
