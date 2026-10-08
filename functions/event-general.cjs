@@ -610,43 +610,6 @@ exports.createGeneralEvent =
         );
 
 
-      const startsAtMillis =
-        Date.parse(
-          startsAt
-        );
-
-
-      if (
-        startsAtMillis <=
-        Date.now()
-      ) {
-
-        fail(
-          'invalid-argument',
-          'La fecha del evento debe ser futura.'
-        );
-      }
-
-
-      const confirmationClosesAtMillis =
-        startsAtMillis -
-        leadMinutes *
-        60 *
-        1000;
-
-
-      if (
-        confirmationClosesAtMillis <=
-        Date.now()
-      ) {
-
-        fail(
-          'invalid-argument',
-          'La hora límite de confirmaciones ya pasó. Programa el evento con mayor anticipación o selecciona otro cierre.'
-        );
-      }
-
-
       const eventId =
         hash(
           profile.uid,
@@ -748,6 +711,43 @@ exports.createGeneralEvent =
 
             return saved.result;
           }
+
+
+      const startsAtMillis =
+        Date.parse(
+          startsAt
+        );
+
+
+      if (
+        startsAtMillis <=
+        Date.now()
+      ) {
+
+        fail(
+          'invalid-argument',
+          'La fecha del evento debe ser futura.'
+        );
+      }
+
+
+      const confirmationClosesAtMillis =
+        startsAtMillis -
+        leadMinutes *
+        60 *
+        1000;
+
+
+      if (
+        confirmationClosesAtMillis <=
+        Date.now()
+      ) {
+
+        fail(
+          'invalid-argument',
+          'La hora límite de confirmaciones ya pasó. Programa el evento con mayor anticipación o selecciona otro cierre.'
+        );
+      }
 
 
           if (!activityClassification) {
