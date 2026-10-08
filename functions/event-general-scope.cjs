@@ -135,6 +135,40 @@ function scopeMemberId(
 // POLITICA
 // ======================================================
 
+function scopeIdentityFields(
+  scope
+) {
+
+  const municipalityId =
+    cleanId(
+      scope?.municipalityId
+    );
+
+  const structureId =
+    cleanId(
+      scope?.structureId
+    );
+
+
+  return {
+    ...(
+      municipalityId
+        ? {
+            municipalityId
+          }
+        : {}
+    ),
+
+    ...(
+      structureId
+        ? {
+            structureId
+          }
+        : {}
+    )
+  };
+}
+
 function expectedScopeTypeForRole(
   role
 ) {
@@ -1422,8 +1456,9 @@ exports.resolveGeneralEventScope =
           campaignId:
             event.campaignId,
 
-          municipalityId:
-            scope.municipalityId,
+          ...scopeIdentityFields(
+            scope
+          ),
 
           actorUid:
             profile.uid,
@@ -1476,8 +1511,9 @@ exports.resolveGeneralEventScope =
           campaignId:
             event.campaignId,
 
-          municipalityId:
-            scope.municipalityId,
+          ...scopeIdentityFields(
+            scope
+          ),
 
           actorUid:
             profile.uid,
@@ -1515,8 +1551,9 @@ exports.resolveGeneralEventScope =
         scopeType:
           scope.scopeType,
 
-        municipalityId:
-          scope.municipalityId,
+        ...scopeIdentityFields(
+          scope
+        ),
 
         memberCount:
           members.length,
@@ -1538,6 +1575,7 @@ exports.resolveGeneralEventScope =
 // ======================================================
 
 exports._test = {
+  scopeIdentityFields,
   expectedScopeTypeForRole,
   canResolveGeneralOrganizationalScope,
   canResolveGeneralMunicipalScope,

@@ -4,6 +4,7 @@ const assert =
   require("node:assert/strict");
 
 const {
+  scopeIdentityFields,
   canResolveGeneralOrganizationalScope,
   buildGeneralOrganizationalScopeMembers
 } =
@@ -312,6 +313,48 @@ assert.equal(
   ),
   true
 );
+
+assert.deepEqual(
+  scopeIdentityFields(
+    scopeFor(
+      leader,
+      "campaign"
+    )
+  ),
+  {},
+  "Campaign no debe producir municipalityId ni structureId."
+);
+
+assert.deepEqual(
+  scopeIdentityFields(
+    scopeFor(
+      coordinator,
+      "municipality"
+    )
+  ),
+  {
+    municipalityId:
+      "MUN-001"
+  },
+  "Municipality debe producir solo municipalityId."
+);
+
+assert.deepEqual(
+  scopeIdentityFields(
+    scopeFor(
+      chief,
+      "structure"
+    )
+  ),
+  {
+    municipalityId:
+      "MUN-001",
+    structureId:
+      "EST-001"
+  },
+  "Structure debe producir municipalityId + structureId."
+);
+
 
 console.log(
   "OK: organizational event scope tests passed."
