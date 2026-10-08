@@ -207,6 +207,7 @@ function validateMissionAccess(profile) {
 
   const allowedRoles = [
     "admin",
+    "lider_principal",
     "coordinador_municipal",
     "jefe_estructura",
     "integrante",
@@ -223,6 +224,27 @@ function validateMissionAccess(profile) {
 }
 
 // ======================================================
+// CREAR MISION NUEVA
+// Solo niveles operativos autorizados
+// ======================================================
+
+function canCreateNewMission(profile) {
+
+  if (!profile) {
+    return false;
+  }
+
+  return [
+    "lider_principal",
+    "coordinador_municipal",
+    "jefe_estructura"
+  ].includes(
+    profile.role
+  );
+}
+
+
+// ======================================================
 function getAssignableRole(profile) {
 
   if (!profile) {
@@ -231,7 +253,7 @@ function getAssignableRole(profile) {
 
   switch (profile.role) {
 
-    case "admin":
+    case "lider_principal":
       return "coordinador_municipal";
 
     case "coordinador_municipal":
@@ -268,13 +290,10 @@ function applyRoleInterface() {
     return;
   }
 
-  const assignableRole =
-    getAssignableRole(
+  newMissionButton.hidden =
+    !canCreateNewMission(
       currentUserProfile
     );
-
-  newMissionButton.hidden =
-    !assignableRole;
 }
 
 
@@ -709,6 +728,19 @@ logoutButton.addEventListener(
 // ======================================================
 
 function openMissionModal(parent = null) {
+
+  if (
+    !parent &&
+    !canCreateNewMission(
+      currentUserProfile
+    )
+  ) {
+    missionsMessage.textContent =
+      "Tu nivel puede recibir y delegar misiones, pero no crear una misión nueva.";
+
+    return;
+  }
+
   parentMission = parent;
   dispatchRequestId = crypto.randomUUID();
   missionForm.reset();
@@ -745,6 +777,19 @@ document.addEventListener("keydown", event => { if (event.key === "Escape" && !m
 missionForm.addEventListener("submit", async event => {
   event.preventDefault();
   if (submitting || !currentUserProfile || !currentUser) return;
+
+  if (
+    !parentMission &&
+    !canCreateNewMission(
+      currentUserProfile
+    )
+  ) {
+    missionFormMessage.textContent =
+      "Tu nivel no tiene autorización para crear una misión nueva.";
+
+    return;
+  }
+
   const assigneeIds = Array.from(missionAssigneeList.querySelectorAll(".mission-assignee-checkbox:checked"), el => el.value);
   if (!assigneeIds.length || assigneeIds.length > 50) {
     missionFormMessage.textContent = "Selecciona entre 1 y 50 personas.";

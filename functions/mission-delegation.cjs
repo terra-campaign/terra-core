@@ -22,6 +22,12 @@ const {
   evaluateMissionAssigneeEligibility
 } = require('./mission-assignee-eligibility.cjs');
 const NEXT = {lider_principal:'coordinador_municipal', admin:'coordinador_municipal', coordinador_municipal:'jefe_estructura', jefe_estructura:'integrante', integrante:'participante', participante:'colaborador_base', colaborador_base:'apoyo_territorial'};
+
+const MISSION_CREATE_ROLES = new Set([
+  'lider_principal',
+  'coordinador_municipal',
+  'jefe_estructura'
+]);
 const OPTIONS = {region:'us-central1', timeoutSeconds:60};
 const fail = (code, message) => { throw new HttpsError(code, message); };
 const hash = (...parts) => createHash('sha256').update(JSON.stringify(parts)).digest('hex');
@@ -93,6 +99,26 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
   const db = getFirestore();
   return db.runTransaction(async tx => {
     const p = await caller(tx,db,request);
+
+    if (
+      !parentId &&
+      !MISSION_CREATE_ROLES.has(p.role)
+    ) {
+      fail(
+        'permission-denied',
+        'Tu nivel no puede crear misiones nuevas.'
+      );
+    }
+
+    if (
+      parentId &&
+      p.role === 'admin'
+    ) {
+      fail(
+        'permission-denied',
+        'El administrador técnico no participa en la delegación operativa de misiones.'
+      );
+    }
     if (p.role === 'lider_principal' && (parentId || !fields?.deadlineAt)) fail('invalid-argument','El líder debe crear una misión con fecha límite.');
     if (!NEXT[p.role]) fail('permission-denied','Tu nivel no puede delegar.');
     const receiptRef = db.collection('missionDispatches').doc(hash(p.uid,requestId));

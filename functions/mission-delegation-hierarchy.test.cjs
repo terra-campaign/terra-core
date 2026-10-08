@@ -33,3 +33,32 @@ assert.doesNotMatch(
 console.log(
   "OK: jerarquia de delegacion Base -> Apoyo validada; Apoyo permanece terminal."
 );
+
+
+assert.match(
+  source,
+  /const MISSION_CREATE_ROLES = new Set\(\[\s*'lider_principal',\s*'coordinador_municipal',\s*'jefe_estructura'\s*\]\);/,
+  "Solo lider, coordinador y jefe deben poder crear una mision nueva."
+);
+
+assert.match(
+  source,
+  /!parentId\s*&&\s*!MISSION_CREATE_ROLES\.has\(p\.role\)/,
+  "La creacion nueva debe validarse contra MISSION_CREATE_ROLES."
+);
+
+assert.match(
+  source,
+  /parentId\s*&&\s*p\.role === 'admin'/,
+  "Admin tecnico debe quedar fuera de la delegacion operativa."
+);
+
+assert.match(
+  source,
+  /parent\.assignedTo !== p\.uid/,
+  "La delegacion debe seguir exigiendo que la mision padre este asignada al actor."
+);
+
+console.log(
+  "OK: politica backend de creacion y delegacion de misiones validada."
+);
