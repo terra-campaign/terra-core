@@ -53,6 +53,57 @@ const NEXT = {
   colaborador_base: 'apoyo_territorial'
 };
 
+const EVENT_CREATE_ROLES =
+  new Set([
+    'lider_principal',
+    'coordinador_municipal',
+    'jefe_estructura'
+  ]);
+
+function canCreateEvent(profile) {
+
+  if (
+    !profile ||
+    profile.active !== true ||
+    typeof profile.uid !== 'string' ||
+    !profile.uid.trim() ||
+    typeof profile.campaignId !== 'string' ||
+    !profile.campaignId.trim() ||
+    !EVENT_CREATE_ROLES.has(
+      profile.role
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    profile.role ===
+      'coordinador_municipal'
+  ) {
+    return Boolean(
+      typeof profile.municipalityId ===
+        'string' &&
+      profile.municipalityId.trim()
+    );
+  }
+
+  if (
+    profile.role ===
+      'jefe_estructura'
+  ) {
+    return Boolean(
+      typeof profile.municipalityId ===
+        'string' &&
+      profile.municipalityId.trim() &&
+      typeof profile.structureId ===
+        'string' &&
+      profile.structureId.trim()
+    );
+  }
+
+  return true;
+}
+
 
 const EVENT_RESPONSE_STATUSES =
   new Set([
@@ -1673,6 +1724,18 @@ exports.createEventInvitations =
             fail(
               'permission-denied',
               'Tu nivel no puede invitar a un nivel inferior.'
+            );
+          }
+
+          if (
+            !parentInvitationId &&
+            !canCreateEvent(
+              parent
+            )
+          ) {
+            fail(
+              'permission-denied',
+              'Tu nivel no puede crear eventos nuevos.'
             );
           }
 
@@ -4422,6 +4485,8 @@ function canValidateEventScopeAttendance(
 
 exports._test = {
   NEXT,
+  EVENT_CREATE_ROLES,
+  canCreateEvent,
   targetAllowed,
   invitationView,
   eventContactView,
