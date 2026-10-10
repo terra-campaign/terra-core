@@ -148,7 +148,7 @@ assert.equal(
 
 
 // ======================================================
-// PREFERENCIA NO SELECCIONADA
+// PREFERENCIA NO SELECCIONADA = SENAL, NO BLOQUEO
 // ======================================================
 
 {
@@ -167,18 +167,18 @@ assert.equal(
 
   assert.equal(
     result.eligible,
-    false
+    true
   );
 
   assert.equal(
     result.reason,
-    "activity-not-selected"
+    "eligible"
   );
 }
 
 
 // ======================================================
-// PREFERENCIAS AUSENTES
+// PREFERENCIAS AUSENTES = NO BLOQUEAN
 // ======================================================
 
 {
@@ -196,12 +196,12 @@ assert.equal(
 
   assert.equal(
     result.eligible,
-    false
+    true
   );
 
   assert.equal(
     result.reason,
-    "activity-not-selected"
+    "eligible"
   );
 }
 

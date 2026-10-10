@@ -234,27 +234,20 @@ function evaluateMissionAssigneeEligibility({
       ? activityPreferences
       : {};
 
-  if (
+  /*
+   * B2 — SEMÁNTICA CANÓNICA TRANSITORIA
+   *
+   * activityPreferences expresa preferencia de participación.
+   * No constituye una aptitud operacional.
+   *
+   * Mientras Campaign V1 no disponga de un modelo persistido
+   * de aptitudes, una preferencia false o ausente NO elimina
+   * la elegibilidad.
+   */
+  const preferenceSelected =
     preferences[
       preferenceKey
-    ] !== true
-  ) {
-
-    return Object.freeze({
-      eligible:
-        false,
-
-      activityCode:
-        canonicalCode,
-
-      preferenceKey,
-
-      requiresDigitalAccount,
-
-      reason:
-        "activity-not-selected"
-    });
-  }
+    ] === true;
 
   if (
     requiresDigitalAccount &&
@@ -269,6 +262,8 @@ function evaluateMissionAssigneeEligibility({
         canonicalCode,
 
       preferenceKey,
+
+      preferenceSelected,
 
       requiresDigitalAccount,
 
@@ -285,6 +280,8 @@ function evaluateMissionAssigneeEligibility({
       canonicalCode,
 
     preferenceKey,
+
+    preferenceSelected,
 
     requiresDigitalAccount,
 

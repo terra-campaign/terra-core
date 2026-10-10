@@ -600,15 +600,6 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
 
       if (!eligibility.eligible) {
 
-        if (
-          eligibility.reason ===
-            'activity-not-selected'
-        ) {
-          fail(
-            'failed-precondition',
-            'Una persona seleccionada no indicó disponibilidad para este tipo de actividad.'
-          );
-        }
 
         if (
           eligibility.reason ===
