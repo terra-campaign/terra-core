@@ -280,7 +280,7 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
       const data = {
         id:missionId, campaignId:p.campaignId, ...content, deadlineAtMillis:content.deadlineAt ? Date.parse(content.deadlineAt) : null, active:true,
         createdBy:p.uid, createdByName:p.name || 'Sin nombre', createdByRole:p.role,
-        assignedTo:uid, assignedToName:t.name || 'Sin nombre', assignedToRole:t.role,
+        assignedTo:uid, accountUid:uid, personId:targetIdentity.personId, assignedToName:t.name || 'Sin nombre', assignedToRole:t.role,
         supervisorIds:[...new Set([p.uid,...(Array.isArray(p.ancestorIds) ? p.ancestorIds : [])])],
         municipalityId:t.municipalityId || '', municipalityName:t.municipalityName || '',
         structureId:t.structureId || '', structureName:t.structureName || '',
@@ -288,7 +288,7 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
         createdAt:FieldValue.serverTimestamp(), updatedAt:FieldValue.serverTimestamp()
       };
       records.push({missionRef,linkRef,data,link:{campaignId:p.campaignId, groupId, parentMissionId:parentId,
-        ancestorMissionIds:ancestors, assignedTo:uid, assignedToRole:t.role, createdBy:p.uid, content}});
+        ancestorMissionIds:ancestors, assignedTo:uid, accountUid:uid, personId:targetIdentity.personId, assignedToRole:t.role, createdBy:p.uid, content}});
     }
     // All validation/reads precede every write: one atomic dispatch.
     for (const r of records) { tx.create(r.missionRef,r.data); tx.create(r.linkRef,r.link); }
