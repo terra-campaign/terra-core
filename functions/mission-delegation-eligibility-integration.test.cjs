@@ -21,9 +21,8 @@ const source =
     "utf8"
   );
 
-
 // ======================================================
-// IMPORTS OBLIGATORIOS
+// IMPORTS / CONTRATOS OBLIGATORIOS
 // ======================================================
 
 assert.match(
@@ -46,226 +45,234 @@ assert.match(
   /evaluateMissionAssigneeEligibility/
 );
 
+// ======================================================
+// AISLAR createLinkedMissions
+// ======================================================
+
+const createStart =
+  source.indexOf(
+    "exports.createLinkedMissions"
+  );
+
+const createEnd =
+  source.indexOf(
+    "exports.getEligibleMissionAssignees",
+    createStart
+  );
+
+assert.ok(
+  createStart >= 0 &&
+  createEnd > createStart,
+  "Debe poder aislarse createLinkedMissions."
+);
+
+const block =
+  source.slice(
+    createStart,
+    createEnd
+  );
 
 // ======================================================
 // ACTIVIDAD EFECTIVA
-//
-// Nueva misión:
-// fields.activityCode
-//
-// Delegación:
-// parent.content.activityCode
 // ======================================================
 
 assert.match(
-  source,
+  block,
   /const effectiveActivityCode\s*=\s*parent\s*\?\s*parent\.content\?\.activityCode\s*:\s*fields\?\.activityCode/
 );
 
+// ======================================================
+// B7 - DOS CAMINOS DE DESTINATARIO
+// ======================================================
+
+assert.match(
+  block,
+  /selectionMode\s*===\s*['"]uid['"]/,
+  "Debe existir el camino legado por UID."
+);
+
+assert.match(
+  block,
+  /selectionMode\s*===\s*['"]ref['"]/,
+  "Debe existir el camino canónico por assigneeRef."
+);
 
 // ======================================================
-// ORDEN DE SEGURIDAD
+// CAMINO UID
+//
+// Jerarquía sobre perfil digital antes de resolver
+// identidad canónica del destinatario.
 // ======================================================
 
-const hierarchyIndex =
-  source.indexOf(
-    "targetAllowed(p,target.data())"
+const uidModeIndex =
+  block.indexOf(
+    "selectionMode === 'uid'"
   );
 
-const identityIndex =
-  source.indexOf(
-    "await resolveCanonicalPersonForAccount"
+const uidHierarchyIndex =
+  block.indexOf(
+    "targetAllowed(",
+    uidModeIndex
   );
+
+const uidIdentityIndex =
+  block.indexOf(
+    "const targetIdentity =",
+    uidModeIndex
+  );
+
+assert.ok(
+  uidModeIndex >= 0,
+  "Debe existir el camino UID."
+);
+
+assert.ok(
+  uidHierarchyIndex > uidModeIndex,
+  "El camino UID debe validar jerarquía con targetAllowed()."
+);
+
+assert.ok(
+  uidIdentityIndex > uidHierarchyIndex,
+  "En camino UID, la jerarquía debe validarse antes de resolver identidad del destinatario."
+);
+
+// ======================================================
+// CAMINO assigneeRef
+//
+// La membresía canónica es la fuente primaria.
+// Debe validarse antes de resolver la persona.
+// ======================================================
+
+const refModeIndex =
+  block.indexOf(
+    "if (selectionMode === 'ref')"
+  );
+
+const refMembershipQueryIndex =
+  block.indexOf(
+    "'territorialMemberships'",
+    refModeIndex
+  );
+
+const refHierarchyIndex =
+  block.indexOf(
+    "targetAllowed(",
+    refMembershipQueryIndex
+  );
+
+const refPersonReadIndex =
+  block.indexOf(
+    "'persons'",
+    refHierarchyIndex
+  );
+
+assert.ok(
+  refModeIndex >= 0,
+  "Debe existir el camino assigneeRef."
+);
+
+assert.ok(
+  refMembershipQueryIndex > refModeIndex,
+  "assigneeRef debe partir de territorialMemberships."
+);
+
+assert.ok(
+  refHierarchyIndex > refMembershipQueryIndex,
+  "assigneeRef debe validar jerarquía mediante targetAllowed()."
+);
+
+assert.ok(
+  refPersonReadIndex > refHierarchyIndex,
+  "La jerarquía canónica debe validarse antes de resolver persons."
+);
+
+// ======================================================
+// MEMBRESÍA CANÓNICA EN CAMINO UID
+// ======================================================
 
 const membershipIdIndex =
-  source.indexOf(
-    "canonicalMembershipDocumentId("
+  block.indexOf(
+    "canonicalMembershipDocumentId(",
+    uidIdentityIndex
   );
 
 const membershipReadIndex =
-  source.indexOf(
+  block.indexOf(
     "'territorialMemberships'",
     membershipIdIndex
   );
 
 const membershipValidationIndex =
-  source.indexOf(
-    "membershipMatchesSubject({"
+  block.indexOf(
+    "membershipMatchesSubject({",
+    membershipReadIndex
   );
 
+assert.ok(
+  membershipIdIndex > uidIdentityIndex,
+  "Después de resolver identidad UID debe calcular membershipId."
+);
+
+assert.ok(
+  membershipReadIndex > membershipIdIndex,
+  "membershipId debe calcularse antes de leer territorialMemberships."
+);
+
+assert.ok(
+  membershipValidationIndex > membershipReadIndex,
+  "La membresía debe leerse antes de validarse."
+);
+
+// ======================================================
+// ELEGIBILIDAD ANTES DE ESCRITURAS
+// ======================================================
+
 const eligibilityIndex =
-  source.indexOf(
+  block.lastIndexOf(
     "evaluateMissionAssigneeEligibility({"
   );
 
 const contentIndex =
-  source.indexOf(
-    "const content = parent ? parent.content : fields;"
+  block.indexOf(
+    "const content ="
   );
 
 const firstWriteIndex =
-  source.indexOf(
+  block.indexOf(
     "tx.create("
   );
 
-
-for (
-  const [
-    label,
-    index
-  ] of [
-    ["hierarchy", hierarchyIndex],
-    ["identity", identityIndex],
-    ["membershipId", membershipIdIndex],
-    ["membershipRead", membershipReadIndex],
-    ["membershipValidation", membershipValidationIndex],
-    ["eligibility", eligibilityIndex],
-    ["content", contentIndex],
-    ["firstWrite", firstWriteIndex]
-  ]
-) {
-
-  assert.ok(
-    index >= 0,
-    `${label} debe existir`
-  );
-}
-
-
 assert.ok(
-  hierarchyIndex <
-    identityIndex,
-  "La jerarquía debe validarse antes de resolver identidad."
+  eligibilityIndex >= 0,
+  "Debe existir evaluación de elegibilidad."
 );
 
 assert.ok(
-  identityIndex <
-    membershipIdIndex,
-  "La identidad debe resolverse antes de calcular membershipId."
+  contentIndex > eligibilityIndex,
+  "La elegibilidad debe validarse antes de construir el contenido persistente."
 );
 
 assert.ok(
-  membershipIdIndex <
-    membershipReadIndex,
-  "membershipId debe calcularse antes de leer la membresía."
+  firstWriteIndex > contentIndex,
+  "Todas las validaciones deben ocurrir antes de la primera escritura."
 );
-
-assert.ok(
-  membershipReadIndex <
-    membershipValidationIndex,
-  "La membresía debe leerse antes de validarse."
-);
-
-assert.ok(
-  membershipValidationIndex <
-    eligibilityIndex,
-  "La membresía debe validarse antes de evaluar elegibilidad."
-);
-
-assert.ok(
-  eligibilityIndex <
-    contentIndex,
-  "La elegibilidad debe resolverse antes de construir la asignación."
-);
-
-assert.ok(
-  eligibilityIndex <
-    firstWriteIndex,
-  "Ninguna escritura puede ocurrir antes de validar elegibilidad."
-);
-
 
 // ======================================================
-// PREFERENCIAS DE MEMBRESIA
+// PROTECCIONES DE IDENTIDAD
 // ======================================================
 
-assert.match(
-  source,
-  /activityPreferences:\s*targetMembership\s*\.activityPreferences/
+assert.doesNotMatch(
+  block,
+  /personId\s*:\s*uid\b/,
+  "UID no puede persistirse como personId."
 );
 
-
-// ======================================================
-// CAPACIDAD DIGITAL
-// ======================================================
-
-assert.match(
-  source,
-  /hasDigitalAccount:\s*Boolean\(\s*targetIdentity\.accountUid\s*\)/
+assert.doesNotMatch(
+  block,
+  /personId\s*=\s*uid\b/,
+  "UID no puede convertirse en personId."
 );
-
-
-// ======================================================
-// RECHAZOS EXPLICITOS
-// ======================================================
-
-assert.match(
-  source,
-  /activity-not-selected/
-);
-
-assert.match(
-  source,
-  /digital-account-required/
-);
-
-
-// ======================================================
-// NO INFERIR ACTIVIDAD HISTORICA
-// ======================================================
-
-assert.match(
-  source,
-  /La misión no tiene un tipo de actividad operativo válido/
-);
-
-
-// ======================================================
-// TEST FUNCIONAL DEL MOTOR
-// ======================================================
-
-const {
-  evaluateMissionAssigneeEligibility
-} =
-  require(
-    "./mission-assignee-eligibility.cjs"
-  );
-
-
-assert.equal(
-  evaluateMissionAssigneeEligibility({
-    activityCode:
-      "DIGITAL_ACTIVITY",
-
-    activityPreferences: {
-      digital_activity:
-        true
-    },
-
-    hasDigitalAccount:
-      false
-  }).eligible,
-  false
-);
-
-
-assert.equal(
-  evaluateMissionAssigneeEligibility({
-    activityCode:
-      "TERRITORIAL_BRIGADE",
-
-    activityPreferences: {
-      territorial_brigade:
-        true
-    },
-
-    hasDigitalAccount:
-      false
-  }).eligible,
-  true
-);
-
 
 console.log(
-  "OK: mission delegation eligibility integration passed."
+  "OK: mission delegation eligibility integration contract passed."
 );

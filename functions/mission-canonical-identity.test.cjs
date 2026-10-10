@@ -18,54 +18,99 @@ const source =
     "utf8"
   );
 
+const start =
+  source.indexOf(
+    "exports.createLinkedMissions"
+  );
+
+const end =
+  source.indexOf(
+    "exports.getEligibleMissionAssignees",
+    start
+  );
+
+assert.ok(
+  start >= 0 &&
+  end > start,
+  "Debe poder aislarse createLinkedMissions."
+);
+
+const block =
+  source.slice(
+    start,
+    end
+  );
+
 // ======================================================
-// IDENTIDAD CANÓNICA DE DESTINATARIO DE MISIÓN
+// B6 — IDENTIDAD CANÓNICA DE DESTINATARIO
 //
 // personId   = identidad operacional primaria.
 // accountUid = cuenta digital opcional.
-// assignedTo = UID legado/compatibilidad durante transición.
+// assignedTo = UID de compatibilidad o null.
 // ======================================================
 
-const canonicalPersonAssignments =
-  source.match(
-    /personId\s*:\s*targetIdentity\.personId/g
-  ) || [];
+// Camino digital:
+// el UID se resuelve a identidad canónica.
+assert.match(
+  block,
+  /personId\s*=\s*targetIdentity\.personId/,
+  "El camino digital debe resolver personId canónico."
+);
 
-const canonicalAccountAssignments =
-  source.match(
-    /accountUid\s*:\s*uid/g
+assert.match(
+  block,
+  /accountUid\s*=\s*targetIdentity\.accountUid\s*\|\|\s*null/,
+  "El camino digital debe resolver accountUid explícito."
+);
+
+// Persistencia común digital/accountless.
+const personPersistence =
+  block.match(
+    /\bpersonId\s*,/g
   ) || [];
 
 assert.ok(
-  canonicalPersonAssignments.length >= 2,
+  personPersistence.length >= 2,
   "misiones y missionLinks deben guardar personId canónico."
 );
 
+const accountPersistence =
+  block.match(
+    /accountUid\s*:\s*accountUid\s*\|\|\s*null/g
+  ) || [];
+
 assert.ok(
-  canonicalAccountAssignments.length >= 2,
-  "misiones y missionLinks deben guardar accountUid explícito."
+  accountPersistence.length >= 2,
+  "misiones y missionLinks deben guardar accountUid explícito y nullable."
 );
 
-// ======================================================
-// COMPATIBILIDAD
-// ======================================================
+const assignedToPersistence =
+  block.match(
+    /\bassignedTo\s*,/g
+  ) || [];
+
+assert.ok(
+  assignedToPersistence.length >= 2,
+  "misiones y missionLinks deben conservar assignedTo."
+);
 
 assert.match(
-  source,
-  /assignedTo\s*:\s*uid/,
-  "assignedTo debe conservarse como compatibilidad con el contrato actual."
+  block,
+  /const\s+assignedTo\s*=\s*accountUid\s*\|\|\s*null/,
+  "assignedTo debe ser UID cuando existe cuenta y null cuando no existe."
 );
 
-// ======================================================
-// PROHIBICIÓN
-//
-// UID nunca debe presentarse como personId.
-// ======================================================
-
+// Protección fundamental:
 assert.doesNotMatch(
-  source,
+  block,
   /personId\s*:\s*uid\b/,
   "Firebase UID no puede utilizarse como personId."
+);
+
+assert.doesNotMatch(
+  block,
+  /personId\s*=\s*uid\b/,
+  "Firebase UID no puede asignarse como personId."
 );
 
 console.log(

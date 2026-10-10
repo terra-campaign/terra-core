@@ -479,11 +479,16 @@ async function loadAvailableAssignees() {
           "mission-assignee-checkbox";
 
         checkbox.value =
-          person.uid;
+          person.assigneeRef;
 
         checkbox.dataset.name =
           person.name ||
-          person.uid;
+          "Sin nombre";
+
+        checkbox.dataset.hasDigitalAccount =
+          person.hasDigitalAccount === true
+            ? "true"
+            : "false";
 
         checkbox.dataset.role =
           person.role ||
@@ -512,7 +517,14 @@ async function loadAvailableAssignees() {
 
         name.textContent =
           person.name ||
-          person.uid;
+          "Sin nombre";
+
+        if (
+          person.hasDigitalAccount !== true
+        ) {
+          name.textContent +=
+            " · Sin cuenta digital";
+        }
 
         const role =
           document.createElement(
@@ -790,12 +802,12 @@ missionForm.addEventListener("submit", async event => {
     return;
   }
 
-  const assigneeIds = Array.from(missionAssigneeList.querySelectorAll(".mission-assignee-checkbox:checked"), el => el.value);
-  if (!assigneeIds.length || assigneeIds.length > 50) {
+  const assigneeRefs = Array.from(missionAssigneeList.querySelectorAll(".mission-assignee-checkbox:checked"), el => el.value);
+  if (!assigneeRefs.length || assigneeRefs.length > 50) {
     missionFormMessage.textContent = "Selecciona entre 1 y 50 personas.";
     return;
   }
-  const payload = {requestId:dispatchRequestId, parentMissionId:parentMission?.id || null, assigneeIds,
+  const payload = {requestId:dispatchRequestId, parentMissionId:parentMission?.id || null, assigneeRefs,
     title:missionTitleInput.value.trim(), description:missionDescriptionInput.value.trim(),
     deadlineAt:inputDeadline(deadlineInput.value), missionDate:missionDateInput.value || null, locality:missionLocalityInput.value.trim(),
     ...(parentMission ? {} : {activityCode:missionActivityCodeInput.value})};

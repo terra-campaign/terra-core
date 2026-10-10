@@ -64,8 +64,52 @@ function deadline(value) {
 exports.createLinkedMissions = onCall(OPTIONS, async request => {
   const d = request.data || {};
   const requestId = id(d.requestId);
-  if (!Array.isArray(d.assigneeIds) || !d.assigneeIds.length || d.assigneeIds.length > 50) fail('invalid-argument','Selecciona entre 1 y 50 personas.');
-  const ids = [...new Set(d.assigneeIds.map(id))].sort();
+  const rawAssigneeRefs =
+    Array.isArray(d.assigneeRefs)
+      ? d.assigneeRefs
+      : [];
+
+  const rawAssigneeIds =
+    Array.isArray(d.assigneeIds)
+      ? d.assigneeIds
+      : [];
+
+  if (
+    rawAssigneeRefs.length &&
+    rawAssigneeIds.length
+  ) {
+    fail(
+      'invalid-argument',
+      'Usa assigneeRefs o assigneeIds, no ambos.'
+    );
+  }
+
+  const selectionMode =
+    rawAssigneeRefs.length
+      ? 'ref'
+      : 'uid';
+
+  const rawSelections =
+    selectionMode === 'ref'
+      ? rawAssigneeRefs
+      : rawAssigneeIds;
+
+  if (
+    !rawSelections.length ||
+    rawSelections.length > 50
+  ) {
+    fail(
+      'invalid-argument',
+      'Selecciona entre 1 y 50 personas.'
+    );
+  }
+
+  const selections =
+    [
+      ...new Set(
+        rawSelections.map(id)
+      )
+    ].sort();
   const parentId = d.parentMissionId == null ? null : id(d.parentMissionId);
 
   let activityClassification = null;
@@ -95,7 +139,7 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
     } : {})
   };
   if (fields?.missionDate && (!/^\d{4}-\d{2}-\d{2}$/.test(fields.missionDate) || !Number.isFinite(Date.parse(fields.missionDate)) || new Date(fields.missionDate).toISOString().slice(0,10) !== fields.missionDate)) fail('invalid-argument','Fecha inválida.');
-  const fingerprint = hash(parentId,ids,fields);
+  const fingerprint = hash(parentId,selectionMode,selections,fields);
   const db = getFirestore();
   return db.runTransaction(async tx => {
     const p = await caller(tx,db,request);
@@ -156,82 +200,387 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
       );
     }
 
-    const groupId = parent ? parent.groupId : hash(p.uid,requestId,'group');
-    const ancestors = parent ? [...parent.ancestorMissionIds,parentId] : [];
-    const records = [];
-    for (const uid of ids) {
-      const target = await tx.get(db.collection('usuarios').doc(uid));
-      if (!targetAllowed(p,target.data())) fail('permission-denied','Una persona ya no pertenece a tu nivel inmediato o está inactiva. Actualiza la lista.');
-      const missionId = hash(groupId,parentId,uid);
-      const missionRef = db.collection('misiones').doc(missionId);
-      const linkRef = db.collection('missionLinks').doc(missionId);
-      const existing = await tx.get(linkRef);
-      const existingMission = await tx.get(missionRef);
-      if (existing.exists) {
-        if (!existingMission.exists || existing.data().createdBy !== p.uid) fail('failed-precondition','La asignación existente requiere revisión.');
-        continue; // A second dispatch to the same recipient never duplicates this branch.
-      }
-      if (existingMission.exists) fail('already-exists','El identificador de asignación ya está ocupado.');
-      const t = target.data();
+    const actorIdentity =
+      await resolveCanonicalPersonForAccount({
+        db,
+        tx,
+        accountUid:
+          p.uid,
+        profile:
+          p,
+        campaignId:
+          p.campaignId
+      });
 
-      const targetIdentity =
-        await resolveCanonicalPersonForAccount({
-          db,
-          tx,
-          accountUid:
-            uid,
-          profile:
-            t,
-          campaignId:
+    const actorPersonId =
+      actorIdentity.personId;
+
+    const groupId =
+      parent
+        ? parent.groupId
+        : hash(
+            p.uid,
+            requestId,
+            'group'
+          );
+
+    const ancestors =
+      parent
+        ? [
+            ...parent.ancestorMissionIds,
+            parentId
+          ]
+        : [];
+
+    // ==================================================
+    // B7B - RESOLUCION DE assigneeRef
+    // ==================================================
+
+    const refCandidates =
+      new Map();
+
+    if (selectionMode === 'ref') {
+
+      let membershipQuery =
+        db
+          .collection(
+            'territorialMemberships'
+          )
+          .where(
+            'campaignId',
+            '==',
             p.campaignId
-        });
+          )
+          .where(
+            'role',
+            '==',
+            NEXT[p.role]
+          );
 
-      const targetMembershipId =
-        canonicalMembershipDocumentId(
-          p.campaignId,
-          targetIdentity.personId
-        );
+      if (
+        ![
+          'admin',
+          'lider_principal'
+        ].includes(
+          p.role
+        )
+      ) {
+        membershipQuery =
+          membershipQuery.where(
+            'parentPersonId',
+            '==',
+            actorPersonId
+          );
+      }
 
-      const targetMembershipSnapshot =
+      const membershipTargets =
         await tx.get(
-          db
-            .collection(
-              'territorialMemberships'
-            )
-            .doc(
-              targetMembershipId
-            )
+          membershipQuery.limit(
+            1001
+          )
         );
 
       if (
-        !targetMembershipSnapshot.exists
+        membershipTargets.size >
+          1000
       ) {
         fail(
-          'failed-precondition',
-          'Una persona seleccionada no tiene membresía territorial canónica.'
+          'resource-exhausted',
+          'La campaña requiere un índice escalable antes de continuar.'
         );
       }
 
-      const targetMembership =
-        targetMembershipSnapshot.data();
+      for (
+        const membershipSnapshot
+        of membershipTargets.docs
+      ) {
+
+        const membership = {
+          ...membershipSnapshot.data(),
+          membershipId:
+            membershipSnapshot.id
+        };
+
+        const personId =
+          typeof membership.personId ===
+            'string'
+            ? membership.personId.trim()
+            : '';
+
+        if (!personId) {
+          continue;
+        }
+
+        const expectedMembershipId =
+          canonicalMembershipDocumentId(
+            p.campaignId,
+            personId
+          );
+
+        if (
+          membership.active !== true ||
+          membership.role !==
+            NEXT[p.role] ||
+          membership.membershipId !==
+            expectedMembershipId ||
+          !membershipMatchesSubject({
+            membership,
+            membershipId:
+              expectedMembershipId,
+            campaignId:
+              p.campaignId,
+            personId
+          }) ||
+          !targetAllowed(
+            p,
+            membership
+          )
+        ) {
+          continue;
+        }
+
+        if (
+          ![
+            'admin',
+            'lider_principal'
+          ].includes(
+            p.role
+          ) &&
+          membership.parentPersonId !==
+            actorPersonId
+        ) {
+          continue;
+        }
+
+        const personSnapshot =
+          await tx.get(
+            db
+              .collection(
+                'persons'
+              )
+              .doc(
+                personId
+              )
+          );
+
+        if (!personSnapshot.exists) {
+          continue;
+        }
+
+        const person = {
+          ...personSnapshot.data(),
+          personId:
+            personSnapshot.id
+        };
+
+        if (
+          person.active === false ||
+          person.campaignId !==
+            p.campaignId
+        ) {
+          continue;
+        }
+
+        const membershipAccountUid =
+          typeof membership.accountUid ===
+            'string' &&
+          membership.accountUid.trim()
+            ? membership.accountUid.trim()
+            : null;
+
+        const personAccountUid =
+          typeof person.accountUid ===
+            'string' &&
+          person.accountUid.trim()
+            ? person.accountUid.trim()
+            : null;
+
+        if (
+          membershipAccountUid &&
+          personAccountUid &&
+          membershipAccountUid !==
+            personAccountUid
+        ) {
+          continue;
+        }
+
+        const accountUid =
+          membershipAccountUid ||
+          personAccountUid ||
+          null;
+
+        const assigneeRef =
+          hash(
+            'mission-assignee',
+            p.campaignId,
+            actorPersonId,
+            personId
+          );
+
+        refCandidates.set(
+          assigneeRef,
+          {
+            personId,
+            accountUid,
+            membership,
+            person
+          }
+        );
+      }
+    }
+
+    const records = [];
+
+    for (
+      const selectionValue
+      of selections
+    ) {
+
+      let personId =
+        null;
+
+      let accountUid =
+        null;
+
+      let targetMembership =
+        null;
+
+      let targetPerson =
+        null;
 
       if (
-        targetMembership.active !== true ||
-        !membershipMatchesSubject({
-          membership:
-            targetMembership,
-          membershipId:
-            targetMembershipId,
-          campaignId:
-            p.campaignId,
-          personId:
-            targetIdentity.personId
-        })
+        selectionMode === 'uid'
       ) {
-        fail(
-          'failed-precondition',
-          'La membresía territorial de una persona seleccionada no es válida.'
-        );
+
+        const uid =
+          selectionValue;
+
+        const target =
+          await tx.get(
+            db
+              .collection(
+                'usuarios'
+              )
+              .doc(
+                uid
+              )
+          );
+
+        const profile =
+          target.data();
+
+        if (
+          !targetAllowed(
+            p,
+            profile
+          )
+        ) {
+          fail(
+            'permission-denied',
+            'Una persona ya no pertenece a tu nivel inmediato o está inactiva. Actualiza la lista.'
+          );
+        }
+
+        const targetIdentity =
+          await resolveCanonicalPersonForAccount({
+            db,
+            tx,
+            accountUid:
+              uid,
+            profile,
+            campaignId:
+              p.campaignId
+          });
+
+        personId =
+          targetIdentity.personId;
+
+        accountUid =
+          targetIdentity.accountUid ||
+          null;
+
+        const targetMembershipId =
+          canonicalMembershipDocumentId(
+            p.campaignId,
+            personId
+          );
+
+        const targetMembershipSnapshot =
+          await tx.get(
+            db
+              .collection(
+                'territorialMemberships'
+              )
+              .doc(
+                targetMembershipId
+              )
+          );
+
+        if (
+          !targetMembershipSnapshot.exists
+        ) {
+          fail(
+            'failed-precondition',
+            'Una persona seleccionada no tiene membresía territorial canónica.'
+          );
+        }
+
+        targetMembership = {
+          ...targetMembershipSnapshot.data(),
+          membershipId:
+            targetMembershipSnapshot.id
+        };
+
+        if (
+          targetMembership.active !==
+            true ||
+          !membershipMatchesSubject({
+            membership:
+              targetMembership,
+            membershipId:
+              targetMembershipId,
+            campaignId:
+              p.campaignId,
+            personId
+          })
+        ) {
+          fail(
+            'failed-precondition',
+            'La membresía territorial de una persona seleccionada no es válida.'
+          );
+        }
+
+        targetPerson = {
+          ...profile,
+          personId
+        };
+      }
+      else {
+
+        const resolved =
+          refCandidates.get(
+            selectionValue
+          );
+
+        if (!resolved) {
+          fail(
+            'permission-denied',
+            'Una persona seleccionada ya no pertenece a tu nivel inmediato o la referencia dejó de ser válida. Actualiza la lista.'
+          );
+        }
+
+        personId =
+          resolved.personId;
+
+        accountUid =
+          resolved.accountUid ||
+          null;
+
+        targetMembership =
+          resolved.membership;
+
+        targetPerson =
+          resolved.person;
       }
 
       const eligibility =
@@ -245,7 +594,7 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
 
           hasDigitalAccount:
             Boolean(
-              targetIdentity.accountUid
+              accountUid
             )
         });
 
@@ -276,24 +625,254 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
           'Una persona seleccionada no es elegible para este tipo de misión.'
         );
       }
-      const content = parent ? parent.content : fields;
+
+      const recipientKey =
+        accountUid ||
+        personId;
+
+      const missionId =
+        hash(
+          groupId,
+          parentId,
+          recipientKey
+        );
+
+      const missionRef =
+        db
+          .collection(
+            'misiones'
+          )
+          .doc(
+            missionId
+          );
+
+      const linkRef =
+        db
+          .collection(
+            'missionLinks'
+          )
+          .doc(
+            missionId
+          );
+
+      const existing =
+        await tx.get(
+          linkRef
+        );
+
+      const existingMission =
+        await tx.get(
+          missionRef
+        );
+
+      if (existing.exists) {
+
+        if (
+          !existingMission.exists ||
+          existing.data().createdBy !==
+            p.uid
+        ) {
+          fail(
+            'failed-precondition',
+            'La asignación existente requiere revisión.'
+          );
+        }
+
+        continue;
+      }
+
+      if (existingMission.exists) {
+        fail(
+          'already-exists',
+          'El identificador de asignación ya está ocupado.'
+        );
+      }
+
+      const content =
+        parent
+          ? parent.content
+          : fields;
+
+      const assignedTo =
+        accountUid ||
+        null;
+
+      const assignedToName =
+        targetPerson.name ||
+        'Sin nombre';
+
+      const assignedToRole =
+        targetMembership.role;
+
       const data = {
-        id:missionId, campaignId:p.campaignId, ...content, deadlineAtMillis:content.deadlineAt ? Date.parse(content.deadlineAt) : null, active:true,
-        createdBy:p.uid, createdByName:p.name || 'Sin nombre', createdByRole:p.role,
-        assignedTo:uid, accountUid:uid, personId:targetIdentity.personId, assignedToName:t.name || 'Sin nombre', assignedToRole:t.role,
-        supervisorIds:[...new Set([p.uid,...(Array.isArray(p.ancestorIds) ? p.ancestorIds : [])])],
-        municipalityId:t.municipalityId || '', municipalityName:t.municipalityName || '',
-        structureId:t.structureId || '', structureName:t.structureName || '',
-        groupId, parentMissionId:parentId, linkedVersion:1, version:4,
-        createdAt:FieldValue.serverTimestamp(), updatedAt:FieldValue.serverTimestamp()
+        id:
+          missionId,
+
+        campaignId:
+          p.campaignId,
+
+        ...content,
+
+        deadlineAtMillis:
+          content.deadlineAt
+            ? Date.parse(
+                content.deadlineAt
+              )
+            : null,
+
+        active:
+          true,
+
+        createdBy:
+          p.uid,
+
+        createdByName:
+          p.name ||
+          'Sin nombre',
+
+        createdByRole:
+          p.role,
+
+        assignedTo,
+
+        accountUid:
+          accountUid ||
+          null,
+
+        personId,
+
+        assignedToName,
+
+        assignedToRole,
+
+        supervisorIds:
+          [
+            ...new Set([
+              p.uid,
+              ...(
+                Array.isArray(
+                  p.ancestorIds
+                )
+                  ? p.ancestorIds
+                  : []
+              )
+            ])
+          ],
+
+        municipalityId:
+          targetMembership
+            .municipalityId ||
+          '',
+
+        municipalityName:
+          targetMembership
+            .municipalityName ||
+          '',
+
+        structureId:
+          targetMembership
+            .structureId ||
+          '',
+
+        structureName:
+          targetMembership
+            .structureName ||
+          '',
+
+        groupId,
+
+        parentMissionId:
+          parentId,
+
+        linkedVersion:
+          1,
+
+        version:
+          4,
+
+        createdAt:
+          FieldValue.serverTimestamp(),
+
+        updatedAt:
+          FieldValue.serverTimestamp()
       };
-      records.push({missionRef,linkRef,data,link:{campaignId:p.campaignId, groupId, parentMissionId:parentId,
-        ancestorMissionIds:ancestors, assignedTo:uid, accountUid:uid, personId:targetIdentity.personId, assignedToRole:t.role, createdBy:p.uid, content}});
+
+      records.push({
+        missionRef,
+        linkRef,
+        data,
+
+        link: {
+          campaignId:
+            p.campaignId,
+
+          groupId,
+
+          parentMissionId:
+            parentId,
+
+          ancestorMissionIds:
+            ancestors,
+
+          assignedTo,
+
+          accountUid:
+            accountUid ||
+            null,
+
+          personId,
+
+          assignedToRole,
+
+          createdBy:
+            p.uid,
+
+          content
+        }
+      });
     }
-    // All validation/reads precede every write: one atomic dispatch.
-    for (const r of records) { tx.create(r.missionRef,r.data); tx.create(r.linkRef,r.link); }
-    const result = {created:records.length, alreadyAssigned:ids.length-records.length};
-    tx.create(receiptRef,{campaignId:p.campaignId,fingerprint,result,createdAt:FieldValue.serverTimestamp()});
+
+    // Todas las validaciones y lecturas preceden
+    // las escrituras: despacho atómico.
+    for (
+      const record
+      of records
+    ) {
+      tx.create(
+        record.missionRef,
+        record.data
+      );
+
+      tx.create(
+        record.linkRef,
+        record.link
+      );
+    }
+
+    const result = {
+      created:
+        records.length,
+
+      alreadyAssigned:
+        selections.length -
+        records.length
+    };
+
+    tx.create(
+      receiptRef,
+      {
+        campaignId:
+          p.campaignId,
+
+        fingerprint,
+
+        result,
+
+        createdAt:
+          FieldValue.serverTimestamp()
+      }
+    );
+
     return result;
   });
 });
@@ -436,14 +1015,35 @@ exports.getEligibleMissionAssignees = onCall(
             'La mision no tiene un tipo de actividad operativo valido.'
           );
         }
-
         const assignableRole =
           NEXT[p.role];
 
-        let usersQuery =
+        // ==================================================
+        // B7A - DESCUBRIMIENTO CANONICO DE DESTINATARIOS
+        //
+        // personId es la identidad operacional primaria.
+        // accountUid puede ser null.
+        // ==================================================
+
+        const actorIdentity =
+          await resolveCanonicalPersonForAccount({
+            db,
+            tx,
+            accountUid:
+              p.uid,
+            profile:
+              p,
+            campaignId:
+              p.campaignId
+          });
+
+        const actorPersonId =
+          actorIdentity.personId;
+
+        let membershipsQuery =
           db
             .collection(
-              'usuarios'
+              'territorialMemberships'
             )
             .where(
               'campaignId',
@@ -464,81 +1064,71 @@ exports.getEligibleMissionAssignees = onCall(
             p.role
           )
         ) {
-          usersQuery =
-            usersQuery.where(
-              'parentUserId',
+          membershipsQuery =
+            membershipsQuery.where(
+              'parentPersonId',
               '==',
-              p.uid
+              actorPersonId
             );
         }
 
         const targets =
           await tx.get(
-            usersQuery
+            membershipsQuery.limit(
+              1001
+            )
           );
+
+        if (
+          targets.size >
+            1000
+        ) {
+          fail(
+            'resource-exhausted',
+            'La campaña requiere un indice escalable antes de continuar.'
+          );
+        }
 
         const eligible = [];
 
         for (
-          const targetSnapshot
+          const targetMembershipSnapshot
           of targets.docs
         ) {
 
-          const targetProfile =
-            targetSnapshot.data();
+          const targetMembership = {
+            ...targetMembershipSnapshot.data(),
+            membershipId:
+              targetMembershipSnapshot.id
+          };
 
-          if (
-            !targetAllowed(
-              p,
-              targetProfile
-            )
-          ) {
+          const personId =
+            typeof targetMembership
+              .personId ===
+              'string'
+              ? targetMembership
+                  .personId
+                  .trim()
+              : '';
+
+          if (!personId) {
             continue;
           }
-
-          const targetIdentity =
-            await resolveCanonicalPersonForAccount({
-              db,
-              tx,
-              accountUid:
-                targetSnapshot.id,
-              profile:
-                targetProfile,
-              campaignId:
-                p.campaignId
-            });
 
           const targetMembershipId =
             canonicalMembershipDocumentId(
               p.campaignId,
-              targetIdentity.personId
-            );
-
-          const targetMembershipSnapshot =
-            await tx.get(
-              db
-                .collection(
-                  'territorialMemberships'
-                )
-                .doc(
-                  targetMembershipId
-                )
+              personId
             );
 
           if (
-            !targetMembershipSnapshot
-              .exists
-          ) {
-            continue;
-          }
-
-          const targetMembership =
-            targetMembershipSnapshot
-              .data();
-
-          if (
+            targetMembership
+              .membershipId !==
+              targetMembershipId ||
             targetMembership.active !==
               true ||
+            targetMembership.role !==
+              assignableRole ||
             !membershipMatchesSubject({
               membership:
                 targetMembership,
@@ -546,12 +1136,107 @@ exports.getEligibleMissionAssignees = onCall(
                 targetMembershipId,
               campaignId:
                 p.campaignId,
-              personId:
-                targetIdentity.personId
+              personId
             })
           ) {
             continue;
           }
+
+          // Segunda defensa:
+          // mantenemos las restricciones territoriales
+          // que ya existen en Campaign V1.
+          if (
+            !targetAllowed(
+              p,
+              targetMembership
+            )
+          ) {
+            continue;
+          }
+
+          if (
+            ![
+              'admin',
+              'lider_principal'
+            ].includes(
+              p.role
+            ) &&
+            targetMembership
+              .parentPersonId !==
+              actorPersonId
+          ) {
+            continue;
+          }
+
+          const targetPersonSnapshot =
+            await tx.get(
+              db
+                .collection(
+                  'persons'
+                )
+                .doc(
+                  personId
+                )
+            );
+
+          if (
+            !targetPersonSnapshot.exists
+          ) {
+            continue;
+          }
+
+          const targetPerson = {
+            ...targetPersonSnapshot.data(),
+            personId:
+              targetPersonSnapshot.id
+          };
+
+          if (
+            targetPerson.active ===
+              false ||
+            targetPerson.campaignId !==
+              p.campaignId
+          ) {
+            continue;
+          }
+
+          const membershipAccountUid =
+            typeof targetMembership
+              .accountUid ===
+              'string' &&
+            targetMembership
+              .accountUid
+              .trim()
+              ? targetMembership
+                  .accountUid
+                  .trim()
+              : null;
+
+          const personAccountUid =
+            typeof targetPerson
+              .accountUid ===
+              'string' &&
+            targetPerson
+              .accountUid
+              .trim()
+              ? targetPerson
+                  .accountUid
+                  .trim()
+              : null;
+
+          if (
+            membershipAccountUid &&
+            personAccountUid &&
+            membershipAccountUid !==
+              personAccountUid
+          ) {
+            continue;
+          }
+
+          const accountUid =
+            membershipAccountUid ||
+            personAccountUid ||
+            null;
 
           const eligibility =
             evaluateMissionAssigneeEligibility({
@@ -564,7 +1249,7 @@ exports.getEligibleMissionAssignees = onCall(
 
               hasDigitalAccount:
                 Boolean(
-                  targetIdentity.accountUid
+                  accountUid
                 )
             });
 
@@ -574,26 +1259,47 @@ exports.getEligibleMissionAssignees = onCall(
             continue;
           }
 
+          const assigneeRef =
+            hash(
+              'mission-assignee',
+              p.campaignId,
+              actorPersonId,
+              personId
+            );
+
+          const publicUid =
+            accountUid || '';
+
+          const hasDigitalAccount =
+            Boolean(
+              accountUid
+            );
+
           eligible.push({
+            assigneeRef,
+
+            // Compatibilidad temporal con clientes
+            // que todavía usan UID para personas digitales.
             uid:
-              targetSnapshot.id,
+              publicUid,
+
+            hasDigitalAccount,
 
             name:
-              targetProfile.name ||
-              targetProfile.email ||
+              targetPerson.name ||
               'Sin nombre',
 
             role:
-              targetProfile.role ||
+              targetMembership.role ||
               '',
 
             municipalityId:
-              targetProfile
+              targetMembership
                 .municipalityId ||
               '',
 
             structureId:
-              targetProfile
+              targetMembership
                 .structureId ||
               ''
           });
