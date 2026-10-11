@@ -292,7 +292,13 @@ service firebase.storage {
                     request.auth.uid ||
 
                     mission(missionId).createdBy ==
-                    request.auth.uid
+                    request.auth.uid ||
+
+                     (
+                       profile().role != "coordinador_municipal" &&
+                       mission(missionId).get('supervisorIds', []) is list &&
+                       request.auth.uid in mission(missionId).get('supervisorIds', [])
+                     )
                   );
 
 
@@ -300,7 +306,7 @@ service firebase.storage {
       // CREAR — ADMINISTRADOR
       // -------------------------------------------------
 
-      allow create: if missionAcceptsUpload(missionId) && roleIs("admin") &&
+      allow create: if resource == null && missionAcceptsUpload(missionId) && roleIs("admin") &&
                     profile().campaignId ==
                     campaignId &&
                     missionExists(missionId) &&
@@ -317,7 +323,7 @@ service firebase.storage {
       // MODELO ANTERIOR
       // -------------------------------------------------
 
-      allow create: if missionAcceptsUpload(missionId) && roleIs("coordinador") &&
+      allow create: if resource == null && missionAcceptsUpload(missionId) && roleIs("coordinador") &&
                     profile().campaignId ==
                     campaignId &&
                     missionExists(missionId) &&
@@ -339,7 +345,7 @@ service firebase.storage {
       // puede cargar evidencia.
       // -------------------------------------------------
 
-      allow create: if missionAcceptsUpload(missionId) && active() &&
+      allow create: if resource == null && missionAcceptsUpload(missionId) && active() &&
                     (
                       roleIs("coordinador_municipal") ||
                       roleIs("jefe_estructura") ||
