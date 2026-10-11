@@ -3,6 +3,9 @@ const {onCall, HttpsError} = require('firebase-functions/v2/https');
 const {getFirestore, FieldValue} = require('firebase-admin/firestore');
 const {createHash} = require('node:crypto');
 const {
+  prepareB7SharedClaimsWithinTransaction
+} = require('./mission-smart-assignment-b7-shared-claims.cjs');
+const {
   classifyMissionActivity
 } = require('./activity-classification.cjs');
 
@@ -825,6 +828,26 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
 
     // Todas las validaciones y lecturas preceden
     // las escrituras: despacho atómico.
+    // T64 local: lectura cruzada B7/B8.4, despues de las lecturas de B7.
+    // Fallar cerrado antes de las escrituras; no habilita produccion.
+    const sharedClaims = await prepareB7SharedClaimsWithinTransaction({
+      db, tx,
+      campaignId: p.campaignId,
+      groupId,
+      parentMissionId: parentId,
+      actorUid: p.uid,
+      actorPersonId,
+      requestId,
+      fingerprint,
+      records
+    });
+    if (!sharedClaims || sharedClaims.ok !== true ||
+        sharedClaims.writeAuthorized !== false ||
+        sharedClaims.productionReady !== false ||
+        !Array.isArray(sharedClaims.claimWrites) ||
+        sharedClaims.claimWrites.length !== records.length) {
+      throw new Error('invalid-b7-shared-claims-guard');
+    }
     for (
       const record
       of records
@@ -849,6 +872,13 @@ exports.createLinkedMissions = onCall(OPTIONS, async request => {
         records.length
     };
 
+    // Misma transaccion: misiones, links, claims y comprobante B7.
+    for (const entry of sharedClaims.claimWrites) {
+      tx.create(
+        db.collection('missionAssignmentClaims').doc(entry.id),
+        entry.data
+      );
+    }
     tx.create(
       receiptRef,
       {
