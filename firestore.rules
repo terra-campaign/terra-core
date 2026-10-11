@@ -428,19 +428,7 @@ match /usuarios/{userId} {
       // CREAR — ADMINISTRADOR
       // -------------------------------------------------
 
-      allow create: if roleIs("admin") &&
-
-                    request.resource.data.id ==
-                    missionId &&
-
-                    request.resource.data.campaignId ==
-                    profile().campaignId &&
-
-                    request.resource.data.createdBy ==
-                    request.auth.uid &&
-
-                    request.resource.data.createdByRole ==
-                    "admin";
+      allow create: if false;
 
 
       // -------------------------------------------------
@@ -459,75 +447,7 @@ match /usuarios/{userId} {
       // Nunca se puede brincar un nivel.
       // -------------------------------------------------
 
-      allow create: if
-        (
-          roleIs("coordinador_municipal") ||
-          roleIs("jefe_estructura") ||
-          roleIs("integrante")
-        ) &&
-
-        request.resource.data.id ==
-        missionId &&
-
-        request.resource.data.campaignId ==
-        profile().campaignId &&
-
-        request.resource.data.createdBy ==
-        request.auth.uid &&
-
-        request.resource.data.createdByRole ==
-        profile().role &&
-
-        request.resource.data.assignedTo
-        is string &&
-
-        userExists(
-          request.resource.data.assignedTo
-        ) &&
-
-        userProfile(
-          request.resource.data.assignedTo
-        ).campaignId ==
-        profile().campaignId &&
-
-        userProfile(
-          request.resource.data.assignedTo
-        ).active ==
-        true &&
-
-        userProfile(
-          request.resource.data.assignedTo
-        ).parentUserId ==
-        request.auth.uid &&
-
-        (
-          (
-            roleIs("coordinador_municipal") &&
-
-            userProfile(
-              request.resource.data.assignedTo
-            ).role ==
-            "jefe_estructura"
-          ) ||
-
-          (
-            roleIs("jefe_estructura") &&
-
-            userProfile(
-              request.resource.data.assignedTo
-            ).role ==
-            "integrante"
-          ) ||
-
-          (
-            roleIs("integrante") &&
-
-            userProfile(
-              request.resource.data.assignedTo
-            ).role ==
-            "participante"
-          )
-        );
+      allow create: if false;
 
 
       // -------------------------------------------------
@@ -535,22 +455,7 @@ match /usuarios/{userId} {
       // MODELO ANTERIOR
       // -------------------------------------------------
 
-      allow create: if roleIs("coordinador") &&
-
-                    request.resource.data.id ==
-                    missionId &&
-
-                    request.resource.data.campaignId ==
-                    profile().campaignId &&
-
-                    request.resource.data.createdBy ==
-                    request.auth.uid &&
-
-                    request.resource.data.createdByRole ==
-                    "coordinador" &&
-
-                    request.resource.data.brigadeId
-                    in profile().brigadeIds;
+      allow create: if false;
 
 
       // -------------------------------------------------
