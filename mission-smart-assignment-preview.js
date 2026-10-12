@@ -206,23 +206,23 @@ button.addEventListener("click", async () => {
       throw new Error("Respuesta de candidatos invalida");
     }
 
-    const people = [...data.eligible];
-
-    const preferred = people.filter(
+    const people = data.eligible.filter(
       person => person.preferenceSelected === true
-    ).length;
+    );
+
+    const others = data.eligible.filter(
+      person => person.preferenceSelected !== true
+    );
 
     status.textContent =
-      `${people.length} candidatos potenciales. ` +
-      `${preferred} con preferencia seleccionada; ` +
-      `${people.length - preferred} sin seleccionarla.`;
+      `${people.length} personas seleccionaron esta actividad en el onboarding.`;
 
     if (people.length === 0) {
-      results.textContent =
-        "No se encontraron candidatos para esta actividad.";
-      return;
+      const empty = document.createElement("p");
+      empty.textContent =
+        "Nadie selecciono esta actividad. Puedes consultar las demas personas.";
+      results.appendChild(empty);
     }
-
     for (const role of roleOrder) {
       const group = people
         .filter(person => person.role === role)
@@ -270,6 +270,74 @@ button.addEventListener("click", async () => {
       "Consulta B8: sin escritura de asignaciones.";
 
     results.appendChild(note);
+    if (others.length > 0) {
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.id = "smartAssignmentShowOthers";
+      toggle.className = "button button--secondary";
+      toggle.style.marginTop = "12px";
+      toggle.textContent =
+        `Mostrar otras ${others.length} personas`;
+      toggle.setAttribute("aria-expanded", "false");
+
+      const extra = document.createElement("div");
+      extra.id = "smartAssignmentOtherResults";
+      extra.hidden = true;
+
+      const heading = document.createElement("p");
+      heading.textContent =
+        "Personas que no seleccionaron esta actividad. Esto no significa falta de aptitud.";
+
+      extra.appendChild(heading);
+
+      for (const role of roleOrder) {
+        const group = others
+          .filter(person => person.role === role)
+          .sort((a, b) =>
+            String(a.name || "").localeCompare(
+              String(b.name || ""), "es"
+            )
+          );
+
+        if (!group.length) continue;
+
+        const title = document.createElement("h4");
+        title.textContent =
+          `${roleNames[role]} (${group.length})`;
+        extra.appendChild(title);
+
+        for (const person of group) {
+          const row = document.createElement("div");
+          row.style.cssText =
+            "padding:8px 0;border-bottom:1px solid #e5e7eb";
+
+          const name = document.createElement("strong");
+          name.textContent = person.name || "Sin nombre";
+
+          const detail = document.createElement("div");
+          detail.style.fontSize = "0.85rem";
+          detail.textContent =
+            "Preferencia no seleccionada | Cuenta digital: " +
+            (person.hasDigitalAccount ? "SI" : "NO");
+
+          row.append(name, detail);
+          extra.appendChild(row);
+        }
+      }
+
+      toggle.addEventListener("click", () => {
+        extra.hidden = !extra.hidden;
+        toggle.setAttribute(
+          "aria-expanded",
+          String(!extra.hidden)
+        );
+        toggle.textContent = extra.hidden
+          ? `Mostrar otras ${others.length} personas`
+          : `Ocultar otras ${others.length} personas`;
+      });
+
+      results.append(toggle, extra);
+    }
 
   } catch (error) {
     if (version === requestVersion) {
