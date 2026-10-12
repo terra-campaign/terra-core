@@ -1,255 +1,26 @@
 "use strict";
 
+// TERRA Campaign V1 - B8: Dos vistas alternativas y preseleccion segura.
+// B7 sigue escribiendo por su funcion existente. B8 NO realiza escrituras.
 import { auth, db } from "./firebase-config.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
 
-import {
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-
-import {
-  doc,
-  getDoc
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-
-import {
-  getFunctions,
-  httpsCallable
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
-
-const activitySelect = document.querySelector(
-  ".mission-activity-field select"
-);
-
-const assigneeList = document.querySelector(
-  "#missionAssigneeList"
-);
-
+const activitySelect = document.querySelector(".mission-activity-field select");
+const assigneeList = document.querySelector("#missionAssigneeList");
+const directField = document.querySelector("#missionAssigneeField");
+const directSelectAll = document.querySelector("#missionSelectAll");
 const modal = document.querySelector("#missionModal");
-
-if (!activitySelect || !assigneeList || !modal) {
-  throw new Error("B8: formulario de misiones no disponible");
+if (!activitySelect || !assigneeList || !directField || !directSelectAll || !modal) {
+  throw new Error("B8: formulario de misiones incompleto");
 }
-
+const form = modal.querySelector("#missionForm");
+const formMessage = modal.querySelector("#missionFormMessage");
 const consultar = httpsCallable(
   getFunctions(auth.app, "us-central1"),
   "getSmartAssignmentCandidates"
 );
-
-const panel = document.createElement("section");
-panel.id = "smartAssignmentPreview";
-panel.hidden = true;
-panel.style.cssText = [
-  "border:1px solid #cbd5e1",
-  "border-radius:12px",
-  "padding:16px",
-  "margin-top:18px"
-].join(";");
-
-panel.innerHTML = `
-  <h3 style="margin:0 0 8px">
-    Asignación inteligente B8 — Mi estructura completa
-  </h3>
-  <p>
-    Consulta candidatos de todos los niveles autorizados
-    de tu estructura, según el tipo de actividad.
-  </p>
-  <p>
-    <strong>Preselección B8:</strong>
-    marca personas de tu estructura para preparar una asignación.
-    El guardado B8 todavía está deshabilitado; B7 sigue independiente.
-  </p>
-  <button
-    type="button"
-    id="smartAssignmentSearch"
-    class="button button--secondary"
-    disabled
-  >
-    Consultar mi estructura completa
-  </button>
-  <p
-    id="smartAssignmentStatus"
-    aria-live="polite"
-  ></p>
-  <p id="smartAssignmentSelectedCount" aria-live="polite"></p>
-  <div id="smartAssignmentResults"></div>
-`;
-
-assigneeList.insertAdjacentElement("afterend", panel);
-
-const button = panel.querySelector(
-  "#smartAssignmentSearch"
-);
-
-const status = panel.querySelector(
-  "#smartAssignmentStatus"
-);
-
-const results = panel.querySelector(
-  "#smartAssignmentResults"
-);
-const selectionCounter = panel.querySelector(
-  "#smartAssignmentSelectedCount"
-);
-const missionForm = modal.querySelector("#missionForm");
-const formMessage = modal.querySelector("#missionFormMessage");
-const selectedRefs = new Set();
-
-// El estilo se aplica SOLO al panel B8.
-const style = document.createElement("style");
-style.id = "b8-preselection-styles-001";
-style.textContent = `
-  #smartAssignmentResults .b8-role-heading {
-    font-size: 1.05rem;
-    font-weight: 800;
-    background: #e8f1fb;
-    border-left: 4px solid #173e66;
-    border-radius: 6px;
-    padding: 10px 12px;
-    margin: 16px 0 6px;
-  }
-  #smartAssignmentResults .b8-person-option {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 11px 8px;
-    margin: 0;
-    border-bottom: 1px solid #dbe3ec;
-    cursor: pointer;
-    box-sizing: border-box;
-  }
-  #smartAssignmentResults .b8-person-option:focus-within {
-    outline: 2px solid #0a3d91;
-    outline-offset: 1px;
-  }
-  #smartAssignmentResults .b8-person-option input {
-    flex: none;
-    width: 20px;
-    height: 20px;
-    margin: 2px 0 0;
-  }
-  #smartAssignmentResults .b8-person-details {
-    display: block;
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-  #smartAssignmentResults .b8-person-details strong {
-    display: block;
-    font-size: 1rem;
-    margin-bottom: 4px;
-  }
-  #smartAssignmentResults .b8-person-details small {
-    display: block;
-    font-size: .9rem;
-    line-height: 1.45;
-  }
-  #smartAssignmentSelectedCount {
-    font-weight: 700;
-    color: #173e66;
-  }
-`;
-document.head.appendChild(style);
-
-function updateSelectionCount() {
-  const count = selectedRefs.size;
-  selectionCounter.textContent = count
-    ? `${count} personas preseleccionadas en B8. Todavía no se asignan misiones.`
-    : "Ninguna persona preseleccionada en B8.";
-}
-
-// Impide enviar solo B7 por accidente si existen destinatarios B8.
-// Fase UI: ninguna casilla B8 participa en createLinkedMissions.
-missionForm.addEventListener("submit", event => {
-  if (selectedRefs.size === 0) return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  if (formMessage) {
-    formMessage.textContent =
-      `Hay ${selectedRefs.size} personas preseleccionadas en B8. ` +
-      "La escritura B8 todavía está deshabilitada: NO se guardó la misión. " +
-      "Desmarca la preselección B8 para usar B7 por separado.";
-    formMessage.scrollIntoView?.({block: "nearest"});
-  }
-}, true);
-
-let authorizedChief = false;
-let requestVersion = 0;
-updateSelectionCount();
-
-function clearResults() {
-  requestVersion += 1;
-  selectedRefs.clear();
-  updateSelectionCount();
-  results.replaceChildren();
-  status.textContent = "";
-}
-
-function updateVisibility() {
-  const visible =
-    authorizedChief &&
-    activitySelect.disabled !== true;
-
-  panel.hidden = !visible;
-
-  button.disabled =
-    !visible ||
-    !String(activitySelect.value || "").trim();
-
-  if (!visible) {
-    clearResults();
-  }
-}
-
-onAuthStateChanged(auth, async user => {
-  authorizedChief = false;
-  updateVisibility();
-
-  if (!user) return;
-
-  try {
-    const profile = await getDoc(
-      doc(db, "usuarios", user.uid)
-    );
-
-    if (auth.currentUser?.uid !== user.uid) return;
-
-    const data = profile.exists()
-      ? profile.data()
-      : null;
-
-    authorizedChief =
-      data?.active === true &&
-      data?.role === "jefe_estructura";
-
-  } catch (error) {
-    console.error("B8: perfil no disponible", error.code);
-    authorizedChief = false;
-  }
-
-  updateVisibility();
-});
-
-activitySelect.addEventListener("change", () => {
-  clearResults();
-  updateVisibility();
-});
-
-new MutationObserver(() => {
-  updateVisibility();
-}).observe(activitySelect, {
-  attributes: true,
-  attributeFilter: ["disabled"]
-});
-
-new MutationObserver(() => {
-  if (modal.hidden) {
-    clearResults();
-  }
-  updateVisibility();
-}).observe(modal, {
-  attributes: true,
-  attributeFilter: ["hidden"]
-});
-
 const roleNames = {
   integrante: "Integrantes",
   participante: "Participantes",
@@ -257,174 +28,398 @@ const roleNames = {
   apoyo_territorial: "Apoyos Territoriales"
 };
 const roleOrder = Object.keys(roleNames);
+const MAX_SELECTION = 50; // Limite vigente del escritor B8; no hacer selecciones parciales silenciosas.
+
+// Atajo lateral, junto al titulo, no debajo de una lista larga.
+const directTitle = directField.querySelector(".mission-assignee-title");
+if (!directTitle) throw new Error("B8: titulo de destinatarios directos no encontrado");
+const directHeader = document.createElement("div");
+directHeader.className = "b8-direct-header";
+directTitle.insertAdjacentElement("beforebegin", directHeader);
+directHeader.appendChild(directTitle);
+const openStructure = document.createElement("button");
+openStructure.type = "button";
+openStructure.id = "b8OpenStructure";
+openStructure.className = "button button--secondary";
+openStructure.textContent = "Ver estructura completa →";
+openStructure.hidden = true;
+directHeader.appendChild(openStructure);
+
+const panel = document.createElement("section");
+panel.id = "smartAssignmentPreview";
+panel.hidden = true;
+panel.className = "b8-structure-panel";
+panel.innerHTML = `
+  <div class="b8-structure-header">
+    <div>
+      <h3>Interesados en esta actividad — mi estructura</h3>
+      <p id="smartAssignmentActivityNote"></p>
+    </div>
+    <button type="button" id="b8BackToDirect" class="button button--secondary">
+      ← Mis directos
+    </button>
+  </div>
+  <p class="b8-explanatory-note">
+    Solo personas que eligieron esta actividad en su onboarding.
+    El interés no significa disponibilidad ni aceptación de la misión.
+  </p>
+  <p class="b8-writing-note">
+    Esta vista permite preseleccionar. El guardado B8 aún está deshabilitado.
+  </p>
+  <button type="button" id="smartAssignmentSearch"
+    class="button button--secondary">Actualizar interesados</button>
+  <p id="smartAssignmentStatus" aria-live="polite"></p>
+  <p id="smartAssignmentSelectedCount" aria-live="polite"></p>
+  <p id="smartAssignmentSelectionNotice" role="status" aria-live="polite"></p>
+  <div id="smartAssignmentResults"></div>
+`;
+directField.insertAdjacentElement("afterend", panel);
+const backButton = panel.querySelector("#b8BackToDirect");
+const refreshButton = panel.querySelector("#smartAssignmentSearch");
+const activityNote = panel.querySelector("#smartAssignmentActivityNote");
+const status = panel.querySelector("#smartAssignmentStatus");
+const counter = panel.querySelector("#smartAssignmentSelectedCount");
+const notice = panel.querySelector("#smartAssignmentSelectionNotice");
+const results = panel.querySelector("#smartAssignmentResults");
+const selectedRefs = new Set();
+let authorizedChief = false;
+let requestVersion = 0;
+let view = "direct";
+
+const style = document.createElement("style");
+style.id = "b8-two-views-styles-001";
+style.textContent = `
+  #missionAssigneeField[hidden], #smartAssignmentPreview[hidden],
+  #b8OpenStructure[hidden] { display: none !important; }
+  #missionModal .b8-direct-header, #missionModal .b8-structure-header {
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; flex-wrap:wrap; margin: 4px 0 12px;
+  }
+  #missionModal .b8-direct-header .mission-assignee-title { margin:0; font-weight:800; }
+  #missionModal #b8OpenStructure, #missionModal #b8BackToDirect {
+    min-height:44px; font-size: .95rem; white-space:normal; text-align:center;
+  }
+  #missionModal #missionAssigneeList { max-height:310px; overflow-y:auto; overscroll-behavior:contain; }
+  #missionModal .b8-structure-panel {
+    border:1px solid #cbd5e1; border-radius:12px; padding:16px 14px;
+    margin-top:12px; box-sizing:border-box;
+  }
+  #missionModal .b8-structure-header h3 { margin:0 0 6px; font-size:1.12rem; }
+  #missionModal .b8-structure-header p { margin:0; }
+  #missionModal .b8-explanatory-note { margin:8px 0; }
+  #missionModal .b8-writing-note { padding:9px 12px; background:#fff4da;
+    border-radius:6px; border-left:4px solid #a76d0c; }
+  #smartAssignmentResults .b8-role-heading { font-size:1rem; font-weight:800;
+    background:#e8f1fb; border-left:4px solid #173e66;
+    border-radius:6px; padding:9px 12px; margin:16px 0 5px; }
+  #smartAssignmentResults .b8-role-select-all { display:flex; gap:11px;
+    align-items:center; cursor:pointer; min-height:44px; }
+  #smartAssignmentResults .b8-role-select-all input { flex:none; width:22px;
+    height:22px; margin:0; }
+  #smartAssignmentResults .b8-role-select-all strong { display:block;
+    font-weight:800; }
+  #smartAssignmentResults .b8-role-select-all small { display:block;
+    font-size:.82rem; font-weight:400; margin-top:2px; }
+  #smartAssignmentResults .b8-person-option { display:flex; gap:12px;
+    align-items:flex-start; padding:11px 8px; border-bottom:1px solid #dbe3ec;
+    cursor:pointer; min-height:44px; box-sizing:border-box; }
+  #smartAssignmentResults .b8-person-option:focus-within,
+  #smartAssignmentResults .b8-role-select-all:focus-within {
+    outline:2px solid #0a3d91; outline-offset:2px; }
+  #smartAssignmentResults .b8-person-option input { flex:none;
+    width:20px; height:20px; margin:2px 0 0; }
+  #smartAssignmentResults .b8-person-details { display:block;
+    min-width:0; overflow-wrap:anywhere; }
+  #smartAssignmentResults .b8-person-details strong { display:block;
+    font-size:1rem; margin-bottom:4px; }
+  #smartAssignmentResults .b8-person-details small { display:block;
+    font-size:.9rem; line-height:1.4; }
+  #smartAssignmentSelectedCount { font-weight:700; color:#173e66; }
+  #smartAssignmentSelectionNotice:not(:empty) { color:#9a3412; font-weight:700; }
+  @media (max-width: 640px) {
+    #missionModal .b8-direct-header { align-items:stretch; }
+    #missionModal .b8-direct-header .mission-assignee-title { flex:1; min-width:110px; }
+    #missionModal #b8OpenStructure { max-width:60%; }
+    #missionModal #missionAssigneeList { max-height:270px; }
+    #missionModal .b8-structure-panel { padding:12px; }
+  }
+`;
+document.head.appendChild(style);
+
+function b7Checkboxes() {
+  return Array.from(assigneeList.querySelectorAll(".mission-assignee-checkbox"));
+}
+function syncDirectMaster() {
+  const boxes = b7Checkboxes().filter(box => !box.disabled);
+  const checked = boxes.filter(box => box.checked).length;
+  directSelectAll.checked = boxes.length > 0 && checked === boxes.length;
+  directSelectAll.indeterminate = checked > 0 && checked < boxes.length;
+}
+function uncheckInDirect(ref) {
+  for (const box of b7Checkboxes()) {
+    if (box.value === ref) box.checked = false;
+  }
+  syncDirectMaster();
+}
+function uncheckInB8(ref) {
+  if (!selectedRefs.delete(ref)) return;
+  for (const box of results.querySelectorAll(".b8-preselect-checkbox")) {
+    if (box.value === ref) box.checked = false;
+  }
+  updateGroupCheckAll();
+  updateSelectionCount();
+}
+function updateSelectionCount() {
+  const count = selectedRefs.size;
+  counter.textContent = count
+    ? `${count} ${count === 1 ? "persona preseleccionada" : "personas preseleccionadas"} en B8. Todavía no se asignan misiones.`
+    : "Ninguna persona preseleccionada en B8.";
+}
+function updateGroupCheckAll() {
+  for (const heading of results.querySelectorAll(".b8-role-heading")) {
+    const master = heading.querySelector(".b8-group-select-all");
+    const list = heading.nextElementSibling;
+    if (!master || !list) continue;
+    const boxes = Array.from(list.querySelectorAll(".b8-preselect-checkbox"));
+    const count = boxes.filter(box => selectedRefs.has(box.value)).length;
+    master.checked = boxes.length > 0 && count === boxes.length;
+    master.indeterminate = count > 0 && count < boxes.length;
+  }
+}
+function clearResults() {
+  requestVersion++;
+  selectedRefs.clear();
+  updateSelectionCount();
+  results.replaceChildren();
+  status.textContent = "";
+  notice.textContent = "";
+}
+function updateVisibility() {
+  const eligibleChief = authorizedChief && !activitySelect.disabled;
+  openStructure.hidden = !eligibleChief;
+  if (!eligibleChief) view = "direct";
+  directField.hidden = view !== "direct" && eligibleChief;
+  panel.hidden = view !== "preferred" || !eligibleChief;
+  openStructure.disabled = !eligibleChief;
+  refreshButton.disabled = !eligibleChief || !String(activitySelect.value || "").trim();
+  if (!eligibleChief && (selectedRefs.size || results.childNodes.length)) clearResults();
+}
+function activityLabel() {
+  return activitySelect.selectedOptions?.[0]?.textContent?.trim() || "la actividad elegida";
+}
+
+// B8 no se puede guardar todavía. En vista B8, tampoco se guardan por accidente
+// los destinatarios B7 previamente marcados que quedaron ocultos.
+form.addEventListener("submit", event => {
+  const anyB8 = selectedRefs.size > 0;
+  if (!anyB8 && view === "direct") return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (formMessage) {
+    formMessage.textContent = anyB8
+      ? `Hay ${selectedRefs.size} personas preseleccionadas en B8. ` +
+        "La escritura B8 todavía está deshabilitada: NO se guardó la misión. " +
+        "Desmarca la preselección B8 para usar B7 por separado."
+      : "Estás en la vista B8, cuya escritura todavía está deshabilitada. " +
+        "NO se guardó la misión. Regresa a Mis directos para utilizar B7.";
+    formMessage.scrollIntoView?.({block:"nearest"});
+  }
+}, true);
+
+// B7 mantiene su selección masiva propia. Si B7 se marca, prevalece ese
+// destinatario y se borra su preselección B8 con la MISMA referencia canónica.
+assigneeList.addEventListener("change", event => {
+  const box = event.target;
+  if (!box?.matches?.(".mission-assignee-checkbox")) return;
+  if (box.checked) uncheckInB8(box.value);
+  syncDirectMaster();
+});
+directSelectAll.addEventListener("change", () => {
+  // Se ejecuta después del manejador de B7 para respetar su selección real.
+  queueMicrotask(() => {
+    for (const box of b7Checkboxes()) {
+      if (box.checked) uncheckInB8(box.value);
+    }
+    syncDirectMaster();
+  });
+});
 
 function candidateRow(person) {
   const row = document.createElement("label");
   row.className = "b8-person-option";
-
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.className = "b8-preselect-checkbox";
-  checkbox.value = person.assigneeRef;
-  checkbox.checked = selectedRefs.has(person.assigneeRef);
-  checkbox.addEventListener("change", () => {
-    if (checkbox.checked) {
-      selectedRefs.add(person.assigneeRef);
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.className = "b8-preselect-checkbox";
+  box.value = person.assigneeRef;
+  box.checked = selectedRefs.has(person.assigneeRef);
+  box.addEventListener("change", () => {
+    if (box.checked) {
+      if (selectedRefs.size >= MAX_SELECTION) {
+        box.checked = false;
+        notice.textContent = `Máximo ${MAX_SELECTION} personas por envío. Para más, prepara otra misión.`;
+      } else {
+        selectedRefs.add(box.value);
+        uncheckInDirect(box.value);
+        notice.textContent = "";
+      }
     } else {
-      selectedRefs.delete(person.assigneeRef);
+      selectedRefs.delete(box.value);
+      notice.textContent = "";
     }
     updateSelectionCount();
+    updateGroupCheckAll();
   });
-
   const details = document.createElement("span");
   details.className = "b8-person-details";
   const name = document.createElement("strong");
   name.textContent = person.name || "Sin nombre";
   const subtitle = document.createElement("small");
   subtitle.textContent =
-    "Preferencia en onboarding: " +
-    (person.preferenceSelected ? "SÍ" : "NO") +
-    " | Cuenta digital: " +
-    (person.hasDigitalAccount ? "SÍ" : "NO");
+    `Interés registrado en onboarding | Cuenta digital: ${person.hasDigitalAccount ? "SÍ" : "NO"}`;
   details.append(name, subtitle);
-  row.append(checkbox, details);
+  row.append(box, details);
   return row;
 }
-
-function renderGroup(container, people) {
+function renderGroups(preferred) {
   for (const role of roleOrder) {
-    const group = people
-      .filter(person => person.role === role)
-      .sort((a, b) =>
-        String(a.name || "").localeCompare(
-          String(b.name || ""), "es"
-        )
-      );
-    if (!group.length) continue;
-    const heading = document.createElement("h4");
+    const group = preferred.filter(p => p.role === role).sort((a, b) =>
+      String(a.name || "").localeCompare(String(b.name || ""), "es")
+    );
+    if (group.length === 0) continue;
+    const heading = document.createElement("div");
     heading.className = "b8-role-heading";
-    heading.textContent = `${roleNames[role]} (${group.length})`;
-    container.appendChild(heading);
-    for (const person of group) {
-      container.appendChild(candidateRow(person));
-    }
+    const label = document.createElement("label");
+    label.className = "b8-role-select-all";
+    const master = document.createElement("input");
+    master.type = "checkbox";
+    master.className = "b8-group-select-all";
+    master.setAttribute("aria-label", `Seleccionar todos los ${roleNames[role]} interesados`);
+    const text = document.createElement("span");
+    const title = document.createElement("strong");
+    title.textContent = `${roleNames[role]} (${group.length})`;
+    const hint = document.createElement("small");
+    hint.textContent = "Seleccionar todos los interesados de este nivel";
+    text.append(title, hint);
+    label.append(master, text);
+    heading.appendChild(label);
+    const list = document.createElement("div");
+    list.className = "b8-role-members";
+    for (const person of group) list.appendChild(candidateRow(person));
+    master.addEventListener("change", () => {
+      if (master.checked) {
+        const missing = group.filter(person => !selectedRefs.has(person.assigneeRef));
+        if (selectedRefs.size + missing.length > MAX_SELECTION) {
+          notice.textContent = `No se seleccionó este nivel: superarías el máximo de ${MAX_SELECTION} personas por envío.`;
+          updateGroupCheckAll();
+          return;
+        }
+        for (const person of missing) {
+          selectedRefs.add(person.assigneeRef);
+          uncheckInDirect(person.assigneeRef);
+        }
+      } else {
+        for (const person of group) selectedRefs.delete(person.assigneeRef);
+      }
+      for (const box of list.querySelectorAll(".b8-preselect-checkbox")) {
+        box.checked = selectedRefs.has(box.value);
+      }
+      notice.textContent = "";
+      updateSelectionCount();
+      updateGroupCheckAll();
+    });
+    results.append(heading, list);
   }
 }
 
-button.addEventListener("click", async () => {
-  if (!authorizedChief || activitySelect.disabled || modal.hidden) {
+async function consultCandidates() {
+  if (!authorizedChief || activitySelect.disabled || modal.hidden || view !== "preferred") return;
+  const activityCode = String(activitySelect.value || "").trim();
+  if (!activityCode) {
+    status.textContent = "Selecciona primero el tipo de actividad.";
     return;
   }
-
-  const activityCode = String(activitySelect.value || "").trim();
-  if (!activityCode) return;
-
   const version = ++requestVersion;
-  button.disabled = true;
+  refreshButton.disabled = true;
   selectedRefs.clear();
   updateSelectionCount();
   results.replaceChildren();
-  status.textContent = "Consultando estructura autorizada...";
-
+  notice.textContent = "";
+  status.textContent = "Consultando los interesados de tu estructura...";
   try {
-    const response = await consultar({ activityCode });
-    const data = response.data;
-
-    if (
-      version !== requestVersion ||
-      modal.hidden ||
-      activitySelect.disabled ||
-      activitySelect.value !== activityCode ||
-      !authorizedChief
-    ) {
-      return;
-    }
-
-    if (!Array.isArray(data?.eligible)) {
-      throw new Error("Respuesta de candidatos inválida");
-    }
-
-    // No renderizar referencias vacías, duplicadas o roles desconocidos.
+    const response = await consultar({activityCode});
+    if (version !== requestVersion || modal.hidden || activitySelect.disabled ||
+      activitySelect.value !== activityCode || !authorizedChief || view !== "preferred") return;
+    if (!Array.isArray(response.data?.eligible)) throw new Error("Candidatos inválidos");
     const seen = new Set();
-    const eligible = data.eligible.filter(person => {
-      const ref = person && typeof person.assigneeRef === "string"
-        ? person.assigneeRef.trim() : "";
+    const preferred = response.data.eligible.filter(person => {
+      const ref = typeof person?.assigneeRef === "string" ? person.assigneeRef.trim() : "";
       if (!ref || seen.has(ref) || !roleNames[person.role]) return false;
       seen.add(ref);
-      return true;
+      return person.preferenceSelected === true;
     });
-    const preferred = eligible.filter(person =>
-      person.preferenceSelected === true
-    );
-    const others = eligible.filter(person =>
-      person.preferenceSelected !== true
-    );
-
-    status.textContent =
-      `${preferred.length} personas seleccionaron esta actividad en el onboarding.`;
-
-    if (eligible.length === 0) {
+    status.textContent = `${preferred.length} ${preferred.length === 1 ? "persona indicó" : "personas indicaron"} interés en esta actividad.`;
+    if (!preferred.length) {
       const empty = document.createElement("p");
-      empty.textContent =
-        "No se encontraron candidatos elegibles en tu estructura para esta actividad.";
+      empty.textContent = "Nadie de tu estructura autorizada seleccionó esta actividad en su onboarding.";
       results.appendChild(empty);
-    } else if (preferred.length === 0) {
-      const empty = document.createElement("p");
-      empty.textContent =
-        "Nadie seleccionó esta actividad en su onboarding; " +
-        "puedes consultar las demás personas elegibles.";
-      results.appendChild(empty);
+    } else {
+      renderGroups(preferred);
+      updateGroupCheckAll();
     }
-
-    renderGroup(results, preferred);
-
-    if (others.length > 0) {
-      const toggle = document.createElement("button");
-      toggle.type = "button";
-      toggle.id = "smartAssignmentShowOthers";
-      toggle.className = "button button--secondary";
-      toggle.style.marginTop = "12px";
-      toggle.setAttribute("aria-expanded", "false");
-
-      const extra = document.createElement("div");
-      extra.id = "smartAssignmentOtherResults";
-      extra.hidden = true;
-
-      const heading = document.createElement("p");
-      heading.textContent =
-        "No seleccionaron esta preferencia. Eso no significa falta de aptitud.";
-      extra.appendChild(heading);
-      renderGroup(extra, others);
-
-      function updateToggle() {
-        toggle.textContent = extra.hidden
-          ? `Mostrar otras ${others.length} personas`
-          : `Ocultar otras ${others.length} personas`;
-      }
-      updateToggle();
-      toggle.addEventListener("click", () => {
-        extra.hidden = !extra.hidden;
-        toggle.setAttribute("aria-expanded", String(!extra.hidden));
-        updateToggle();
-      });
-      results.append(toggle, extra);
-    }
-
-    const note = document.createElement("p");
-    note.textContent =
-      "La preferencia no acredita aptitud, disponibilidad ni aceptación. " +
-      "Estas casillas son solo una preselección; todavía NO crean misiones.";
-    results.appendChild(note);
   } catch (error) {
     if (version === requestVersion) {
-      console.error("Consulta inteligente B8:", error);
-      status.textContent =
-        "No fue posible consultar la estructura. " +
-        "Verifica la autorización o revisa la consola.";
+      console.error("B8: consulta de interesados", error);
+      status.textContent = "No fue posible consultar la estructura. Revisa autorización y conexión.";
     }
   } finally {
-    if (version === requestVersion) {
-      updateVisibility();
-    }
+    if (version === requestVersion) updateVisibility();
   }
+}
+
+function setView(next) {
+  if (!authorizedChief || activitySelect.disabled || modal.hidden) return;
+  view = next;
+  activityNote.textContent = `Actividad: ${activityLabel()}`;
+  updateVisibility();
+  if (next === "preferred" && results.childNodes.length === 0) {
+    consultCandidates();
+  }
+}
+openStructure.addEventListener("click", () => setView("preferred"));
+backButton.addEventListener("click", () => setView("direct"));
+refreshButton.addEventListener("click", consultCandidates);
+
+onAuthStateChanged(auth, async user => {
+  authorizedChief = false;
+  view = "direct";
+  clearResults();
+  updateVisibility();
+  if (!user) return;
+  try {
+    const profile = await getDoc(doc(db, "usuarios", user.uid));
+    if (auth.currentUser?.uid !== user.uid) return;
+    const data = profile.exists() ? profile.data() : null;
+    authorizedChief = data?.active === true && data?.role === "jefe_estructura";
+  } catch (error) {
+    console.error("B8: perfil no disponible", error.code);
+    authorizedChief = false;
+  }
+  updateVisibility();
 });
+activitySelect.addEventListener("change", () => {
+  clearResults();
+  view = "direct";
+  updateVisibility();
+});
+new MutationObserver(() => updateVisibility()).observe(activitySelect, {
+  attributes:true, attributeFilter:["disabled"]
+});
+new MutationObserver(() => {
+  if (modal.hidden) {
+    clearResults();
+    view = "direct";
+  }
+  updateVisibility();
+}).observe(modal, {attributes:true, attributeFilter:["hidden"]});
+updateSelectionCount();
+updateVisibility();
