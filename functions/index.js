@@ -6620,3 +6620,7 @@ exports.reconcileContributionRecovery = onSchedule(
 exports.getPersonProfileContext =
   require("./person-profile-context.cjs")
     .getPersonProfileContext;
+
+exports.getSmartAssignmentCandidates =
+  require("./mission-smart-assignment-read.cjs")
+    .getSmartAssignmentCandidates;
