@@ -625,7 +625,7 @@ function renderStructureChief(
         <a
           class="button button--secondary button--small"
           href="./persona.html?id=${encodeURIComponent(
-            chief.uid
+            chief.personId
           )}"
         >
           Ver perfil
@@ -634,7 +634,7 @@ function renderStructureChief(
         <a
           class="button button--secondary button--small"
           href="./persona.html?id=${encodeURIComponent(
-            chief.uid
+            chief.personId
           )}#desempeno"
         >
           Ver desempeño
