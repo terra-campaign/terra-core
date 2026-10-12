@@ -54,9 +54,9 @@ panel.innerHTML = `
     de tu estructura, según el tipo de actividad.
   </p>
   <p>
-    <strong>Importante:</strong>
-    esta sección todavía no asigna misiones.
-    La asignación directa B7 funciona por separado.
+    <strong>Preselección B8:</strong>
+    marca personas de tu estructura para preparar una asignación.
+    El guardado B8 todavía está deshabilitado; B7 sigue independiente.
   </p>
   <button
     type="button"
@@ -70,6 +70,7 @@ panel.innerHTML = `
     id="smartAssignmentStatus"
     aria-live="polite"
   ></p>
+  <p id="smartAssignmentSelectedCount" aria-live="polite"></p>
   <div id="smartAssignmentResults"></div>
 `;
 
@@ -86,12 +87,98 @@ const status = panel.querySelector(
 const results = panel.querySelector(
   "#smartAssignmentResults"
 );
+const selectionCounter = panel.querySelector(
+  "#smartAssignmentSelectedCount"
+);
+const missionForm = modal.querySelector("#missionForm");
+const formMessage = modal.querySelector("#missionFormMessage");
+const selectedRefs = new Set();
+
+// El estilo se aplica SOLO al panel B8.
+const style = document.createElement("style");
+style.id = "b8-preselection-styles-001";
+style.textContent = `
+  #smartAssignmentResults .b8-role-heading {
+    font-size: 1.05rem;
+    font-weight: 800;
+    background: #e8f1fb;
+    border-left: 4px solid #173e66;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 16px 0 6px;
+  }
+  #smartAssignmentResults .b8-person-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 11px 8px;
+    margin: 0;
+    border-bottom: 1px solid #dbe3ec;
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+  #smartAssignmentResults .b8-person-option:focus-within {
+    outline: 2px solid #0a3d91;
+    outline-offset: 1px;
+  }
+  #smartAssignmentResults .b8-person-option input {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 2px 0 0;
+  }
+  #smartAssignmentResults .b8-person-details {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  #smartAssignmentResults .b8-person-details strong {
+    display: block;
+    font-size: 1rem;
+    margin-bottom: 4px;
+  }
+  #smartAssignmentResults .b8-person-details small {
+    display: block;
+    font-size: .9rem;
+    line-height: 1.45;
+  }
+  #smartAssignmentSelectedCount {
+    font-weight: 700;
+    color: #173e66;
+  }
+`;
+document.head.appendChild(style);
+
+function updateSelectionCount() {
+  const count = selectedRefs.size;
+  selectionCounter.textContent = count
+    ? `${count} personas preseleccionadas en B8. Todavía no se asignan misiones.`
+    : "Ninguna persona preseleccionada en B8.";
+}
+
+// Impide enviar solo B7 por accidente si existen destinatarios B8.
+// Fase UI: ninguna casilla B8 participa en createLinkedMissions.
+missionForm.addEventListener("submit", event => {
+  if (selectedRefs.size === 0) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (formMessage) {
+    formMessage.textContent =
+      `Hay ${selectedRefs.size} personas preseleccionadas en B8. ` +
+      "La escritura B8 todavía está deshabilitada: NO se guardó la misión. " +
+      "Desmarca la preselección B8 para usar B7 por separado.";
+    formMessage.scrollIntoView?.({block: "nearest"});
+  }
+}, true);
 
 let authorizedChief = false;
 let requestVersion = 0;
+updateSelectionCount();
 
 function clearResults() {
   requestVersion += 1;
+  selectedRefs.clear();
+  updateSelectionCount();
   results.replaceChildren();
   status.textContent = "";
 }
@@ -164,28 +251,78 @@ new MutationObserver(() => {
 });
 
 const roleNames = {
-  integrante: "Integrante",
-  participante: "Participante",
-  colaborador_base: "Colaborador de base",
-  apoyo_territorial: "Apoyo territorial"
+  integrante: "Integrantes",
+  participante: "Participantes",
+  colaborador_base: "Colaboradores de Base",
+  apoyo_territorial: "Apoyos Territoriales"
 };
-
 const roleOrder = Object.keys(roleNames);
 
+function candidateRow(person) {
+  const row = document.createElement("label");
+  row.className = "b8-person-option";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "b8-preselect-checkbox";
+  checkbox.value = person.assigneeRef;
+  checkbox.checked = selectedRefs.has(person.assigneeRef);
+  checkbox.addEventListener("change", () => {
+    if (checkbox.checked) {
+      selectedRefs.add(person.assigneeRef);
+    } else {
+      selectedRefs.delete(person.assigneeRef);
+    }
+    updateSelectionCount();
+  });
+
+  const details = document.createElement("span");
+  details.className = "b8-person-details";
+  const name = document.createElement("strong");
+  name.textContent = person.name || "Sin nombre";
+  const subtitle = document.createElement("small");
+  subtitle.textContent =
+    "Preferencia en onboarding: " +
+    (person.preferenceSelected ? "SÍ" : "NO") +
+    " | Cuenta digital: " +
+    (person.hasDigitalAccount ? "SÍ" : "NO");
+  details.append(name, subtitle);
+  row.append(checkbox, details);
+  return row;
+}
+
+function renderGroup(container, people) {
+  for (const role of roleOrder) {
+    const group = people
+      .filter(person => person.role === role)
+      .sort((a, b) =>
+        String(a.name || "").localeCompare(
+          String(b.name || ""), "es"
+        )
+      );
+    if (!group.length) continue;
+    const heading = document.createElement("h4");
+    heading.className = "b8-role-heading";
+    heading.textContent = `${roleNames[role]} (${group.length})`;
+    container.appendChild(heading);
+    for (const person of group) {
+      container.appendChild(candidateRow(person));
+    }
+  }
+}
+
 button.addEventListener("click", async () => {
-  if (!authorizedChief || activitySelect.disabled) {
+  if (!authorizedChief || activitySelect.disabled || modal.hidden) {
     return;
   }
 
-  const activityCode = String(
-    activitySelect.value || ""
-  ).trim();
-
+  const activityCode = String(activitySelect.value || "").trim();
   if (!activityCode) return;
 
   const version = ++requestVersion;
-
   button.disabled = true;
+  selectedRefs.clear();
+  updateSelectionCount();
   results.replaceChildren();
   status.textContent = "Consultando estructura autorizada...";
 
@@ -197,87 +334,56 @@ button.addEventListener("click", async () => {
       version !== requestVersion ||
       modal.hidden ||
       activitySelect.disabled ||
-      activitySelect.value !== activityCode
+      activitySelect.value !== activityCode ||
+      !authorizedChief
     ) {
       return;
     }
 
     if (!Array.isArray(data?.eligible)) {
-      throw new Error("Respuesta de candidatos invalida");
+      throw new Error("Respuesta de candidatos inválida");
     }
 
-    const people = data.eligible.filter(
-      person => person.preferenceSelected === true
+    // No renderizar referencias vacías, duplicadas o roles desconocidos.
+    const seen = new Set();
+    const eligible = data.eligible.filter(person => {
+      const ref = person && typeof person.assigneeRef === "string"
+        ? person.assigneeRef.trim() : "";
+      if (!ref || seen.has(ref) || !roleNames[person.role]) return false;
+      seen.add(ref);
+      return true;
+    });
+    const preferred = eligible.filter(person =>
+      person.preferenceSelected === true
     );
-
-    const others = data.eligible.filter(
-      person => person.preferenceSelected !== true
+    const others = eligible.filter(person =>
+      person.preferenceSelected !== true
     );
 
     status.textContent =
-      `${people.length} personas seleccionaron esta actividad en el onboarding.`;
+      `${preferred.length} personas seleccionaron esta actividad en el onboarding.`;
 
-    if (people.length === 0) {
+    if (eligible.length === 0) {
       const empty = document.createElement("p");
       empty.textContent =
-        "Nadie selecciono esta actividad. Puedes consultar las demas personas.";
+        "No se encontraron candidatos elegibles en tu estructura para esta actividad.";
+      results.appendChild(empty);
+    } else if (preferred.length === 0) {
+      const empty = document.createElement("p");
+      empty.textContent =
+        "Nadie seleccionó esta actividad en su onboarding; " +
+        "puedes consultar las demás personas elegibles.";
       results.appendChild(empty);
     }
-    for (const role of roleOrder) {
-      const group = people
-        .filter(person => person.role === role)
-        .sort((a, b) =>
-          String(a.name || "").localeCompare(
-            String(b.name || ""), "es"
-          )
-        );
 
-      if (!group.length) continue;
+    renderGroup(results, preferred);
 
-      const heading = document.createElement("h4");
-      heading.textContent =
-        `${roleNames[role]} (${group.length})`;
-
-      results.appendChild(heading);
-
-      for (const person of group) {
-        const row = document.createElement("div");
-
-        row.style.cssText =
-          "padding:8px 0;border-bottom:1px solid #e5e7eb";
-
-        const name = document.createElement("strong");
-        name.textContent = person.name || "Sin nombre";
-
-        const details = document.createElement("div");
-        details.style.fontSize = "0.85rem";
-
-        details.textContent =
-          "Preferencia en onboarding: " +
-          (person.preferenceSelected ? "SI" : "NO") +
-          " | Cuenta digital: " +
-          (person.hasDigitalAccount ? "SI" : "NO");
-
-        row.append(name, details);
-        results.appendChild(row);
-      }
-    }
-
-    const note = document.createElement("p");
-    note.textContent =
-      "La preferencia no acredita aptitud, " +
-      "disponibilidad ni aceptacion. " +
-      "Consulta B8: sin escritura de asignaciones.";
-
-    results.appendChild(note);
     if (others.length > 0) {
       const toggle = document.createElement("button");
       toggle.type = "button";
       toggle.id = "smartAssignmentShowOthers";
       toggle.className = "button button--secondary";
       toggle.style.marginTop = "12px";
-      toggle.textContent =
-        `Mostrar otras ${others.length} personas`;
       toggle.setAttribute("aria-expanded", "false");
 
       const extra = document.createElement("div");
@@ -286,67 +392,36 @@ button.addEventListener("click", async () => {
 
       const heading = document.createElement("p");
       heading.textContent =
-        "Personas que no seleccionaron esta actividad. Esto no significa falta de aptitud.";
-
+        "No seleccionaron esta preferencia. Eso no significa falta de aptitud.";
       extra.appendChild(heading);
+      renderGroup(extra, others);
 
-      for (const role of roleOrder) {
-        const group = others
-          .filter(person => person.role === role)
-          .sort((a, b) =>
-            String(a.name || "").localeCompare(
-              String(b.name || ""), "es"
-            )
-          );
-
-        if (!group.length) continue;
-
-        const title = document.createElement("h4");
-        title.textContent =
-          `${roleNames[role]} (${group.length})`;
-        extra.appendChild(title);
-
-        for (const person of group) {
-          const row = document.createElement("div");
-          row.style.cssText =
-            "padding:8px 0;border-bottom:1px solid #e5e7eb";
-
-          const name = document.createElement("strong");
-          name.textContent = person.name || "Sin nombre";
-
-          const detail = document.createElement("div");
-          detail.style.fontSize = "0.85rem";
-          detail.textContent =
-            "Preferencia no seleccionada | Cuenta digital: " +
-            (person.hasDigitalAccount ? "SI" : "NO");
-
-          row.append(name, detail);
-          extra.appendChild(row);
-        }
-      }
-
-      toggle.addEventListener("click", () => {
-        extra.hidden = !extra.hidden;
-        toggle.setAttribute(
-          "aria-expanded",
-          String(!extra.hidden)
-        );
+      function updateToggle() {
         toggle.textContent = extra.hidden
           ? `Mostrar otras ${others.length} personas`
           : `Ocultar otras ${others.length} personas`;
+      }
+      updateToggle();
+      toggle.addEventListener("click", () => {
+        extra.hidden = !extra.hidden;
+        toggle.setAttribute("aria-expanded", String(!extra.hidden));
+        updateToggle();
       });
-
       results.append(toggle, extra);
     }
 
+    const note = document.createElement("p");
+    note.textContent =
+      "La preferencia no acredita aptitud, disponibilidad ni aceptación. " +
+      "Estas casillas son solo una preselección; todavía NO crean misiones.";
+    results.appendChild(note);
   } catch (error) {
     if (version === requestVersion) {
       console.error("Consulta inteligente B8:", error);
       status.textContent =
         "No fue posible consultar la estructura. " +
-        "Verifica la autorizacion o revisa la consola.";
+        "Verifica la autorización o revisa la consola.";
     }
-
   } finally {
     if (version === requestVersion) {
       updateVisibility();
