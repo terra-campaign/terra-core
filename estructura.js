@@ -2020,6 +2020,13 @@ backButton?.addEventListener(
   "click",
   () => {
 
+    // TERRA_NAV_JEFE_VOLVER_V1
+    // El jefe regresa a su inicio, no a administracion municipal.
+    if (currentUserProfile?.role === "jefe_estructura") {
+      window.location.href = "./admin.html";
+      return;
+    }
+
     if (
       currentStructure?.municipalityId
     ) {
