@@ -422,7 +422,7 @@ async function consultCandidates() {
     const seen = new Set();
     const preferred = response.data.eligible.filter(person => {
       const ref = typeof person?.assigneeRef === "string" ? person.assigneeRef : "";
-      if (!/^[0-9a-f]{64}$/.test(ref) || seen.has(ref) || !roleNames[person.role]) return false;
+      if (!/^[0-9a-f]{64}$/.test(ref) || seen.has(ref) || (typeof person?.role !== "string" || !Object.prototype.hasOwnProperty.call(roleNames, person.role))) return false;
       seen.add(ref);
       return person.preferenceSelected === true;
     });
