@@ -6,7 +6,7 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
-import {buildSmartAssignmentPayload} from "./mission-smart-assignment-payload.mjs?v=b8-17-safe-001";
+import {buildSmartAssignmentPayload} from "./mission-smart-assignment-payload.mjs?v=b8-18-safe-001";
 import {inputDeadline} from "./mission-deadline.js?v=cierre-001";
 
 const activitySelect = document.querySelector(".mission-activity-field select");
