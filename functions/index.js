@@ -6624,3 +6624,9 @@ exports.getPersonProfileContext =
 exports.getSmartAssignmentCandidates =
   require("./mission-smart-assignment-read.cjs")
     .getSmartAssignmentCandidates;
+
+// B8 - Escritura autenticada, BLOQUEADA por defecto.
+// Requiere autorizacion expresa para activar escritura.
+exports.createSmartAssignedMissions =
+  require("./mission-smart-assignment-root-callable.cjs")
+    .createSmartAssignedMissionsCallable();
