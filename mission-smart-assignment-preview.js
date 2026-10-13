@@ -64,7 +64,7 @@ panel.innerHTML = `
     El interés no significa disponibilidad ni aceptación de la misión.
   </p>
   <p class="b8-writing-note">
-    Esta vista permite preseleccionar. El guardado B8 aún está deshabilitado.
+    Esta vista permite preseleccionar. El guardado de esta modalidad aún está deshabilitado.
   </p>
   <button type="button" id="smartAssignmentSearch"
     class="button button--secondary">Actualizar interesados</button>
@@ -172,8 +172,8 @@ function uncheckInB8(ref) {
 function updateSelectionCount() {
   const count = selectedRefs.size;
   counter.textContent = count
-    ? `${count} ${count === 1 ? "persona preseleccionada" : "personas preseleccionadas"} en B8. Todavía no se asignan misiones.`
-    : "Ninguna persona preseleccionada en B8.";
+    ? `${count} ${count === 1 ? "persona preseleccionada" : "personas preseleccionadas"} en esta vista. Todavía no se asignan misiones.`
+    : "Ninguna persona preseleccionada en esta vista.";
 }
 function updateGroupCheckAll() {
   for (const heading of results.querySelectorAll(".b8-role-heading")) {
@@ -217,11 +217,11 @@ form.addEventListener("submit", event => {
   event.stopImmediatePropagation();
   if (formMessage) {
     formMessage.textContent = anyB8
-      ? `Hay ${selectedRefs.size} personas preseleccionadas en B8. ` +
-        "La escritura B8 todavía está deshabilitada: NO se guardó la misión. " +
-        "Desmarca la preselección B8 para usar B7 por separado."
-      : "Estás en la vista B8, cuya escritura todavía está deshabilitada. " +
-        "NO se guardó la misión. Regresa a Mis directos para utilizar B7.";
+      ? `Hay ${selectedRefs.size} personas preseleccionadas en esta vista. ` +
+        "Esta modalidad todavía está deshabilitada: NO se guardó la misión. " +
+        "Desmarca esta preselección para usar la selección directa."
+      : "Estás en la vista de preselección avanzada, que todavía está deshabilitada. " +
+        "NO se guardó la misión. Regresa a Mis directos para continuar.";
     formMessage.scrollIntoView?.({block:"nearest"});
   }
 }, true);
