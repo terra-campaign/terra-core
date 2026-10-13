@@ -6,6 +6,8 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
+import {buildSmartAssignmentPayload} from "./mission-smart-assignment-payload.mjs";
+import {inputDeadline} from "./mission-deadline.js?v=cierre-001";
 
 const activitySelect = document.querySelector(".mission-activity-field select");
 const assigneeList = document.querySelector("#missionAssigneeList");
@@ -208,22 +210,73 @@ function activityLabel() {
   return activitySelect.selectedOptions?.[0]?.textContent?.trim() || "la actividad elegida";
 }
 
-// B8 no se puede guardar todavía. En vista B8, tampoco se guardan por accidente
-// los destinatarios B7 previamente marcados que quedaron ocultos.
+// B8 - Validacion local del formulario. NO realiza escrituras.
+// B7 conserva su controlador original cuando no hay seleccion B8.
 form.addEventListener("submit", event => {
   const anyB8 = selectedRefs.size > 0;
+
   if (!anyB8 && view === "direct") return;
+
   event.preventDefault();
   event.stopImmediatePropagation();
-  if (formMessage) {
-    formMessage.textContent = anyB8
-      ? `Hay ${selectedRefs.size} personas preseleccionadas en esta vista. ` +
-        "Esta modalidad todavía está deshabilitada: NO se guardó la misión. " +
-        "Desmarca esta preselección para usar la selección directa."
-      : "Estás en la vista de preselección avanzada, que todavía está deshabilitada. " +
-        "NO se guardó la misión. Regresa a Mis directos para continuar.";
-    formMessage.scrollIntoView?.({block:"nearest"});
+
+  if (!formMessage) return;
+
+  if (view !== "preferred") {
+    formMessage.textContent =
+      "Existen personas preseleccionadas en B8. " +
+      "Regresa a Ver estructura completa para revisarlas o " +
+      "desmarcalas antes de guardar mediante Mis directos. " +
+      "NO se guardo ninguna mision.";
+    return;
   }
+
+  if (!authorizedChief || activitySelect.disabled || modal.hidden) {
+    formMessage.textContent =
+      "B8: esta modalidad no esta disponible para tu perfil. " +
+      "NO se guardo ninguna mision.";
+    return;
+  }
+
+  try {
+    const deadlineField = form
+      .querySelector("#missionDate")
+      ?.nextElementSibling
+      ?.querySelector('input[type="datetime-local"]');
+
+    if (!deadlineField) {
+      throw new Error("No se encontro el campo de vencimiento.");
+    }
+
+    const directAssigneeRefs = Array.from(
+      assigneeList.querySelectorAll(".mission-assignee-checkbox:checked"),
+      box => box.value
+    );
+
+    const payload = buildSmartAssignmentPayload({
+      requestId: crypto.randomUUID(),
+      assigneeRefs: Array.from(selectedRefs),
+      activityCode: activitySelect.value,
+      title: form.querySelector("#missionTitle")?.value,
+      description: form.querySelector("#missionDescription")?.value,
+      locality: form.querySelector("#missionLocality")?.value,
+      missionDate: form.querySelector("#missionDate")?.value || null,
+      deadlineAt: inputDeadline(deadlineField.value)
+    }, {directAssigneeRefs});
+
+    formMessage.textContent =
+      `B8: solicitud validada localmente para ` +
+      `${payload.assigneeRefs.length} personas. ` +
+      "El envio inteligente sigue DESHABILITADO. " +
+      "NO se guardo ninguna mision.";
+
+  } catch (error) {
+    formMessage.textContent =
+      `${error.message || "Error de validacion B8."} ` +
+      "NO se guardo ninguna mision.";
+  }
+
+  formMessage.scrollIntoView?.({block:"nearest"});
 }, true);
 
 // B7 mantiene su selección masiva propia. Si B7 se marca, prevalece ese
@@ -352,8 +405,8 @@ async function consultCandidates() {
     if (!Array.isArray(response.data?.eligible)) throw new Error("Candidatos inválidos");
     const seen = new Set();
     const preferred = response.data.eligible.filter(person => {
-      const ref = typeof person?.assigneeRef === "string" ? person.assigneeRef.trim() : "";
-      if (!ref || seen.has(ref) || !roleNames[person.role]) return false;
+      const ref = typeof person?.assigneeRef === "string" ? person.assigneeRef : "";
+      if (!/^[0-9a-f]{64}$/.test(ref) || seen.has(ref) || !roleNames[person.role]) return false;
       seen.add(ref);
       return person.preferenceSelected === true;
     });
