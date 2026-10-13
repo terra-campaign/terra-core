@@ -84,6 +84,8 @@ const counter = panel.querySelector("#smartAssignmentSelectedCount");
 const notice = panel.querySelector("#smartAssignmentSelectionNotice");
 const results = panel.querySelector("#smartAssignmentResults");
 const selectedRefs = new Set();
+let b8RequestId = null;
+let b8RequestSignature = null;
 let authorizedChief = false;
 let requestVersion = 0;
 let view = "direct";
@@ -253,8 +255,7 @@ form.addEventListener("submit", event => {
       box => box.value
     );
 
-    const payload = buildSmartAssignmentPayload({
-      requestId: crypto.randomUUID(),
+    const draft = {
       assigneeRefs: Array.from(selectedRefs),
       activityCode: activitySelect.value,
       title: form.querySelector("#missionTitle")?.value,
@@ -262,6 +263,21 @@ form.addEventListener("submit", event => {
       locality: form.querySelector("#missionLocality")?.value,
       missionDate: form.querySelector("#missionDate")?.value || null,
       deadlineAt: inputDeadline(deadlineField.value)
+    };
+
+    const signature = JSON.stringify({
+      ...draft,
+      assigneeRefs: [...draft.assigneeRefs].sort()
+    });
+
+    if (b8RequestSignature !== signature) {
+      b8RequestId = crypto.randomUUID();
+      b8RequestSignature = signature;
+    }
+
+    const payload = buildSmartAssignmentPayload({
+      requestId: b8RequestId,
+      ...draft
     }, {directAssigneeRefs});
 
     formMessage.textContent =
@@ -471,6 +487,8 @@ new MutationObserver(() => {
   if (modal.hidden) {
     clearResults();
     view = "direct";
+    b8RequestId = null;
+    b8RequestSignature = null;
   }
   updateVisibility();
 }).observe(modal, {attributes:true, attributeFilter:["hidden"]});
