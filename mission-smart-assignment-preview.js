@@ -47,6 +47,33 @@ openStructure.textContent = "Ver estructura completa →";
 openStructure.hidden = true;
 directHeader.appendChild(openStructure);
 
+// B8-19H6-FILTRO: controles de directos.
+const directFilterPanel = document.createElement("div");
+directFilterPanel.id = "b8DirectFilterPanel";
+directFilterPanel.hidden = true;
+directFilterPanel.innerHTML = `
+  <strong>Mostrar mis directos</strong>
+  <label>
+    <input type="radio" name="b8DirectFilter" value="interested" checked>
+    Solo interesados en esta actividad
+  </label>
+  <label>
+    <input type="radio" name="b8DirectFilter" value="all">
+    Todos mis directos elegibles
+  </label>
+  <p id="b8DirectFilterStatus" role="status" aria-live="polite"></p>
+`;
+directHeader.insertAdjacentElement("afterend", directFilterPanel);
+
+const directFilterStatus =
+  directFilterPanel.querySelector("#b8DirectFilterStatus");
+let directFilterMode = "interested";
+let directFilterActivity = "";
+let directFilterReady = false;
+let directFilterLoading = false;
+let directFilterRequest = 0;
+let directInterestedRefs = new Set();
+
 const panel = document.createElement("section");
 panel.id = "smartAssignmentPreview";
 panel.hidden = true;
@@ -84,6 +111,48 @@ const counter = panel.querySelector("#smartAssignmentSelectedCount");
 const notice = panel.querySelector("#smartAssignmentSelectionNotice");
 const results = panel.querySelector("#smartAssignmentResults");
 const selectedRefs = new Set();
+
+// B8-19H1-CONTADORES: resumen informativo, sin escrituras.
+const selectionSummary = document.createElement("section");
+selectionSummary.id = "b8SelectionSummary";
+selectionSummary.hidden = true;
+selectionSummary.setAttribute("aria-label", "Resumen de destinatarios");
+selectionSummary.innerHTML = `
+  <div class="b8-summary-title">Estado de seleccion</div>
+  <div class="b8-summary-columns">
+    <div><strong id="b8DirectCount">0</strong>
+      <span>Mis directos (B7)</span>
+      <small>Seleccionados para asignacion manual</small>
+    </div>
+    <div><strong id="b8StructureCount">0</strong>
+      <span>Estructura completa (B8)</span>
+      <small>Preseleccionados, sin asignacion</small>
+    </div>
+  </div>
+  <p>Son selecciones independientes. Marcar una persona en una vista
+  no la transfiere automaticamente a la otra.</p>
+`;
+directField.insertAdjacentElement("beforebegin", selectionSummary);
+
+const directCountNode = selectionSummary.querySelector("#b8DirectCount");
+const structureCountNode = selectionSummary.querySelector("#b8StructureCount");
+
+function updateSelectionSummary() {
+  const directCount = assigneeList.querySelectorAll(
+    ".mission-assignee-checkbox:checked"
+  ).length;
+  directCountNode.textContent = String(directCount);
+  structureCountNode.textContent = String(selectedRefs.size);
+}
+
+assigneeList.addEventListener("change", updateSelectionSummary);
+directSelectAll.addEventListener("change", () => {
+  queueMicrotask(updateSelectionSummary);
+});
+new MutationObserver(updateSelectionSummary).observe(assigneeList, {
+  childList: true,
+  subtree: true
+});
 let b8RequestId = null;
 let b8RequestSignature = null;
 let authorizedChief = false;
@@ -148,13 +217,306 @@ style.textContent = `
     #missionModal .b8-structure-panel { padding:12px; }
   }
 `;
+style.textContent += `
+  #missionModal #b8SelectionSummary[hidden] { display:none !important; }
+  #missionModal #b8SelectionSummary {
+    border:1px solid #cbd5e1;
+    border-radius:12px;
+    padding:12px;
+    margin:12px 0;
+    background:#f8fafc;
+  }
+  #missionModal .b8-summary-title {
+    font-weight:800;
+    margin-bottom:10px;
+  }
+  #missionModal .b8-summary-columns {
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:10px;
+  }
+  #missionModal .b8-summary-columns > div {
+    border:1px solid #dbe3ec;
+    border-radius:8px;
+    background:white;
+    padding:10px;
+  }
+  #missionModal .b8-summary-columns strong {
+    display:block;
+    font-size:1.6rem;
+    color:#173e66;
+  }
+  #missionModal .b8-summary-columns span {
+    display:block;
+    font-weight:700;
+  }
+  #missionModal .b8-summary-columns small {
+    display:block;
+    margin-top:4px;
+  }
+  #missionModal #b8SelectionSummary p {
+    font-size:.88rem;
+    margin:10px 0 0;
+  }
+  @media(max-width:480px) {
+    #missionModal .b8-summary-columns {
+      grid-template-columns:1fr;
+    }
+  }
+`;
 document.head.appendChild(style);
+style.textContent += `
+  #missionModal #b8DirectFilterPanel[hidden],
+  #missionModal #missionAssigneeList .mission-assignee-option[hidden] {
+    display:none !important;
+  }
+  #missionModal #b8DirectFilterPanel {
+    border:1px solid #cbd5e1;
+    border-radius:9px;
+    padding:12px;
+    margin:8px 0 12px;
+    background:#f8fafc;
+  }
+  #missionModal #b8DirectFilterPanel strong {
+    display:block;
+    margin-bottom:8px;
+  }
+  #missionModal #b8DirectFilterPanel label {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-height:38px;
+    cursor:pointer;
+  }
+  #missionModal #b8DirectFilterPanel input {
+    flex:none;
+    width:19px;
+    height:19px;
+  }
+  #missionModal #b8DirectFilterStatus {
+    margin:8px 0 0;
+    font-size:.89rem;
+    line-height:1.4;
+  }
+`;
 
 function b7Checkboxes() {
   return Array.from(assigneeList.querySelectorAll(".mission-assignee-checkbox"));
 }
+
+function resetDirectInterestFilter() {
+  directFilterRequest++;
+  directFilterActivity = "";
+  directFilterReady = false;
+  directFilterLoading = false;
+  directInterestedRefs = new Set();
+}
+
+function visibleDirectCheckboxes() {
+  return b7Checkboxes().filter(box => {
+    const row = box.closest(".mission-assignee-option");
+    return !box.disabled && row && !row.hidden;
+  });
+}
+
+function applyDirectInterestFilter() {
+  const activity = String(activitySelect.value || "").trim();
+  const filtering =
+    authorizedChief &&
+    directFilterMode === "interested" &&
+    directFilterReady &&
+    directFilterActivity === activity;
+
+  let shown = 0;
+  let manualExceptions = 0;
+
+  for (const box of b7Checkboxes()) {
+    const row = box.closest(".mission-assignee-option");
+    if (!row) continue;
+
+    const interested = directInterestedRefs.has(box.value);
+
+    // Una persona ya seleccionada nunca queda oculta.
+    const visible = !filtering || interested || box.checked;
+    row.hidden = !visible;
+
+    if (visible) shown++;
+    if (filtering && box.checked && !interested) {
+      manualExceptions++;
+    }
+  }
+
+  if (directFilterMode === "all") {
+    directFilterStatus.textContent =
+      "Se muestran todos los directos elegibles autorizados por B7.";
+  } else if (!activity) {
+    directFilterStatus.textContent =
+      "Selecciona primero un tipo de actividad.";
+  } else if (directFilterLoading) {
+    directFilterStatus.textContent =
+      "Verificando intereses. Mientras tanto se muestran los elegibles.";
+  } else if (!directFilterReady) {
+    directFilterStatus.textContent =
+      "No se pudieron confirmar las preferencias. No se oculta a nadie; " +
+      "puedes elegir Todos mis directos elegibles.";
+  } else {
+    directFilterStatus.textContent =
+      shown + " directos visibles. " +
+      (manualExceptions
+        ? manualExceptions +
+          " seleccionados manualmente sin interes declarado permanecen visibles."
+        : "Las personas sin interes declarado se pueden consultar en Todos los elegibles.");
+  }
+
+  syncDirectMaster();
+  updateSelectionSummary();
+}
+
+async function consultDirectInterests() {
+  if (!authorizedChief || activitySelect.disabled || modal.hidden) return;
+
+  const activityCode = String(activitySelect.value || "").trim();
+
+  if (!activityCode) {
+    resetDirectInterestFilter();
+    applyDirectInterestFilter();
+    return;
+  }
+
+  const version = ++directFilterRequest;
+
+  directFilterActivity = activityCode;
+  directFilterReady = false;
+  directFilterLoading = true;
+  directInterestedRefs = new Set();
+
+  applyDirectInterestFilter();
+
+  try {
+    // Misma consulta autorizada que utiliza B8.
+    const response = await consultar({activityCode});
+
+    if (
+      version !== directFilterRequest ||
+      modal.hidden ||
+      activitySelect.disabled ||
+      !authorizedChief ||
+      activitySelect.value !== activityCode
+    ) return;
+
+    if (
+      !Array.isArray(response.data?.eligible) ||
+      (
+        response.data.activityCode &&
+        response.data.activityCode !== activityCode
+      )
+    ) {
+      throw new Error("Respuesta de preferencias incompatible.");
+    }
+
+    const refs = new Set();
+    const seen = new Set();
+
+    for (const person of response.data.eligible) {
+      const ref = person?.assigneeRef;
+
+      if (
+        typeof ref !== "string" ||
+        !/^[0-9a-f]{64}$/.test(ref) ||
+        seen.has(ref) ||
+        typeof person.role !== "string" ||
+        !Object.prototype.hasOwnProperty.call(roleNames, person.role) ||
+        typeof person.preferenceSelected !== "boolean"
+      ) {
+        throw new Error("Candidato de preferencias invalido.");
+      }
+
+      seen.add(ref);
+
+      if (person.preferenceSelected === true) refs.add(ref);
+    }
+
+    directInterestedRefs = refs;
+    directFilterReady = true;
+  } catch (error) {
+    if (version !== directFilterRequest) return;
+    console.error("B8-19: filtro de directos no disponible", error);
+    directFilterReady = false;
+    directInterestedRefs = new Set();
+  } finally {
+    if (version === directFilterRequest) {
+      directFilterLoading = false;
+      applyDirectInterestFilter();
+    }
+  }
+}
+
+directFilterPanel.addEventListener("change", event => {
+  const input = event.target;
+
+  if (!input?.matches?.('input[name="b8DirectFilter"]')) return;
+
+  directFilterMode = input.value === "all" ? "all" : "interested";
+  applyDirectInterestFilter();
+});
+
+// El controlador B7 escucha change en el mismo checkbox maestro.
+// Capturamos primero para impedir que marque destinatarios ocultos.
+directSelectAll.addEventListener("change", event => {
+  if (
+    !authorizedChief ||
+    activitySelect.disabled ||
+    view !== "direct" ||
+    directFilterMode !== "interested"
+  ) return;
+
+  event.stopImmediatePropagation();
+
+  if (!directFilterReady ||
+      directFilterActivity !== String(activitySelect.value || "").trim()) {
+    directSelectAll.checked = false;
+    directSelectAll.indeterminate = false;
+    directFilterStatus.textContent =
+      "Espera a que termine la consulta de interesados o cambia a Todos los elegibles.";
+    return;
+  }
+
+  const visibles = visibleDirectCheckboxes();
+  const marcar = directSelectAll.checked;
+
+  const adicionales = visibles.filter(box => !box.checked).length;
+  const yaMarcados = b7Checkboxes().filter(box => box.checked).length;
+
+  if (marcar && yaMarcados + adicionales > MAX_SELECTION) {
+    syncDirectMaster();
+    directFilterStatus.textContent =
+      "No se selecciono el grupo: se superaria el maximo de 50 personas.";
+    return;
+  }
+
+  for (const box of visibles) {
+    box.checked = marcar;
+
+    if (marcar) uncheckInB8(box.value);
+  }
+
+  applyDirectInterestFilter();
+}, true);
+
+assigneeList.addEventListener("change", () => {
+  queueMicrotask(applyDirectInterestFilter);
+});
+
+new MutationObserver(applyDirectInterestFilter).observe(assigneeList, {
+  childList: true,
+  subtree: true
+});
+
 function syncDirectMaster() {
-  const boxes = b7Checkboxes().filter(box => !box.disabled);
+  const boxes = b7Checkboxes().filter(box => {
+    const row = box.closest(".mission-assignee-option");
+    return !box.disabled && row && !row.hidden;
+  });
   const checked = boxes.filter(box => box.checked).length;
   directSelectAll.checked = boxes.length > 0 && checked === boxes.length;
   directSelectAll.indeterminate = checked > 0 && checked < boxes.length;
@@ -178,6 +540,7 @@ function updateSelectionCount() {
   counter.textContent = count
     ? `${count} ${count === 1 ? "persona preseleccionada" : "personas preseleccionadas"} en esta vista. Todavía no se asignan misiones.`
     : "Ninguna persona preseleccionada en esta vista.";
+  updateSelectionSummary();
 }
 function updateGroupCheckAll() {
   for (const heading of results.querySelectorAll(".b8-role-heading")) {
@@ -200,13 +563,30 @@ function clearResults() {
 }
 function updateVisibility() {
   const eligibleChief = authorizedChief && !activitySelect.disabled;
+  directFilterPanel.hidden = !eligibleChief;
+
+  // B8-19H11A: no reiniciar preferencias por bloqueo temporal de B7.
+  if (!authorizedChief || modal.hidden) {
+    resetDirectInterestFilter();
+  } else if (eligibleChief) {
+    const code = String(activitySelect.value || "").trim();
+    if (code && directFilterActivity !== code) {
+      void consultDirectInterests();
+    }
+  }
+
+  applyDirectInterestFilter();
+  selectionSummary.hidden = !eligibleChief;
   openStructure.hidden = !eligibleChief;
   if (!eligibleChief) view = "direct";
   directField.hidden = view !== "direct" && eligibleChief;
   panel.hidden = view !== "preferred" || !eligibleChief;
   openStructure.disabled = !eligibleChief;
   refreshButton.disabled = !eligibleChief || !String(activitySelect.value || "").trim();
-  if (!eligibleChief && (selectedRefs.size || results.childNodes.length)) clearResults();
+  // B8-19H11A: no borrar preselecciones durante un envío B7.
+  // Limpiar únicamente al cerrar el modal o perder autorización.
+  if ((!authorizedChief || modal.hidden) &&
+      (selectedRefs.size || results.childNodes.length)) clearResults();
 }
 function activityLabel() {
   return activitySelect.selectedOptions?.[0]?.textContent?.trim() || "la actividad elegida";
@@ -214,10 +594,14 @@ function activityLabel() {
 
 // B8 - Validacion local del formulario. NO realiza escrituras.
 // B7 conserva su controlador original cuando no hay seleccion B8.
+// B8-19H9-CAPTURA:
+// B8 intercepta el submit antes del controlador B7.
+// En vista directa permite continuar el envio B7.
+// En vista de estructura impide cualquier guardado.
 form.addEventListener("submit", event => {
-  const anyB8 = selectedRefs.size > 0;
-
-  if (!anyB8 && view === "direct") return;
+  // B8-19H2-GUARDADO: la vista directa pertenece exclusivamente a B7.
+  // Las preselecciones B8 ocultas no deben interceptar su envio.
+  if (view === "direct") return;
 
   event.preventDefault();
   event.stopImmediatePropagation();
@@ -311,7 +695,7 @@ directSelectAll.addEventListener("change", () => {
     }
     syncDirectMaster();
   });
-});
+}, true);
 
 function candidateRow(person) {
   const row = document.createElement("label");
@@ -409,11 +793,12 @@ async function consultCandidates() {
   }
   const version = ++requestVersion;
   refreshButton.disabled = true;
-  selectedRefs.clear();
-  updateSelectionCount();
-  results.replaceChildren();
+
+  // B8-19H3-CONSERVACION:
+  // Mantener seleccion y resultados mientras responde el servidor.
+  // La reconciliacion se realiza solo con una respuesta valida y vigente.
   notice.textContent = "";
-  status.textContent = "Consultando los interesados de tu estructura...";
+  status.textContent = "Actualizando interesados. Se conserva la seleccion durante la consulta...";
   try {
     const response = await consultar({activityCode});
     if (version !== requestVersion || modal.hidden || activitySelect.disabled ||
@@ -426,6 +811,22 @@ async function consultCandidates() {
       seen.add(ref);
       return person.preferenceSelected === true;
     });
+    // Conservar solo referencias que siguen autorizadas e interesadas.
+    const validRefs = new Set(preferred.map(person => person.assigneeRef));
+    const removed = Array.from(selectedRefs).filter(ref => !validRefs.has(ref));
+
+    for (const ref of removed) {
+      selectedRefs.delete(ref);
+    }
+
+    // Reemplazar el listado solo despues de validar la respuesta.
+    results.replaceChildren();
+    updateSelectionCount();
+
+    notice.textContent = removed.length
+      ? `${removed.length} ${removed.length === 1 ? "preselección retirada" : "preselecciones retiradas"} porque ya no cumplen los criterios de esta actividad.`
+      : "";
+
     status.textContent = `${preferred.length} ${preferred.length === 1 ? "persona indicó" : "personas indicaron"} interés en esta actividad.`;
     if (!preferred.length) {
       const empty = document.createElement("p");
@@ -438,7 +839,9 @@ async function consultCandidates() {
   } catch (error) {
     if (version === requestVersion) {
       console.error("B8: consulta de interesados", error);
-      status.textContent = "No fue posible consultar la estructura. Revisa autorización y conexión.";
+      status.textContent = results.childNodes.length
+        ? "No fue posible actualizar los interesados. Se conservaron el listado y las preselecciones anteriores."
+        : "No fue posible consultar la estructura. Revisa autorización y conexión.";
     }
   } finally {
     if (version === requestVersion) updateVisibility();
