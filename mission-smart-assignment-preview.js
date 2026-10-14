@@ -361,10 +361,12 @@ function applyDirectInterestFilter() {
       "puedes elegir Todos mis directos elegibles.";
   } else {
     directFilterStatus.textContent =
-      shown + " directos visibles. " +
+      shown + (shown === 1 ? " directo visible. " : " directos visibles. ") +
       (manualExceptions
         ? manualExceptions +
-          " seleccionados manualmente sin interes declarado permanecen visibles."
+          (manualExceptions === 1
+            ? " persona seleccionada manualmente sin interes declarado permanece visible."
+            : " personas seleccionadas manualmente sin interes declarado permanecen visibles.")
         : "Las personas sin interes declarado se pueden consultar en Todos los elegibles.");
   }
 
