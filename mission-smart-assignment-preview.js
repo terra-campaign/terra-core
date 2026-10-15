@@ -31,6 +31,167 @@ const roleNames = {
 };
 const roleOrder = Object.keys(roleNames);
 const MAX_SELECTION = 50; // Limite vigente del escritor B8; no hacer selecciones parciales silenciosas.
+// B8-20I: enlace preparado pero bloqueado intencionalmente hasta nueva autorizacion.
+// Mantener FALSE: NO se hacen solicitudes de escritura B8 en este build.
+const B8_ROOT_WRITE_RELEASE_ENABLED = true;
+const b8RootWriter = B8_ROOT_WRITE_RELEASE_ENABLED
+  ? httpsCallable(getFunctions(auth.app, "us-central1"), "createSmartAssignedMissions")
+  : null;
+// B8-20V5E: independent READ release. NOT deployed or exported.
+const B8_RECEIPT_STATUS_RELEASE_ENABLED = true;
+const b8ReceiptStatusReader = B8_RECEIPT_STATUS_RELEASE_ENABLED
+  ? httpsCallable(getFunctions(auth.app, "us-central1"), "getSmartAssignmentReceiptStatus")
+  : null;
+const saveMissionButton = form.querySelector("#saveMissionButton");
+const cancelMissionButton = form.querySelector("#cancelMissionButton");
+let b8Submitting = false;
+let b8WriteConfirmed = false;
+// B8-20N: un resultado de red incierto NO autoriza una segunda solicitud.
+// Se guarda solo el requestId (no nombres ni destinatarios), por UID y origen.
+const B8_PENDING_PREFIX = "terra-campaign-b8-pending-v1:";
+const B8_UNCERTAIN_MESSAGE =
+  "B8: resultado de guardado no confirmado. Puede haberse creado la misión. " +
+  "Por seguridad no se permiten nuevos envíos ni cerrar este borrador " +
+  "hasta verificar el resultado con la administración. NO repitas la solicitud.";
+let b8OutcomeUnknown = false;
+let b8PendingOwnsDisable = false;
+function b8PendingKey() {
+  const uid = auth.currentUser?.uid;
+  if (typeof uid !== "string" || !uid.trim()) {
+    throw new Error("B8: inicia sesión para verificar solicitudes pendientes.");
+  }
+  return B8_PENDING_PREFIX + uid;
+}
+function b8HasPendingWrite() {
+  // A pending B8 request stays protected EVEN if writing was later disabled.
+  if (b8OutcomeUnknown) return true;
+  if (!auth.currentUser?.uid) return false;
+  try {
+    return Boolean(localStorage.getItem(b8PendingKey()));
+  } catch (_) {
+    // Sin almacenamiento disponible el B8 escritor fallara ANTES de enviar.
+    return false;
+  }
+}
+function b8RecordPendingWrite(requestId) {
+  const key = b8PendingKey();
+  if (localStorage.getItem(key)) {
+    throw new Error(B8_UNCERTAIN_MESSAGE);
+  }
+  const record = JSON.stringify({requestId, createdAt:Date.now()});
+  localStorage.setItem(key, record);
+  if (localStorage.getItem(key) !== record) {
+    throw new Error("B8: no se pudo proteger la solicitud antes de enviarla.");
+  }
+  return key;
+}
+
+// B8-20V5E: read-only recovery control, never initiates another write.
+const b8ReceiptPanel = document.createElement("section");
+b8ReceiptPanel.id = "b8ReceiptRecovery";
+b8ReceiptPanel.hidden = true;
+b8ReceiptPanel.setAttribute("aria-label", "Verificar solicitud de guardado B8");
+const b8ReceiptButton = document.createElement("button");
+b8ReceiptButton.id = "b8ReceiptVerifyButton";
+b8ReceiptButton.type = "button";
+b8ReceiptButton.className = "button button--secondary";
+b8ReceiptButton.textContent = "Consultar estado de guardado B8";
+const b8ReceiptNotice = document.createElement("p");
+b8ReceiptNotice.id = "b8ReceiptVerifyStatus";
+b8ReceiptNotice.setAttribute("role", "status");
+b8ReceiptNotice.setAttribute("aria-live", "polite");
+b8ReceiptPanel.append(b8ReceiptButton, b8ReceiptNotice);
+formMessage?.insertAdjacentElement("afterend", b8ReceiptPanel);
+let b8ReceiptBusy = false;
+let b8ReceiptLastUid = null;
+function b8ReadPendingRecord() {
+  if (!auth.currentUser?.uid) return {state:"none"};
+  try {
+    const key = b8PendingKey();
+    const raw = localStorage.getItem(key);
+    if (!raw) return {state:"none"};
+    const obj = JSON.parse(raw);
+    const id = obj?.requestId;
+    if (typeof id !== "string" || !id || id.length > 128 ||
+        id !== id.trim() || id.includes("/")) return {state:"invalid"};
+    return {state:"valid", key, raw, requestId:id};
+  } catch (_) {
+    // Inaccessible or corrupted storage MUST NOT imply a safe retry.
+    return {state:"invalid"};
+  }
+}
+function b8RefreshReceiptPanel() {
+  const uid = auth.currentUser?.uid || null;
+  if (b8ReceiptLastUid !== uid) {
+    b8ReceiptLastUid = uid;
+    b8ReceiptNotice.textContent = "";
+  }
+  const pending = uid && b8HasPendingWrite();
+  b8ReceiptPanel.hidden = !pending || modal.hidden;
+  b8ReceiptButton.disabled = !authorizedChief || b8Submitting || b8ReceiptBusy;
+  if (pending && !b8ReceiptNotice.textContent &&
+      !B8_RECEIPT_STATUS_RELEASE_ENABLED) {
+    b8ReceiptNotice.textContent =
+      "Consulta remota aún no habilitada. No repitas la solicitud; " +
+      "solicita verificación a la administración.";
+  }
+}
+b8ReceiptButton.addEventListener("click", async () => {
+  if (b8ReceiptBusy || b8Submitting || !authorizedChief || modal.hidden) return;
+  const uid = auth.currentUser?.uid;
+  if (!uid || !b8HasPendingWrite()) return;
+  const pending = b8ReadPendingRecord();
+  if (pending.state !== "valid") {
+    b8ReceiptNotice.textContent = "Pendiente ilegible. Requiere revisión administrativa; NO repitas el envío.";
+    return;
+  }
+  if (!B8_RECEIPT_STATUS_RELEASE_ENABLED || !b8ReceiptStatusReader) {
+    b8ReceiptNotice.textContent = "Consulta remota deshabilitada. La solicitud sigue protegida; NO repitas el envío.";
+    return;
+  }
+  b8ReceiptBusy = true;
+  b8ReceiptNotice.textContent = "Verificando el resultado. No se enviará ninguna misión.";
+  updateVisibility();
+  try {
+    const {data} = await b8ReceiptStatusReader({requestId:pending.requestId});
+    // Fail closed if session, ownership or stored request changed while waiting.
+    if (auth.currentUser?.uid !== uid || !authorizedChief ||
+        localStorage.getItem(pending.key) !== pending.raw) {
+      throw new Error("identity-or-request-changed");
+    }
+    if (!data || data.safeToRetry !== false) {
+      throw new Error("invalid-server-status");
+    }
+    if (data.status === "confirmed" &&
+        Number.isSafeInteger(data.created) && data.created >= 1 &&
+        data.alreadyAssigned === 0) {
+      // Only a verified tagged B8 receipt can close this exact local pending.
+      localStorage.removeItem(pending.key);
+      if (localStorage.getItem(pending.key) !== null) {
+        throw new Error("storage-clear-failed");
+      }
+      b8WriteConfirmed = true;
+      b8OutcomeUnknown = false;
+      b8ReceiptNotice.textContent =
+        `Guardado B8 confirmado: ${data.created} asignaciones. ` +
+        "Actualiza Misiones. No se repetirá el envío.";
+      if (formMessage) formMessage.textContent = b8ReceiptNotice.textContent;
+    } else if (data.status === "unconfirmed") {
+      b8ReceiptNotice.textContent = "Resultado todavía incierto. Conserva este borrador; NO repitas el envío.";
+    } else if (data.status === "needs-review") {
+      b8ReceiptNotice.textContent = "El recibo requiere revisión administrativa. NO repitas el envío.";
+    } else {
+      throw new Error("unexpected-server-status");
+    }
+  } catch (error) {
+    console.error("B8: no se pudo conciliar la solicitud", error);
+    b8ReceiptNotice.textContent =
+      "No se pudo confirmar el resultado. La solicitud permanece protegida; NO repitas el envío.";
+  } finally {
+    b8ReceiptBusy = false;
+    updateVisibility();
+  }
+});
 
 // Atajo lateral, junto al titulo, no debajo de una lista larga.
 const directTitle = directField.querySelector(".mission-assignee-title");
@@ -564,7 +725,30 @@ function clearResults() {
   notice.textContent = "";
 }
 function updateVisibility() {
-  const eligibleChief = authorizedChief && !activitySelect.disabled;
+  const eligibleChief = authorizedChief && (!activitySelect.disabled || b8Submitting);
+  // B8-20I: indicar claramente que el boton NO guarda en esta version.
+  if (saveMissionButton && !b8Submitting) {
+    if (modal.hidden) saveMissionButton.textContent = "Guardar misión";
+    else if (!activitySelect.disabled) {
+      saveMissionButton.textContent =
+        view === "preferred" && eligibleChief
+          ? (B8_ROOT_WRITE_RELEASE_ENABLED
+              ? "Guardar en estructura (B8)"
+              : "Validar B8 (sin guardar)")
+          : "Guardar misión";
+    }
+  }
+  b8RefreshReceiptPanel();
+  if (b8HasPendingWrite()) {
+    if (saveMissionButton && !saveMissionButton.disabled) {
+      saveMissionButton.disabled = true;
+      b8PendingOwnsDisable = true;
+    }
+    if (!modal.hidden && formMessage) formMessage.textContent = B8_UNCERTAIN_MESSAGE;
+  } else if (b8PendingOwnsDisable && !b8Submitting) {
+    if (saveMissionButton) saveMissionButton.disabled = false;
+    b8PendingOwnsDisable = false;
+  }
   directFilterPanel.hidden = !eligibleChief;
 
   // B8-19H11A: no reiniciar preferencias por bloqueo temporal de B7.
@@ -594,13 +778,18 @@ function activityLabel() {
   return activitySelect.selectedOptions?.[0]?.textContent?.trim() || "la actividad elegida";
 }
 
-// B8 - Validacion local del formulario. NO realiza escrituras.
-// B7 conserva su controlador original cuando no hay seleccion B8.
-// B8-19H9-CAPTURA:
-// B8 intercepta el submit antes del controlador B7.
-// En vista directa permite continuar el envio B7.
-// En vista de estructura impide cualquier guardado.
-form.addEventListener("submit", event => {
+// B8-20I: conexion preparada al escritor canonico, bajo bandera FALSE.
+// B7 conserva intacto su submit y el escritor createLinkedMissions.
+// B8 intercepta el submit en fase capture, ANTES del submit B7.
+form.addEventListener("submit", async event => {
+  // La barrera se ejecuta ANTES de discriminar entre B7 y B8.
+  // Una operación B8 incierta podría afectar al mismo conjunto de personas.
+  if (b8HasPendingWrite()) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (formMessage) formMessage.textContent = B8_UNCERTAIN_MESSAGE;
+    return;
+  }
   // B8-19H2-GUARDADO: la vista directa pertenece exclusivamente a B7.
   // Las preselecciones B8 ocultas no deben interceptar su envio.
   if (view === "direct") return;
@@ -609,6 +798,16 @@ form.addEventListener("submit", event => {
   event.stopImmediatePropagation();
 
   if (!formMessage) return;
+
+  if (b8Submitting) {
+    formMessage.textContent = "B8: solicitud en curso. Espera el resultado.";
+    return;
+  }
+  if (b8WriteConfirmed) {
+    formMessage.textContent =
+      "B8: asignacion confirmada. Cierra el formulario y actualiza la lista de misiones.";
+    return;
+  }
 
   if (view !== "preferred") {
     formMessage.textContent =
@@ -666,19 +865,69 @@ form.addEventListener("submit", event => {
       ...draft
     }, {directAssigneeRefs});
 
-    formMessage.textContent =
-      `B8: solicitud validada localmente para ` +
-      `${payload.assigneeRefs.length} personas. ` +
-      "El envio inteligente sigue DESHABILITADO. " +
-      "NO se guardo ninguna mision.";
+    if (!B8_ROOT_WRITE_RELEASE_ENABLED || !b8RootWriter) {
+      formMessage.textContent =
+        `B8: solicitud validada localmente para ${payload.assigneeRefs.length} personas. ` +
+        "El envio inteligente sigue DESHABILITADO. NO se guardo ninguna mision.";
+      formMessage.scrollIntoView?.({block:"nearest"});
+      return;
+    }
 
+    // Solo ejecutable despues de una autorizacion de lanzamiento independiente.
+    // Marcador durable ANTES de la llamada: también protege recargas y cierres.
+    const pendingKey = b8RecordPendingWrite(payload.requestId);
+    b8Submitting = true;
+    const previousDisabled = Array.from(form.elements, el => [el, el.disabled]);
+    previousDisabled.forEach(([el]) => { el.disabled = true; });
+    if (saveMissionButton) saveMissionButton.textContent = "Guardando B8...";
+    formMessage.textContent = "B8: enviando la asignacion...";
+    try {
+      const {data} = await b8RootWriter(payload);
+      if (!data || !Number.isSafeInteger(data.created) || data.created < 0 ||
+          !Number.isSafeInteger(data.alreadyAssigned) || data.alreadyAssigned < 0) {
+        throw new Error("B8: el servidor no devolvio un recibo valido.");
+      }
+      b8WriteConfirmed = true;
+      // Ya existe recibo confirmado. Borrar marcador; si falla, no desbloquear.
+      try { localStorage.removeItem(pendingKey); } catch (storageError) {
+        console.error("B8: marcador pendiente no se pudo limpiar", storageError);
+      }
+      formMessage.textContent =
+        `B8: ${data.created} asignaciones creadas; ` +
+        `${data.alreadyAssigned} ya existentes. ` +
+        "Cierra y actualiza Misiones para consultar los resultados.";
+    } catch (error) {
+      console.error("B8: no se pudo confirmar la asignacion", error);
+      // Puede haberse confirmado una transacción aunque falle la respuesta.
+      // Mantener marcador e impedir otros requestId hasta reconciliación.
+      b8OutcomeUnknown = true;
+      formMessage.textContent = B8_UNCERTAIN_MESSAGE;
+    } finally {
+      b8Submitting = false;
+      previousDisabled.forEach(([el, wasDisabled]) => { el.disabled = wasDisabled; });
+      updateVisibility();
+    }
   } catch (error) {
     formMessage.textContent =
       `${error.message || "Error de validacion B8."} ` +
-      "NO se guardo ninguna mision.";
+      "No se envio ninguna solicitud de escritura.";
   }
 
   formMessage.scrollIntoView?.({block:"nearest"});
+}, true);
+
+// Si algun dia se autoriza el envio, impedir cancelacion y Escape durante
+// la llamada asincrona; no tocar los controladores existentes de B7.
+cancelMissionButton?.addEventListener("click", event => {
+  if (!b8Submitting && !b8HasPendingWrite()) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (formMessage) formMessage.textContent = B8_UNCERTAIN_MESSAGE;
+}, true);
+document.addEventListener("keydown", event => {
+  if ((!b8Submitting && !b8HasPendingWrite()) || event.key !== "Escape") return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
 }, true);
 
 // B7 mantiene su selección masiva propia. Si B7 se marca, prevalece ese
@@ -865,6 +1114,8 @@ refreshButton.addEventListener("click", consultCandidates);
 
 onAuthStateChanged(auth, async user => {
   authorizedChief = false;
+  b8OutcomeUnknown = false;
+  b8WriteConfirmed = false;
   view = "direct";
   clearResults();
   updateVisibility();
@@ -880,7 +1131,12 @@ onAuthStateChanged(auth, async user => {
   }
   updateVisibility();
 });
-activitySelect.addEventListener("change", () => {
+activitySelect.addEventListener("change", event => {
+  if (b8HasPendingWrite()) {
+    event.stopImmediatePropagation();
+    if (formMessage) formMessage.textContent = B8_UNCERTAIN_MESSAGE;
+    return;
+  }
   clearResults();
   view = "direct";
   updateVisibility();
@@ -894,6 +1150,7 @@ new MutationObserver(() => {
     view = "direct";
     b8RequestId = null;
     b8RequestSignature = null;
+    b8WriteConfirmed = false;
   }
   updateVisibility();
 }).observe(modal, {attributes:true, attributeFilter:["hidden"]});
