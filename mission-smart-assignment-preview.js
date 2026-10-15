@@ -1,7 +1,7 @@
 "use strict";
 
-// TERRA Campaign V1 - B8: Dos vistas alternativas y preseleccion segura.
-// B7 sigue escribiendo por su funcion existente. B8 NO realiza escrituras.
+// TERRA Campaign V1 - B8: lista unica de candidatos de toda la estructura.
+// El guardado B8 usa la callable autenticada; B7 permanece para roles ajenos a B8.
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
@@ -31,13 +31,12 @@ const roleNames = {
 };
 const roleOrder = Object.keys(roleNames);
 const MAX_SELECTION = 50; // Limite vigente del escritor B8; no hacer selecciones parciales silenciosas.
-// B8-20I: enlace preparado pero bloqueado intencionalmente hasta nueva autorizacion.
-// Mantener FALSE: NO se hacen solicitudes de escritura B8 en este build.
+// Funciones publicadas y activadas; no alterar estas banderas en el ajuste UX.
 const B8_ROOT_WRITE_RELEASE_ENABLED = true;
 const b8RootWriter = B8_ROOT_WRITE_RELEASE_ENABLED
   ? httpsCallable(getFunctions(auth.app, "us-central1"), "createSmartAssignedMissions")
   : null;
-// B8-20V5E: independent READ release. NOT deployed or exported.
+// Consulta de recibos publicada: protege resultados de escritura inciertos.
 const B8_RECEIPT_STATUS_RELEASE_ENABLED = true;
 const b8ReceiptStatusReader = B8_RECEIPT_STATUS_RELEASE_ENABLED
   ? httpsCallable(getFunctions(auth.app, "us-central1"), "getSmartAssignmentReceiptStatus")
@@ -102,6 +101,43 @@ b8ReceiptNotice.setAttribute("role", "status");
 b8ReceiptNotice.setAttribute("aria-live", "polite");
 b8ReceiptPanel.append(b8ReceiptButton, b8ReceiptNotice);
 formMessage?.insertAdjacentElement("afterend", b8ReceiptPanel);
+
+// La confirmación queda VISIBLE luego de cerrar y reiniciar el formulario.
+// El listado reemplaza #missionsMessage durante la actualización; usar nodo propio.
+const b8SuccessBanner = document.createElement("section");
+b8SuccessBanner.id = "b8MissionSaveSuccess";
+b8SuccessBanner.hidden = true;
+b8SuccessBanner.setAttribute("role", "status");
+b8SuccessBanner.setAttribute("aria-live", "polite");
+const b8SuccessTarget = document.querySelector("#missionsMessage");
+b8SuccessTarget?.insertAdjacentElement("beforebegin", b8SuccessBanner);
+function finishConfirmedB8Save({created, alreadyAssigned}) {
+  // Nunca se reinicia un borrador protegido por una transacción incierta.
+  if (b8HasPendingWrite() || !b8WriteConfirmed) return;
+  const createdCount = Number(created);
+  const existedCount = Number(alreadyAssigned);
+  if (!Number.isSafeInteger(createdCount) || createdCount < 0 ||
+      !Number.isSafeInteger(existedCount) || existedCount < 0) return;
+  // No mostrar "guardada" si en realidad no se creó ninguna asignación.
+  const text = createdCount > 0
+    ? `Misión guardada correctamente. ${createdCount} ${createdCount === 1 ? "asignación creada" : "asignaciones creadas"}` +
+      (existedCount ? `; ${existedCount} ya existente(s).` : ".")
+    : `No se crearon asignaciones nuevas; ${existedCount} ya existían.`;
+  // Reutilizar el cierre nativo, que restaura los campos y su estado inicial.
+  cancelMissionButton?.click();
+  if (!modal.hidden) return;
+  b8RequestId = null;
+  b8RequestSignature = null;
+  clearResults();
+  if (b8SuccessTarget) {
+    b8SuccessBanner.textContent = text;
+    b8SuccessBanner.dataset.status = createdCount > 0 ? "success" : "notice";
+    b8SuccessBanner.hidden = false;
+    b8SuccessBanner.scrollIntoView?.({block:"nearest"});
+  }
+  // Refrescar el listado sin sustituir ni borrar el mensaje verde.
+  document.querySelector("#refreshMissionsButton")?.click();
+}
 let b8ReceiptBusy = false;
 let b8ReceiptLastUid = null;
 function b8ReadPendingRecord() {
@@ -150,6 +186,7 @@ b8ReceiptButton.addEventListener("click", async () => {
     return;
   }
   b8ReceiptBusy = true;
+  let recoveredReceipt = null;
   b8ReceiptNotice.textContent = "Verificando el resultado. No se enviará ninguna misión.";
   updateVisibility();
   try {
@@ -176,6 +213,7 @@ b8ReceiptButton.addEventListener("click", async () => {
         `Guardado B8 confirmado: ${data.created} asignaciones. ` +
         "Actualiza Misiones. No se repetirá el envío.";
       if (formMessage) formMessage.textContent = b8ReceiptNotice.textContent;
+      recoveredReceipt = {created:data.created, alreadyAssigned:data.alreadyAssigned};
     } else if (data.status === "unconfirmed") {
       b8ReceiptNotice.textContent = "Resultado todavía incierto. Conserva este borrador; NO repitas el envío.";
     } else if (data.status === "needs-review") {
@@ -191,6 +229,7 @@ b8ReceiptButton.addEventListener("click", async () => {
     b8ReceiptBusy = false;
     updateVisibility();
   }
+  if (recoveredReceipt) finishConfirmedB8Save(recoveredReceipt);
 });
 
 // Atajo lateral, junto al titulo, no debajo de una lista larga.
@@ -242,7 +281,7 @@ panel.className = "b8-structure-panel";
 panel.innerHTML = `
   <div class="b8-structure-header">
     <div>
-      <h3>Interesados en esta actividad — mi estructura</h3>
+      <h3>Toda mi estructura</h3>
       <p id="smartAssignmentActivityNote"></p>
     </div>
     <button type="button" id="b8BackToDirect" class="button button--secondary">
@@ -250,11 +289,11 @@ panel.innerHTML = `
     </button>
   </div>
   <p class="b8-explanatory-note">
-    Solo personas que eligieron esta actividad en su onboarding.
+    Solo aparecen personas que eligieron esta actividad al registrarse.
     El interés no significa disponibilidad ni aceptación de la misión.
   </p>
   <p class="b8-writing-note">
-    Esta vista permite preseleccionar. El guardado de esta modalidad aún está deshabilitado.
+    Elige a quienes indicaron interés en esta actividad. Tus colaboradores directos aparecen primero.
   </p>
   <button type="button" id="smartAssignmentSearch"
     class="button button--secondary">Actualizar interesados</button>
@@ -272,6 +311,10 @@ const counter = panel.querySelector("#smartAssignmentSelectedCount");
 const notice = panel.querySelector("#smartAssignmentSelectionNotice");
 const results = panel.querySelector("#smartAssignmentResults");
 const selectedRefs = new Set();
+// La vista B8 es la única selección para el Responsable de Estructura.
+// La interfaz heredada B7 sigue disponible para otros roles.
+openStructure.hidden = true;
+backButton.hidden = true;
 
 // B8-19H1-CONTADORES: resumen informativo, sin escrituras.
 const selectionSummary = document.createElement("section");
@@ -318,7 +361,7 @@ let b8RequestId = null;
 let b8RequestSignature = null;
 let authorizedChief = false;
 let requestVersion = 0;
-let view = "direct";
+let view = "direct"; // cambia automáticamente a "preferred" para jefes autorizados
 
 const style = document.createElement("style");
 style.id = "b8-two-views-styles-001";
@@ -380,6 +423,7 @@ style.textContent = `
 `;
 style.textContent += `
   #missionModal #b8SelectionSummary[hidden] { display:none !important; }
+  #missionModal #b8MissionSaveSuccess[hidden] {display:none !important;}
   #missionModal #b8SelectionSummary {
     border:1px solid #cbd5e1;
     border-radius:12px;
@@ -423,6 +467,21 @@ style.textContent += `
     #missionModal .b8-summary-columns {
       grid-template-columns:1fr;
     }
+  }
+`;
+style.textContent += `
+  #b8MissionSaveSuccess[hidden] { display:none !important; }
+  #b8MissionSaveSuccess {
+    padding:14px 16px; margin:12px 0;
+    border:1px solid #188038; border-left:5px solid #188038;
+    border-radius:9px; background:#e8f8ee; color:#135d2e;
+    font-weight:700; line-height:1.45;
+  }
+  #b8MissionSaveSuccess[data-status="notice"] {
+    border-color:#b45309; background:#fff7ed; color:#92400e;
+  }
+  #missionModal .b8-writing-note {
+    background:#edf5ff; border-left-color:#173e66;
   }
 `;
 document.head.appendChild(style);
@@ -701,8 +760,8 @@ function uncheckInB8(ref) {
 function updateSelectionCount() {
   const count = selectedRefs.size;
   counter.textContent = count
-    ? `${count} ${count === 1 ? "persona preseleccionada" : "personas preseleccionadas"} en esta vista. Todavía no se asignan misiones.`
-    : "Ninguna persona preseleccionada en esta vista.";
+    ? `${count} ${count === 1 ? "persona seleccionada" : "personas seleccionadas"} para esta misión.`
+    : "Selecciona una o más personas interesadas para asignarles la misión.";
   updateSelectionSummary();
 }
 function updateGroupCheckAll() {
@@ -719,6 +778,8 @@ function updateGroupCheckAll() {
 function clearResults() {
   requestVersion++;
   selectedRefs.clear();
+  lastPreferredCandidates = [];
+  lastDirectSignature = "";
   updateSelectionCount();
   results.replaceChildren();
   status.textContent = "";
@@ -726,17 +787,17 @@ function clearResults() {
 }
 function updateVisibility() {
   const eligibleChief = authorizedChief && (!activitySelect.disabled || b8Submitting);
-  // B8-20I: indicar claramente que el boton NO guarda en esta version.
+  // Una sola lista según actividades elegidas al registrarse para el Responsable de Estructura.
+  // No volver a activar "Mis directos" durante bloqueos temporales de B7.
+  const b8RootMode = authorizedChief && !activitySelect.disabled;
+  // En delegaciones B7 el selector de actividad está bloqueado por la misión
+  // padre. Conservar ese flujo sin introducir un selector B8 falso.
+  view = b8RootMode ? "preferred" : "direct";
   if (saveMissionButton && !b8Submitting) {
-    if (modal.hidden) saveMissionButton.textContent = "Guardar misión";
-    else if (!activitySelect.disabled) {
-      saveMissionButton.textContent =
-        view === "preferred" && eligibleChief
-          ? (B8_ROOT_WRITE_RELEASE_ENABLED
-              ? "Guardar en estructura (B8)"
-              : "Validar B8 (sin guardar)")
-          : "Guardar misión";
-    }
+    saveMissionButton.textContent = modal.hidden ? "Guardar misión" :
+      (eligibleChief
+        ? (B8_ROOT_WRITE_RELEASE_ENABLED ? "Guardar en estructura (B8)" : "Validar B8 (sin guardar)")
+        : "Guardar misión");
   }
   b8RefreshReceiptPanel();
   if (b8HasPendingWrite()) {
@@ -749,28 +810,13 @@ function updateVisibility() {
     if (saveMissionButton) saveMissionButton.disabled = false;
     b8PendingOwnsDisable = false;
   }
-  directFilterPanel.hidden = !eligibleChief;
-
-  // B8-19H11A: no reiniciar preferencias por bloqueo temporal de B7.
-  if (!authorizedChief || modal.hidden) {
-    resetDirectInterestFilter();
-  } else if (eligibleChief) {
-    const code = String(activitySelect.value || "").trim();
-    if (code && directFilterActivity !== code) {
-      void consultDirectInterests();
-    }
-  }
-
-  applyDirectInterestFilter();
-  selectionSummary.hidden = !eligibleChief;
-  openStructure.hidden = !eligibleChief;
-  if (!eligibleChief) view = "direct";
-  directField.hidden = view !== "direct" && eligibleChief;
-  panel.hidden = view !== "preferred" || !eligibleChief;
-  openStructure.disabled = !eligibleChief;
+  directFilterPanel.hidden = true;
+  selectionSummary.hidden = true;
+  openStructure.hidden = true;
+  backButton.hidden = true;
+  directField.hidden = b8RootMode;
+  panel.hidden = !b8RootMode || modal.hidden;
   refreshButton.disabled = !eligibleChief || !String(activitySelect.value || "").trim();
-  // B8-19H11A: no borrar preselecciones durante un envío B7.
-  // Limpiar únicamente al cerrar el modal o perder autorización.
   if ((!authorizedChief || modal.hidden) &&
       (selectedRefs.size || results.childNodes.length)) clearResults();
 }
@@ -792,7 +838,7 @@ form.addEventListener("submit", async event => {
   }
   // B8-19H2-GUARDADO: la vista directa pertenece exclusivamente a B7.
   // Las preselecciones B8 ocultas no deben interceptar su envio.
-  if (view === "direct") return;
+  if (!authorizedChief || activitySelect.disabled) return;
 
   event.preventDefault();
   event.stopImmediatePropagation();
@@ -806,15 +852,6 @@ form.addEventListener("submit", async event => {
   if (b8WriteConfirmed) {
     formMessage.textContent =
       "B8: asignacion confirmada. Cierra el formulario y actualiza la lista de misiones.";
-    return;
-  }
-
-  if (view !== "preferred") {
-    formMessage.textContent =
-      "Existen personas preseleccionadas en B8. " +
-      "Regresa a Ver estructura completa para revisarlas o " +
-      "desmarcalas antes de guardar mediante Mis directos. " +
-      "NO se guardo ninguna mision.";
     return;
   }
 
@@ -835,10 +872,9 @@ form.addEventListener("submit", async event => {
       throw new Error("No se encontro el campo de vencimiento.");
     }
 
-    const directAssigneeRefs = Array.from(
-      assigneeList.querySelectorAll(".mission-assignee-checkbox:checked"),
-      box => box.value
-    );
+    // La vista B7 está oculta e inactiva para los jefes: no participa
+    // en el payload B8 ni puede desmarcar los destinatarios seleccionados.
+    const directAssigneeRefs = [];
 
     const draft = {
       assigneeRefs: Array.from(selectedRefs),
@@ -880,22 +916,22 @@ form.addEventListener("submit", async event => {
     const previousDisabled = Array.from(form.elements, el => [el, el.disabled]);
     previousDisabled.forEach(([el]) => { el.disabled = true; });
     if (saveMissionButton) saveMissionButton.textContent = "Guardando B8...";
-    formMessage.textContent = "B8: enviando la asignacion...";
+    formMessage.textContent = "B8: guardando la misión...";
+    let confirmedReceipt = null;
     try {
       const {data} = await b8RootWriter(payload);
       if (!data || !Number.isSafeInteger(data.created) || data.created < 0 ||
           !Number.isSafeInteger(data.alreadyAssigned) || data.alreadyAssigned < 0) {
         throw new Error("B8: el servidor no devolvio un recibo valido.");
       }
-      b8WriteConfirmed = true;
-      // Ya existe recibo confirmado. Borrar marcador; si falla, no desbloquear.
-      try { localStorage.removeItem(pendingKey); } catch (storageError) {
-        console.error("B8: marcador pendiente no se pudo limpiar", storageError);
+      // Solo es seguro reiniciar tras limpiar y comprobar el marcador durable.
+      localStorage.removeItem(pendingKey);
+      if (localStorage.getItem(pendingKey) !== null) {
+        throw new Error("B8: la solicitud guardada sigue protegida localmente.");
       }
-      formMessage.textContent =
-        `B8: ${data.created} asignaciones creadas; ` +
-        `${data.alreadyAssigned} ya existentes. ` +
-        "Cierra y actualiza Misiones para consultar los resultados.";
+      b8WriteConfirmed = true;
+      confirmedReceipt = {created:data.created, alreadyAssigned:data.alreadyAssigned};
+      formMessage.textContent = "B8: guardado confirmado.";
     } catch (error) {
       console.error("B8: no se pudo confirmar la asignacion", error);
       // Puede haberse confirmado una transacción aunque falle la respuesta.
@@ -907,6 +943,7 @@ form.addEventListener("submit", async event => {
       previousDisabled.forEach(([el, wasDisabled]) => { el.disabled = wasDisabled; });
       updateVisibility();
     }
+    if (confirmedReceipt) finishConfirmedB8Save(confirmedReceipt);
   } catch (error) {
     formMessage.textContent =
       `${error.message || "Error de validacion B8."} ` +
@@ -935,14 +972,14 @@ document.addEventListener("keydown", event => {
 assigneeList.addEventListener("change", event => {
   const box = event.target;
   if (!box?.matches?.(".mission-assignee-checkbox")) return;
-  if (box.checked) uncheckInB8(box.value);
+  if (box.checked && !authorizedChief) uncheckInB8(box.value);
   syncDirectMaster();
 });
 directSelectAll.addEventListener("change", () => {
   // Se ejecuta después del manejador de B7 para respetar su selección real.
   queueMicrotask(() => {
     for (const box of b7Checkboxes()) {
-      if (box.checked) uncheckInB8(box.value);
+      if (box.checked && !authorizedChief) uncheckInB8(box.value);
     }
     syncDirectMaster();
   });
@@ -963,7 +1000,6 @@ function candidateRow(person) {
         notice.textContent = `Máximo ${MAX_SELECTION} personas por envío. Para más, prepara otra misión.`;
       } else {
         selectedRefs.add(box.value);
-        uncheckInDirect(box.value);
         notice.textContent = "";
       }
     } else {
@@ -979,62 +1015,80 @@ function candidateRow(person) {
   name.textContent = person.name || "Sin nombre";
   const subtitle = document.createElement("small");
   subtitle.textContent =
-    `Interés registrado en onboarding | Cuenta digital: ${person.hasDigitalAccount ? "SÍ" : "NO"}`;
+    `Interés en esta actividad | Cuenta digital: ${person.hasDigitalAccount ? "SÍ" : "NO"}`;
   details.append(name, subtitle);
   row.append(box, details);
   return row;
 }
+let lastPreferredCandidates = [];
+let lastDirectSignature = "";
+function directCandidateRefs() {
+  return new Set(b7Checkboxes().map(box => box.value));
+}
+function renderCandidateGroup(title, group) {
+  if (!group.length) return;
+  group = [...group].sort((a,b) =>
+    String(a.name || "").localeCompare(String(b.name || ""), "es"));
+  const heading = document.createElement("div");
+  heading.className = "b8-role-heading";
+  const label = document.createElement("label");
+  label.className = "b8-role-select-all";
+  const master = document.createElement("input");
+  master.type = "checkbox";
+  master.className = "b8-group-select-all";
+  master.setAttribute("aria-label", `Seleccionar ${title}`);
+  const text = document.createElement("span");
+  const name = document.createElement("strong");
+  name.textContent = `${title} (${group.length})`;
+  const hint = document.createElement("small");
+  hint.textContent = "Seleccionar todos los interesados de este grupo";
+  text.append(name,hint);
+  label.append(master,text);
+  heading.appendChild(label);
+  const list = document.createElement("div");
+  list.className = "b8-role-members";
+  for (const person of group) list.appendChild(candidateRow(person));
+  master.addEventListener("change", () => {
+    if (master.checked) {
+      const missing = group.filter(person => !selectedRefs.has(person.assigneeRef));
+      if (selectedRefs.size + missing.length > MAX_SELECTION) {
+        notice.textContent = `No se seleccionó este grupo: superarías el máximo de ${MAX_SELECTION} personas por envío.`;
+        updateGroupCheckAll();
+        return;
+      }
+      for (const person of missing) selectedRefs.add(person.assigneeRef);
+    } else {
+      for (const person of group) selectedRefs.delete(person.assigneeRef);
+    }
+    for (const box of list.querySelectorAll(".b8-preselect-checkbox")) {
+      box.checked = selectedRefs.has(box.value);
+    }
+    notice.textContent = "";
+    updateSelectionCount();
+    updateGroupCheckAll();
+  });
+  results.append(heading,list);
+}
 function renderGroups(preferred) {
+  const direct = directCandidateRefs();
+  lastDirectSignature = [...direct].sort().join("|");
+  // Los directos se muestran primero y una sola vez; los demás por nivel.
+  renderCandidateGroup("Directos interesados", preferred.filter(p => direct.has(p.assigneeRef)));
   for (const role of roleOrder) {
-    const group = preferred.filter(p => p.role === role).sort((a, b) =>
-      String(a.name || "").localeCompare(String(b.name || ""), "es")
-    );
-    if (group.length === 0) continue;
-    const heading = document.createElement("div");
-    heading.className = "b8-role-heading";
-    const label = document.createElement("label");
-    label.className = "b8-role-select-all";
-    const master = document.createElement("input");
-    master.type = "checkbox";
-    master.className = "b8-group-select-all";
-    master.setAttribute("aria-label", `Seleccionar todos los ${roleNames[role]} interesados`);
-    const text = document.createElement("span");
-    const title = document.createElement("strong");
-    title.textContent = `${roleNames[role]} (${group.length})`;
-    const hint = document.createElement("small");
-    hint.textContent = "Seleccionar todos los interesados de este nivel";
-    text.append(title, hint);
-    label.append(master, text);
-    heading.appendChild(label);
-    const list = document.createElement("div");
-    list.className = "b8-role-members";
-    for (const person of group) list.appendChild(candidateRow(person));
-    master.addEventListener("change", () => {
-      if (master.checked) {
-        const missing = group.filter(person => !selectedRefs.has(person.assigneeRef));
-        if (selectedRefs.size + missing.length > MAX_SELECTION) {
-          notice.textContent = `No se seleccionó este nivel: superarías el máximo de ${MAX_SELECTION} personas por envío.`;
-          updateGroupCheckAll();
-          return;
-        }
-        for (const person of missing) {
-          selectedRefs.add(person.assigneeRef);
-          uncheckInDirect(person.assigneeRef);
-        }
-      } else {
-        for (const person of group) selectedRefs.delete(person.assigneeRef);
-      }
-      for (const box of list.querySelectorAll(".b8-preselect-checkbox")) {
-        box.checked = selectedRefs.has(box.value);
-      }
-      notice.textContent = "";
-      updateSelectionCount();
-      updateGroupCheckAll();
-    });
-    results.append(heading, list);
+    renderCandidateGroup(roleNames[role],
+      preferred.filter(p => p.role === role && !direct.has(p.assigneeRef)));
   }
 }
-
+// La lista B7 puede terminar de cargar después de B8. Reordenar, pero no
+// cambiar selectedRefs cuando llegan las identidades de los directos.
+new MutationObserver(() => {
+  if (!authorizedChief || modal.hidden || !lastPreferredCandidates.length) return;
+  const signature = [...directCandidateRefs()].sort().join("|");
+  if (signature === lastDirectSignature) return;
+  results.replaceChildren();
+  renderGroups(lastPreferredCandidates);
+  updateGroupCheckAll();
+}).observe(assigneeList, {childList:true, subtree:true});
 async function consultCandidates() {
   if (!authorizedChief || activitySelect.disabled || modal.hidden || view !== "preferred") return;
   const activityCode = String(activitySelect.value || "").trim();
@@ -1070,7 +1124,8 @@ async function consultCandidates() {
       selectedRefs.delete(ref);
     }
 
-    // Reemplazar el listado solo despues de validar la respuesta.
+    // Reemplazar el listado solo después de validar la respuesta.
+    lastPreferredCandidates = preferred;
     results.replaceChildren();
     updateSelectionCount();
 
@@ -1081,7 +1136,7 @@ async function consultCandidates() {
     status.textContent = `${preferred.length} ${preferred.length === 1 ? "persona indicó" : "personas indicaron"} interés en esta actividad.`;
     if (!preferred.length) {
       const empty = document.createElement("p");
-      empty.textContent = "Nadie de tu estructura autorizada seleccionó esta actividad en su onboarding.";
+      empty.textContent = "Nadie de tu estructura indicó interés en esta actividad al registrarse.";
       results.appendChild(empty);
     } else {
       renderGroups(preferred);
@@ -1130,6 +1185,7 @@ onAuthStateChanged(auth, async user => {
     authorizedChief = false;
   }
   updateVisibility();
+  if (authorizedChief && !activitySelect.disabled && !modal.hidden && activitySelect.value) void consultCandidates();
 });
 activitySelect.addEventListener("change", event => {
   if (b8HasPendingWrite()) {
@@ -1138,21 +1194,24 @@ activitySelect.addEventListener("change", event => {
     return;
   }
   clearResults();
-  view = "direct";
+  view = authorizedChief && !activitySelect.disabled ? "preferred" : "direct";
   updateVisibility();
+  if (authorizedChief && !activitySelect.disabled && !modal.hidden && activitySelect.value) void consultCandidates();
 });
 new MutationObserver(() => updateVisibility()).observe(activitySelect, {
   attributes:true, attributeFilter:["disabled"]
 });
 new MutationObserver(() => {
+  if (!modal.hidden) b8SuccessBanner.hidden = true;
   if (modal.hidden) {
     clearResults();
-    view = "direct";
+    view = authorizedChief && !activitySelect.disabled ? "preferred" : "direct";
     b8RequestId = null;
     b8RequestSignature = null;
     b8WriteConfirmed = false;
   }
   updateVisibility();
+  if (!modal.hidden && authorizedChief && !activitySelect.disabled && activitySelect.value) void consultCandidates();
 }).observe(modal, {attributes:true, attributeFilter:["hidden"]});
 updateSelectionCount();
 updateVisibility();
