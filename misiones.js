@@ -36,6 +36,7 @@ const createLinkedMissions = httpsCallable(functions, "createLinkedMissions");
 const getEligibleMissionAssignees = httpsCallable(functions, "getEligibleMissionAssignees");
 const getMissionEvidenceTotal = httpsCallable(functions, "getMissionEvidenceTotal");
 const getMissionBranchProgress = httpsCallable(functions, "getMissionBranchProgress");
+const getMissionWhatsAppRecipient = httpsCallable(functions, "getMissionWhatsAppRecipient");
 const missionAssigneeList = document.querySelector("#missionAssigneeList");
 const missionSelectAll = document.querySelector("#missionSelectAll");
 let parentMission = null;
@@ -1180,11 +1181,11 @@ function renderMissions() {
                   )}
                 </p>
                 ${mission.createdBy === currentUser.uid ? `
-                <a class="button button--small whatsapp-link"
-                   href="${escapeHtml(missionWhatsAppUrl(mission))}"
-                   target="_blank" rel="noopener noreferrer">
+                <button class="button button--small whatsapp-link" type="button"
+                   data-whatsapp-mission="${escapeHtml(mission.id)}">
                   Enviar por WhatsApp
-                </a>` : ""}
+                </button>
+                <p class="message" data-whatsapp-status aria-live="polite"></p>` : ""}
 
 
               </div>
@@ -1433,12 +1434,74 @@ missionsList.addEventListener("click", async event => {
   } finally { button.disabled = false; }
 });
 
-function missionWhatsAppUrl(mission) {
-  const destination = new URL("./login.html", window.location.href);
-  destination.searchParams.set("mission", mission.id);
-  const text = `Hola, ${mission.assignedToName || ""}. Tienes una misión asignada en TERRA Campaign:\n\n${mission.title || "Misión"}\n\nAbre este enlace con tu cuenta para consultar las instrucciones y registrar tu evidencia:\n${destination.href}`;
-  return "https://wa.me/?text=" + encodeURIComponent(text);
+// WhatsApp asistido: nunca envía por sí solo. El servidor resuelve la identidad
+// por personId/accountUid dentro de la campaña y únicamente para el creador.
+function missionWhatsAppUrl(mission, phone, hasDigitalAccount) {
+  if (!/^[1-9]\d{7,14}$/.test(phone)) throw new Error("Teléfono inválido.");
+  const textParts = [
+    `Hola, ${mission.assignedToName || ""}. Tienes una misión asignada en TERRA Campaign:`,
+    mission.title || "Misión"
+  ];
+  if (mission.description) textParts.push(`Instrucciones: ${mission.description}`);
+  if (mission.locality) textParts.push(`Lugar o zona: ${mission.locality}`);
+  if (mission.missionDate) textParts.push(`Fecha programada: ${mission.missionDate}`);
+  if (hasDigitalAccount) {
+    const destination = new URL("./login.html", window.location.href);
+    destination.searchParams.set("mission", mission.id);
+    textParts.push(`Consulta los detalles y registra tu evidencia desde tu cuenta:\n${destination.href}`);
+  } else {
+    textParts.push("Si no cuentas con acceso digital, solicita a tu responsable las instrucciones para registrar tu evidencia.");
+  }
+  return `https://wa.me/${phone}?text=${encodeURIComponent(textParts.join("\n\n"))}`;
 }
+
+let resolvingWhatsApp = false;
+missionsList.addEventListener("click", async event => {
+  const button = event.target.closest("[data-whatsapp-mission]");
+  if (!button || resolvingWhatsApp) return;
+  const mission = missions.find(item => item.id === button.dataset.whatsappMission);
+  const uid = auth.currentUser?.uid;
+  if (!mission || !uid || mission.createdBy !== uid) return;
+  const output = button.closest("article")?.querySelector("[data-whatsapp-status]");
+  resolvingWhatsApp = true;
+  button.disabled = true;
+  if (output) output.textContent = "Consultando el contacto autorizado...";
+
+  // La pestaña se abre dentro del clic para evitar el bloqueo de ventanas
+  // emergentes mientras se espera la respuesta autenticada de Firebase.
+  let tab = null;
+  try {
+    tab = window.open("about:blank", "_blank");
+    if (tab) {
+      tab.opener = null;
+      tab.document.title = "Preparando WhatsApp — TERRA Campaign";
+      tab.document.body.textContent = "TERRA está verificando el destinatario...";
+    }
+  } catch (_) { tab = null; }
+
+  try {
+    const {data} = await getMissionWhatsAppRecipient({missionId: mission.id});
+    if (auth.currentUser?.uid !== uid) {
+      if (tab && !tab.closed) tab.close();
+      return;
+    }
+    if (!data || data.missionId !== mission.id || typeof data.phone !== "string") {
+      throw new Error("No se confirmó la identidad de la persona asignada.");
+    }
+    const url = missionWhatsAppUrl(mission, data.phone, data.hasDigitalAccount === true);
+    if (output) output.textContent = "WhatsApp preparado para la persona asignada. Revisa el mensaje antes de enviarlo.";
+    if (tab && !tab.closed) tab.location.replace(url);
+    else window.location.assign(url);
+  } catch (error) {
+    if (tab && !tab.closed) tab.close();
+    if (auth.currentUser?.uid === uid && output) {
+      output.textContent = error?.message || "No fue posible preparar WhatsApp. Verifica el teléfono del destinatario.";
+    }
+  } finally {
+    resolvingWhatsApp = false;
+    button.disabled = false;
+  }
+});
 
 setInterval(() => {
   document.querySelectorAll('[data-deadline-id]').forEach(el => {

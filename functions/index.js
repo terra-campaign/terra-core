@@ -6630,3 +6630,12 @@ exports.getSmartAssignmentCandidates =
 exports.createSmartAssignedMissions =
   require("./mission-smart-assignment-root-callable.cjs")
     .createSmartAssignedMissionsCallable();
+
+// B8 - Consulta autenticada de recibos.
+// Deshabilitada por defecto mediante bandera independiente.
+exports.getSmartAssignmentReceiptStatus =
+  require("./mission-smart-assignment-receipt-callable.cjs")
+    .createB8ReceiptStatusCallable();
+
+// B8: telefono de la persona realmente asignada, con control de campaÃ±a.
+exports.getMissionWhatsAppRecipient = require("./mission-whatsapp-recipient-callable.cjs").createMissionWhatsAppRecipientCallable();

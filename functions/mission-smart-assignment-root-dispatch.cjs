@@ -10,6 +10,7 @@
 const {createHash} = require("node:crypto");
 const SHA = /^[0-9a-f]{64}$/;
 const MAX = 50;
+const B8_RECEIPT_SOURCE = "b8-root-v1";
 function sha(...parts) {return createHash("sha256").update(JSON.stringify(parts)).digest("hex");}
 function validId(v) {return typeof v === "string" && !!v && v.length <= 128 && v.trim() === v && !v.includes("/");}
 function err(code) {throw new Error(code);}
@@ -93,9 +94,11 @@ function createB8RootDispatchForTests({prepareRecipients, prepareClaims, classif
     const existingReceipt = await tx.get(receiptRef);
     if (existingReceipt?.exists) {
       const old = existingReceipt.data?.();
-      if (old?.campaignId !== binding.campaignId || old.fingerprint !== fingerprint ||
+      if (old?.source !== B8_RECEIPT_SOURCE ||
+          old.campaignId !== binding.campaignId || old.fingerprint !== fingerprint ||
           !Number.isSafeInteger(old.result?.created) ||
-          !Number.isSafeInteger(old.result?.alreadyAssigned)) err("b8-root-dispatch-replay-conflict");
+          !Number.isSafeInteger(old.result?.alreadyAssigned) ||
+          old.result.created < 1 || old.result.alreadyAssigned !== 0) err("b8-root-dispatch-replay-conflict");
       return {...old.result};
     }
 
@@ -168,7 +171,7 @@ function createB8RootDispatchForTests({prepareRecipients, prepareClaims, classif
       tx.create(db.collection("missionAssignmentClaims").doc(claim.id),claim.data);
     }
     const result = {created:records.length,alreadyAssigned:0};
-    tx.create(receiptRef,{campaignId:binding.campaignId,fingerprint,result,createdAt:timestamp()});
+    tx.create(receiptRef,{source:B8_RECEIPT_SOURCE,campaignId:binding.campaignId,fingerprint,result,createdAt:timestamp()});
     return result;
   };
 }
