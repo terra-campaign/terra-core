@@ -1181,7 +1181,7 @@ function renderMissions() {
                   )}
                 </p>
                 ${mission.createdBy === currentUser.uid ? `
-                <button class="button button--small whatsapp-link" type="button"
+                <button class="button button--small button-whatsapp whatsapp-link" type="button"
                    data-whatsapp-mission="${escapeHtml(mission.id)}">
                   Enviar por WhatsApp
                 </button>
