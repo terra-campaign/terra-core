@@ -6,7 +6,7 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
-import {buildSmartAssignmentPayload} from "./mission-smart-assignment-payload.mjs?v=b8-18-safe-001";
+import {buildSmartAssignmentPayload} from "./mission-smart-assignment-payload.mjs?v=terra-inicio-18b-20261016-01";
 import {inputDeadline} from "./mission-deadline.js?v=cierre-001";
 import {missionStartToUTC} from "./mission-start-time.mjs?v=b8-start-001";
 
@@ -50,7 +50,7 @@ let b8WriteConfirmed = false;
 // Se guarda solo el requestId (no nombres ni destinatarios), por UID y origen.
 const B8_PENDING_PREFIX = "terra-campaign-b8-pending-v1:";
 const B8_UNCERTAIN_MESSAGE =
-  "B8: resultado de guardado no confirmado. Puede haberse creado la misión. " +
+  "Resultado de guardado no confirmado. Puede haberse creado la misión. " +
   "Por seguridad no se permiten nuevos envíos ni cerrar este borrador " +
   "hasta verificar el resultado con la administración. NO repitas la solicitud.";
 let b8OutcomeUnknown = false;
@@ -90,12 +90,12 @@ function b8RecordPendingWrite(requestId) {
 const b8ReceiptPanel = document.createElement("section");
 b8ReceiptPanel.id = "b8ReceiptRecovery";
 b8ReceiptPanel.hidden = true;
-b8ReceiptPanel.setAttribute("aria-label", "Verificar solicitud de guardado B8");
+b8ReceiptPanel.setAttribute("aria-label", "Verificar solicitud de guardado");
 const b8ReceiptButton = document.createElement("button");
 b8ReceiptButton.id = "b8ReceiptVerifyButton";
 b8ReceiptButton.type = "button";
 b8ReceiptButton.className = "button button--secondary";
-b8ReceiptButton.textContent = "Consultar estado de guardado B8";
+b8ReceiptButton.textContent = "Verificar guardado de misión";
 const b8ReceiptNotice = document.createElement("p");
 b8ReceiptNotice.id = "b8ReceiptVerifyStatus";
 b8ReceiptNotice.setAttribute("role", "status");
@@ -211,7 +211,7 @@ b8ReceiptButton.addEventListener("click", async () => {
       b8WriteConfirmed = true;
       b8OutcomeUnknown = false;
       b8ReceiptNotice.textContent =
-        `Guardado B8 confirmado: ${data.created} asignaciones. ` +
+        `Guardado confirmado: ${data.created} asignaciones. ` +
         "Actualiza Misiones. No se repetirá el envío.";
       if (formMessage) formMessage.textContent = b8ReceiptNotice.textContent;
       recoveredReceipt = {created:data.created, alreadyAssigned:data.alreadyAssigned};
@@ -330,7 +330,7 @@ selectionSummary.innerHTML = `
       <small>Seleccionados para asignacion manual</small>
     </div>
     <div><strong id="b8StructureCount">0</strong>
-      <span>Estructura completa (B8)</span>
+      <span>Toda mi estructura</span>
       <small>Preseleccionados, sin asignacion</small>
     </div>
   </div>
@@ -797,7 +797,7 @@ function updateVisibility() {
   if (saveMissionButton && !b8Submitting) {
     saveMissionButton.textContent = modal.hidden ? "Guardar misión" :
       (eligibleChief
-        ? (B8_ROOT_WRITE_RELEASE_ENABLED ? "Guardar en estructura (B8)" : "Validar B8 (sin guardar)")
+        ? (B8_ROOT_WRITE_RELEASE_ENABLED ? "Guardar misión en mi estructura" : "Validar misión (sin guardar)")
         : "Guardar misión");
   }
   b8RefreshReceiptPanel();
@@ -847,18 +847,18 @@ form.addEventListener("submit", async event => {
   if (!formMessage) return;
 
   if (b8Submitting) {
-    formMessage.textContent = "B8: solicitud en curso. Espera el resultado.";
+    formMessage.textContent = "La solicitud está en curso. Espera el resultado.";
     return;
   }
   if (b8WriteConfirmed) {
     formMessage.textContent =
-      "B8: asignacion confirmada. Cierra el formulario y actualiza la lista de misiones.";
+      "Asignación confirmada. Cierra el formulario y actualiza la lista de misiones.";
     return;
   }
 
   if (!authorizedChief || activitySelect.disabled || modal.hidden) {
     formMessage.textContent =
-      "B8: esta modalidad no esta disponible para tu perfil. " +
+      "Esta modalidad no está disponible para tu perfil. " +
       "NO se guardo ninguna mision.";
     return;
   }
@@ -913,7 +913,7 @@ form.addEventListener("submit", async event => {
 
     if (!B8_ROOT_WRITE_RELEASE_ENABLED || !b8RootWriter) {
       formMessage.textContent =
-        `B8: solicitud validada localmente para ${payload.assigneeRefs.length} personas. ` +
+        `Solicitud validada localmente para ${payload.assigneeRefs.length} personas. ` +
         "El envio inteligente sigue DESHABILITADO. NO se guardo ninguna mision.";
       formMessage.scrollIntoView?.({block:"nearest"});
       return;
@@ -925,8 +925,8 @@ form.addEventListener("submit", async event => {
     b8Submitting = true;
     const previousDisabled = Array.from(form.elements, el => [el, el.disabled]);
     previousDisabled.forEach(([el]) => { el.disabled = true; });
-    if (saveMissionButton) saveMissionButton.textContent = "Guardando B8...";
-    formMessage.textContent = "B8: guardando la misión...";
+    if (saveMissionButton) saveMissionButton.textContent = "Guardando misión...";
+    formMessage.textContent = "Guardando misión...";
     let confirmedReceipt = null;
     try {
       const {data} = await b8RootWriter(payload);
@@ -941,7 +941,7 @@ form.addEventListener("submit", async event => {
       }
       b8WriteConfirmed = true;
       confirmedReceipt = {created:data.created, alreadyAssigned:data.alreadyAssigned};
-      formMessage.textContent = "B8: guardado confirmado.";
+      formMessage.textContent = "Misión guardada correctamente.";
     } catch (error) {
       console.error("B8: no se pudo confirmar la asignacion", error);
       // Puede haberse confirmado una transacción aunque falle la respuesta.
@@ -956,7 +956,7 @@ form.addEventListener("submit", async event => {
     if (confirmedReceipt) finishConfirmedB8Save(confirmedReceipt);
   } catch (error) {
     formMessage.textContent =
-      `${error.message || "Error de validacion B8."} ` +
+      `${String(error?.message || "Error de validación de misión.").replace(/^B8:\s*/, "")} ` +
       "No se envio ninguna solicitud de escritura.";
   }
 
