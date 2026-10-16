@@ -6639,3 +6639,25 @@ exports.getSmartAssignmentReceiptStatus =
 
 // B8: telefono de la persona realmente asignada, con control de campaÃ±a.
 exports.getMissionWhatsAppRecipient = require("./mission-whatsapp-recipient-callable.cjs").createMissionWhatsAppRecipientCallable();
+// B8 - Confirmaciones personales autenticadas.
+// Registro local; desplegar únicamente tras pruebas y autorización.
+const b8ParticipationCallables =
+  require("./mission-response-callable.cjs")
+    .createMissionResponseCallables();
+
+exports.recordMissionParticipationResponse =
+  b8ParticipationCallables.recordMissionParticipationResponse;
+
+exports.getMissionParticipationStatus =
+  b8ParticipationCallables.getMissionParticipationStatus;
+
+// B8 - Indice nominal autenticado de confirmaciones.
+exports.getMissionConfirmationIndex =
+  require("./mission-confirmation-index-callable.cjs")
+    .createMissionConfirmationIndexCallable();
+
+// B8 - Contacto del creador para confirmaciones voluntarias.
+// No envia mensajes; solo resuelve contacto autorizado.
+exports.getMissionResponseOwnerWhatsApp =
+  require("./mission-response-owner-whatsapp.cjs")
+    .createMissionResponseOwnerWhatsAppCallable();

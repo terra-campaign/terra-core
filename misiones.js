@@ -103,9 +103,50 @@ const deadlineLabel = document.createElement('label');
 deadlineLabel.textContent = 'Fecha y hora límite (hora de este dispositivo)';
 const deadlineInput = document.createElement('input');
 deadlineInput.type = 'datetime-local';
+deadlineInput.id = 'missionDeadlineAt';
 deadlineInput.style.cssText = 'display:block;width:100%;padding:10px;border:1px solid #64748b;box-sizing:border-box';
 deadlineLabel.append(deadlineInput);
 missionDateInput.after(deadlineLabel);
+const startTimeLabel = document.createElement("label");
+startTimeLabel.textContent = "Hora de inicio de la misión";
+
+const startTimeInput = document.createElement("input");
+startTimeInput.id = "missionStartTime";
+startTimeInput.type = "time";
+startTimeInput.step = 60;
+startTimeLabel.append(startTimeInput);
+
+const startZoneLabel = document.createElement("label");
+startZoneLabel.textContent = "Zona horaria del lugar de la misión";
+
+const startZoneSelect = document.createElement("select");
+startZoneSelect.id = "missionStartTimeZone";
+
+const zones = [
+  ["", "Selecciona la zona horaria"],
+  ["America/Mazatlan", "Pacífico - Mazatlán"],
+  ["America/Bahia_Banderas", "Bahía de Banderas"],
+  ["America/Mexico_City", "Centro de México"],
+  ["America/Hermosillo", "Hermosillo"],
+  ["America/Tijuana", "Tijuana"],
+  ["America/Cancun", "Cancún"]
+];
+
+for (const [value, label] of zones) {
+  startZoneSelect.append(new Option(label, value));
+}
+
+startZoneLabel.append(startZoneSelect);
+
+const startHint = document.createElement("small");
+startHint.textContent =
+  "Esta hora determina cuándo se cierran las confirmaciones: " +
+  "una hora antes de iniciar la misión.";
+
+startZoneLabel.append(startHint);
+
+// Conservar el campo de vencimiento existente.
+deadlineLabel.before(startTimeLabel, startZoneLabel);
 
 
 const missionLocalityInput =

@@ -8,6 +8,7 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
 import {buildSmartAssignmentPayload} from "./mission-smart-assignment-payload.mjs?v=b8-18-safe-001";
 import {inputDeadline} from "./mission-deadline.js?v=cierre-001";
+import {missionStartToUTC} from "./mission-start-time.mjs?v=b8-start-001";
 
 const activitySelect = document.querySelector(".mission-activity-field select");
 const assigneeList = document.querySelector("#missionAssigneeList");
@@ -863,10 +864,13 @@ form.addEventListener("submit", async event => {
   }
 
   try {
-    const deadlineField = form
-      .querySelector("#missionDate")
-      ?.nextElementSibling
-      ?.querySelector('input[type="datetime-local"]');
+    const deadlineField = form.querySelector("#missionDeadlineAt");
+    const startTimeField = form.querySelector("#missionStartTime");
+    const startZoneField = form.querySelector("#missionStartTimeZone");
+
+    if (!startTimeField || !startZoneField) {
+      throw new Error("Faltan los campos de inicio de misión.");
+    }
 
     if (!deadlineField) {
       throw new Error("No se encontro el campo de vencimiento.");
@@ -883,6 +887,12 @@ form.addEventListener("submit", async event => {
       description: form.querySelector("#missionDescription")?.value,
       locality: form.querySelector("#missionLocality")?.value,
       missionDate: form.querySelector("#missionDate")?.value || null,
+      startAt: missionStartToUTC({
+        missionDate: form.querySelector("#missionDate")?.value || "",
+        startTime: startTimeField.value,
+        timeZone: startZoneField.value
+      }),
+      startTimeZone: startZoneField.value,
       deadlineAt: inputDeadline(deadlineField.value)
     };
 

@@ -25,7 +25,7 @@ function smallText(v, max, required = false) {
 function validateInput(data, classify, clock) {
   if (!data || typeof data !== "object" || Array.isArray(data)) err("invalid-b8-data");
   const allowed = new Set(["requestId", "assigneeRefs", "activityCode", "title", "description",
-    "locality", "missionDate", "deadlineAt"]);
+    "locality", "missionDate", "startAt", "startTimeZone", "deadlineAt"]);
   if (Object.keys(data).some(k => !allowed.has(k))) err("invalid-b8-data-key");
   if (!validId(data.requestId)) err("invalid-b8-request-id");
   if (!Array.isArray(data.assigneeRefs) || data.assigneeRefs.length < 1 ||
@@ -39,6 +39,40 @@ function validateInput(data, classify, clock) {
   if (missionDate && (!/^\d{4}-\d{2}-\d{2}$/.test(missionDate) ||
       !Number.isFinite(Date.parse(missionDate)) ||
       new Date(missionDate).toISOString().slice(0,10) !== missionDate)) err("invalid-b8-mission-date");
+  let startAt = null;
+  if (data.startAt !== undefined &&
+      data.startAt !== null &&
+      data.startAt !== "") {
+    if (typeof data.startAt !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(data.startAt) ||
+        !Number.isFinite(Date.parse(data.startAt))) {
+      err("invalid-b8-start");
+    }
+    const normalizedStart = new Date(data.startAt).toISOString();
+    if (![normalizedStart, normalizedStart.replace(".000Z", "Z")]
+        .includes(data.startAt) ||
+        Date.parse(data.startAt) <= clock()) {
+      err("invalid-b8-start");
+    }
+    startAt = normalizedStart;
+  }
+  let startTimeZone = null;
+  if (data.startTimeZone !== undefined &&
+      data.startTimeZone !== null &&
+      data.startTimeZone !== "") {
+    const validZones = new Set([
+      "America/Mazatlan",
+      "America/Bahia_Banderas",
+      "America/Mexico_City",
+      "America/Hermosillo",
+      "America/Tijuana",
+      "America/Cancun"
+    ]);
+    if (!startAt || !validZones.has(data.startTimeZone)) {
+      err("invalid-b8-start-timezone");
+    }
+    startTimeZone = data.startTimeZone;
+  }
   let deadlineAt = null;
   if (data.deadlineAt !== undefined && data.deadlineAt !== null && data.deadlineAt !== "") {
     if (typeof data.deadlineAt !== "string" ||
@@ -50,7 +84,7 @@ function validateInput(data, classify, clock) {
   }
   const fields = {
     title: smallText(data.title, 150, true), description: smallText(data.description, 1500),
-    locality: smallText(data.locality, 120), missionDate, deadlineAt,
+    locality: smallText(data.locality, 120), missionDate, ...(startAt ? { startAt } : {}), ...(startTimeZone ? { startTimeZone } : {}), deadlineAt,
     activityCode: classification.activityCode,
     activityCatalogVersion: classification.activityCatalogVersion
   };
@@ -131,6 +165,7 @@ function createB8RootDispatchForTests({prepareRecipients, prepareClaims, classif
       const content = {...fields};
       const data = {
         id:missionId,campaignId:binding.campaignId,...content,
+        ...(fields.startAt ? {startAtMillis:Date.parse(fields.startAt)} : {}),
         deadlineAtMillis:fields.deadlineAt ? Date.parse(fields.deadlineAt):null,
         active:true,createdBy:actorUid,createdByName:actorName,
         createdByRole:"jefe_estructura",assignedTo,

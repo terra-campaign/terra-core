@@ -226,6 +226,110 @@
          INDICADORES
     ====================================================== -->
 
+    <!-- B8 - PARTICIPACION VOLUNTARIA -->
+    <section
+      id="missionParticipationSection"
+      class="card"
+      hidden
+      aria-labelledby="missionParticipationHeading"
+    >
+      <h3 id="missionParticipationHeading">
+        Participación en esta misión
+      </h3>
+
+      <p>
+        Esta misión es voluntaria. No estás obligada a aceptarla,
+        pero es importante que nos comuniques tu decisión
+        para organizarnos.
+      </p>
+
+      <p
+        id="missionParticipationStatus"
+        aria-live="polite"
+      >
+        Consultando tu participación...
+      </p>
+
+      <div style="display:flex;flex-wrap:wrap;gap:12px;">
+        <button
+          id="missionParticipationAccept"
+          class="button"
+          type="button"
+          disabled
+        >
+          Acepto participar
+        </button>
+
+        <button
+          id="missionParticipationDecline"
+          class="button button--secondary"
+          type="button"
+          disabled
+        >
+          No podré participar
+        </button>
+      </div>
+
+      <!-- B8 - WHATSAPP MANUAL HACIA EL RESPONSABLE -->
+      <div style="margin-top:16px;">
+        <button
+          id="missionParticipationWhatsApp"
+          type="button"
+          class="button button-whatsapp whatsapp-link"
+          style="display:none;background:#25d366;color:#07361b;border-color:#159447;"
+          hidden
+          disabled
+        >
+          Comunicar mi decisión por WhatsApp
+        </button>
+
+        <button
+          id="missionParticipationRecover"
+          type="button"
+          class="button button--secondary"
+          style="display:none;"
+          hidden
+          disabled
+        >
+          Verificar envío pendiente
+        </button>
+        <a
+          id="missionParticipationWhatsAppFallback"
+          class="button button-whatsapp whatsapp-link"
+          style="display:none;background:#25d366;color:#07361b;border-color:#159447;"
+          target="_blank"
+          rel="noopener noreferrer"
+          hidden
+        >
+          Abrir WhatsApp manualmente
+        </a>
+      </div>
+      <p
+        id="missionParticipationFeedback"
+        class="message"
+        role="status"
+        aria-live="polite"
+      ></p>
+    </section>
+    <!-- B8 - ACCESO AUTORIZADO AL INDICE -->
+    <section
+      id="missionConfirmationIndexSection"
+      class="card"
+      hidden
+    >
+      <h3>Confirmaciones de mi equipo</h3>
+      <p>
+        Consulta quiénes aceptaron, quiénes no podrán
+        participar y quiénes siguen sin responder.
+      </p>
+      <a
+        id="missionConfirmationIndexLink"
+        class="button button--secondary"
+        href="./misiones.html"
+      >
+        Ver confirmaciones
+      </a>
+    </section>
     <section class="grid metrics">
 
       <article class="card">
@@ -456,7 +560,9 @@
 
  <script type="module" src="./mision.js?v=build-118c-3b3e-3f-b"></script>
 
-<script type="module" src="./mission-review-ui.js?v=build-117d-003"></script>
+<script type="module" src="./mission-participation-ui.js?v=b8-confirmaciones-002"></script>
+  <script type="module" src="./mission-confirmation-link.js?v=b8-indice-001"></script>
+  <script type="module" src="./mission-review-ui.js?v=build-117d-003"></script>
 </body>
 
 </html>

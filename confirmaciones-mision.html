@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Confirmaciones de misión | TERRA Campaign</title>
+  <style>
+    :root {
+      font-family: system-ui, sans-serif;
+      color: #172437;
+      background: #f4f6fa;
+    }
+    body {
+      margin: 0;
+    }
+    header {
+      padding: 20px;
+      background: #17345a;
+      color: white;
+    }
+    header h1 {
+      margin: 8px 0;
+      font-size: 1.5rem;
+    }
+    main {
+      max-width: 1000px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: white;
+      border: 1px solid #dce3ed;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(170px,1fr));
+      gap: 12px;
+    }
+    .metric strong {
+      display: block;
+      font-size: 2rem;
+      margin-top: 6px;
+    }
+    a {
+      color: #18549c;
+    }
+    button {
+      padding: 12px 18px;
+      border: 0;
+      border-radius: 8px;
+      background: #17345a;
+      color: white;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+    .table-wrap {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      text-align: left;
+      padding: 13px 10px;
+      border-bottom: 1px solid #e3e8f0;
+    }
+    .accepted { color: #166534; font-weight: 600; }
+    .declined { color: #9a3412; font-weight: 600; }
+    .pending { color: #64748b; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p>TERRA CAMPAIGN · B8</p>
+    <h1>Confirmaciones de participación</h1>
+    <a
+      id="returnMission"
+      href="./misiones.html"
+      style="color:white"
+    >
+      Volver a misiones
+    </a>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2 id="confirmationMissionTitle">
+        Consultando misión...
+      </h2>
+      <p id="confirmationMessage" role="status" aria-live="polite">
+        Validando acceso...
+      </p>
+      <button id="refreshConfirmations" type="button" disabled>
+        Actualizar confirmaciones
+      </button>
+    </section>
+
+    <div id="confirmationResults" hidden>
+      <section class="metrics" aria-label="Resumen de confirmaciones">
+        <article class="card metric">
+          Total asignados
+          <strong id="confirmationTotal">0</strong>
+        </article>
+        <article class="card metric">
+          Aceptaron
+          <strong id="confirmationAccepted">0</strong>
+        </article>
+        <article class="card metric">
+          No podrán participar
+          <strong id="confirmationDeclined">0</strong>
+        </article>
+        <article class="card metric">
+          Sin respuesta
+          <strong id="confirmationPending">0</strong>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>Listado de integrantes</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Integrante</th>
+                <th scope="col">Confirmación</th>
+              </tr>
+            </thead>
+            <tbody id="confirmationRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script
+    type="module"
+    src="./confirmaciones-mision.js?v=b8-indice-001"
+  ></script>
+</body>
+</html>

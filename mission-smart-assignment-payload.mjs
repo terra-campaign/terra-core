@@ -15,6 +15,7 @@ const ALLOWED_FIELDS = new Set([
   "description",
   "locality",
   "missionDate",
+  "startAt", "startTimeZone",
   "deadlineAt"
 ]);
 
@@ -109,6 +110,41 @@ export function buildSmartAssignmentPayload(
     missionDate = input.missionDate;
   }
 
+  let startAt = null;
+  if (input.startAt !== undefined &&
+      input.startAt !== null &&
+      input.startAt !== "") {
+    if (typeof input.startAt !== "string" ||
+        !UTC_DATE.test(input.startAt) ||
+        !Number.isFinite(Date.parse(input.startAt)) ||
+        !Number.isFinite(nowMs) ||
+        Date.parse(input.startAt) <= nowMs) {
+      throw new Error("B8: hora de inicio invalida o vencida.");
+    }
+    const normalizedStart = new Date(input.startAt).toISOString();
+    if (![normalizedStart, normalizedStart.replace(".000Z", "Z")]
+        .includes(input.startAt)) {
+      throw new Error("B8: hora de inicio invalida.");
+    }
+    startAt = normalizedStart;
+  }
+  let startTimeZone = null;
+  if (input.startTimeZone !== undefined &&
+      input.startTimeZone !== null &&
+      input.startTimeZone !== "") {
+    const validZones = new Set([
+      "America/Mazatlan",
+      "America/Bahia_Banderas",
+      "America/Mexico_City",
+      "America/Hermosillo",
+      "America/Tijuana",
+      "America/Cancun"
+    ]);
+    if (!startAt || !validZones.has(input.startTimeZone)) {
+      throw new Error("B8: zona horaria invalida.");
+    }
+    startTimeZone = input.startTimeZone;
+  }
   let deadlineAt = null;
 
   if (input.deadlineAt !== null &&
@@ -135,6 +171,8 @@ export function buildSmartAssignmentPayload(
     description,
     locality,
     missionDate,
+    ...(startAt ? { startAt } : {}),
+    ...(startTimeZone ? { startTimeZone } : {}),
     deadlineAt
   };
 }
