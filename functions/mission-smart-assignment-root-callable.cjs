@@ -13,7 +13,7 @@
  */
 const ALLOWED_FIELDS = new Set([
   "requestId", "assigneeRefs", "activityCode", "title", "description",
-  "locality", "missionDate", "deadlineAt"
+  "locality", "missionDate", "startAt", "startTimeZone", "deadlineAt"
 ]);
 const SHA256 = /^[0-9a-f]{64}$/;
 const ROOT_OPTIONS = Object.freeze({region:"us-central1", timeoutSeconds:120});
@@ -39,6 +39,7 @@ const ARG_ERRORS = new Set([
   "invalid-b8-data", "invalid-b8-data-key", "invalid-b8-request-id",
   "invalid-b8-assignees", "invalid-b8-activity", "invalid-b8-text",
   "invalid-b8-required-text", "invalid-b8-mission-date", "invalid-b8-deadline",
+  "invalid-b8-start", "invalid-b8-start-timezone",
   "invalid-smart-assignment-selection-size", "invalid-smart-assignment-reference",
   "duplicate-smart-assignment-reference", "invalid-b8-root-bridge-request"
 ]);
