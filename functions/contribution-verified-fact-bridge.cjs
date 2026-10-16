@@ -6,6 +6,8 @@ const {
 } =
   require("./contribution-candidate.cjs");
 
+const {evaluateMissionContributionTiming, TIMING_RESULTS} = require("./mission-contribution-timing.cjs");
+
 const BRIDGE_SCHEMA_VERSION =
   "1.0.0";
 
@@ -150,6 +152,7 @@ async function deriveMissionContributionCandidateSafely({
   reviewId,
   subjectProfile,
   resolveCanonicalIdentity,
+  ignoreTemporalEligibility = false, // Only historical previous reviews, never the current review.
 }) {
   const eligibility =
     missionEligibility(
@@ -158,6 +161,19 @@ async function deriveMissionContributionCandidateSafely({
 
   if (eligibility) {
     return eligibility;
+  }
+
+  if (!ignoreTemporalEligibility) {
+    const timing = evaluateMissionContributionTiming({mission,evidence});
+    if (!timing.eligible) {
+      const invalid = timing.reasonCode === TIMING_RESULTS.INVALID_START_AT ||
+        timing.reasonCode === TIMING_RESULTS.INVALID_EVIDENCE_CREATED_AT;
+      return frozenResult({
+        status: invalid ? BRIDGE_STATUSES.ERROR : BRIDGE_STATUSES.NOT_ELIGIBLE,
+        stage: BRIDGE_STAGES.ELIGIBILITY,
+        reasonCode: timing.reasonCode,
+      });
+    }
   }
 
   if (

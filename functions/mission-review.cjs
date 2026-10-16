@@ -17,6 +17,7 @@ const {
 const {
   createRecoveryRecordInTransaction
 } = require('./contribution-reconciliation-recovery-store.cjs');
+const {evaluateMissionContributionTiming} = require('./mission-contribution-timing.cjs');
 const options = {region:'us-central1',timeoutSeconds:60};
 const fail = (code,message) => {throw new HttpsError(code,message);};
 const validId = x => typeof x === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(x);
@@ -146,6 +147,13 @@ exports.decideMissionReview = onCall(options,async request => {
     }
     if ((c.r?.revision || 0) !== d.expectedRevision) fail('aborted','Otra revisión cambió este reporte. Actualiza antes de decidir.');
     if (!(d.action === 'decide' && rights.canDecide || d.action === 'request' && rights.canRequest || d.action === 'resolve' && rights.canResolve)) fail('permission-denied','La acción no está permitida o el plazo de tres horas terminó.');
+    // Only the server can authorize fulfilment; early reports may still be
+    // rejected or returned for correction, but cannot earn validated points.
+    if (d.action !== 'request' && d.status === 'validated') {
+      const timing = evaluateMissionContributionTiming({mission:c.m,evidence:c.e,now});
+      if (!timing.eligible) fail('failed-precondition',
+        'Esta evidencia no puede validarse como cumplimiento antes del inicio programado de la misión, o carece de una fecha válida.');
+    }
     let superior = null;
     if (d.action === 'request') {
       if (!validId(c.reviewer.parentUserId)) fail('failed-precondition','No hay un superior configurado para este revisor.');

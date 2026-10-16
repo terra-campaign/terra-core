@@ -530,6 +530,7 @@ function projectMissionContributionRecoveryFacts({
         [
           "activityCode",
           "activityCatalogVersion",
+          "startAt",
           "updatedAt",
         ]
       ),

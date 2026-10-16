@@ -252,6 +252,9 @@ async function processMissionContributionRecoveryCore({
               record.reviewId,
 
             subjectProfile,
+            // Historical previous validations must remain derivable so an
+            // explicit rejection or appeal can still reverse posted points.
+            ignoreTemporalEligibility:true,
           });
 
     currentContributionResult =
@@ -444,6 +447,7 @@ const productionRuntime =
       review,
       reviewId,
       subjectProfile,
+      ignoreTemporalEligibility = false,
     }) {
       return deriveMissionContributionCandidateSafely({
         db,
@@ -452,6 +456,7 @@ const productionRuntime =
         review,
         reviewId,
         subjectProfile,
+        ignoreTemporalEligibility,
 
         resolveCanonicalIdentity:
           resolveCanonicalPersonForAccount,
