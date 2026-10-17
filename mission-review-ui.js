@@ -89,6 +89,10 @@ const galleryStyle=el('style');galleryStyle.textContent=`
   outline:3px solid #267cb5;
   outline-offset:3px;
 }
+.review-feedback--warning{display:grid;grid-template-columns:26px minmax(0,1fr);gap:12px;align-items:start;margin:14px 0;padding:14px 16px;border:2px solid #db7309;border-radius:10px;background:#fff4da;color:#58320d;box-shadow:0 1px 2px rgba(120,65,0,.10)}
+.review-feedback--warning .review-feedback__icon{font-size:24px;line-height:1.15;color:#a34f00}
+.review-feedback--warning .review-feedback__title{display:block;margin:0 0 4px;color:#8d4000;font-weight:750}
+.review-feedback--warning .review-feedback__text{display:block;line-height:1.45;overflow-wrap:anywhere}
 `;document.head.append(galleryStyle);
 const viewer=el('dialog');viewer.className='review-viewer';viewer.setAttribute('aria-label','Fotografía de evidencia ampliada');
 const viewerCaption=el('p'),viewerImage=el('img'),closeViewer=el('button','Cerrar fotografía');closeViewer.type='button';
@@ -100,6 +104,24 @@ function showPhoto(url,index,total){viewerCaption.textContent=`Fotografía ${ind
 
 let generation=0,urls=[],current=null,busy=false,rowByEvidence=new Map();
 const date=x=>x?new Date(x).toLocaleString('es-MX'):'Sin fecha';
+const isEarlyEvidenceWarning=text=>/antes del inicio programado de la misi[oó]n|carece de una fecha v[aá]lida/i.test(text || '');
+function showReviewFeedback(feedback,text){
+  const warning=isEarlyEvidenceWarning(text);
+  feedback.replaceChildren();
+  feedback.className=warning?'review-feedback--warning':'';
+  feedback.setAttribute('role',warning?'alert':'status');
+  if(!warning){feedback.textContent=text;return;}
+  const icon=el('span','⚠');
+  icon.className='review-feedback__icon';
+  icon.setAttribute('aria-hidden','true');
+  const body=el('span');
+  const heading=el('strong','Advertencia');
+  heading.className='review-feedback__title';
+  const description=el('span',text);
+  description.className='review-feedback__text';
+  body.append(heading,description);
+  feedback.append(icon,body);
+}
 function clear(){if(viewer.open)viewer.close();viewerImage.removeAttribute('src');generation++;urls.forEach(URL.revokeObjectURL);urls=[];detail.replaceChildren();current=null;}
 async function reload(){
   const uid=auth.currentUser?.uid;if(!uid)return;
@@ -345,6 +367,7 @@ async function open(evidenceId){
 
     const feedback=el('p');
     feedback.setAttribute('role','status');
+    select.addEventListener('change',()=>{if(select.value!=='validated'&&feedback.classList.contains('review-feedback--warning'))showReviewFeedback(feedback,'');});
 
     form.append(
       formTitle,
@@ -370,7 +393,7 @@ async function open(evidenceId){
       const b=el('button',label);b.type='button';b.className='button';b.style.margin='6px';buttons.push(b);form.append(b);
       b.onclick=async()=>{
         if(busy||!form.reportValidity())return;
-        busy=true;buttons.forEach(x=>x.disabled=true);feedback.textContent='Guardando...';
+        busy=true;buttons.forEach(x=>x.disabled=true);showReviewFeedback(feedback,'Guardando...');
         try{await decide({evidenceId,action,status:select.value,reason:reason.value.trim(),expectedRevision:d.review?.revision || 0,requestId:crypto.randomUUID()});
           if(token===generation&&auth.currentUser?.uid===uid){
             await reload();
@@ -380,7 +403,7 @@ async function open(evidenceId){
               message.textContent='Revisión superior guardada.';
             }
           }
-        }catch(error){if(token===generation)feedback.textContent=error.message || 'No se pudo guardar. Actualiza para comprobar el estado.';}
+        }catch(error){if(token===generation)showReviewFeedback(feedback,error.message || 'No se pudo guardar. Actualiza para comprobar el estado.');}
         finally{busy=false;buttons.forEach(x=>x.disabled=false);}
       };
     }
@@ -390,7 +413,7 @@ async function open(evidenceId){
       const offset=d.serverNow-Date.now();
       const timer=setInterval(()=>{
         if(token!==generation){clearInterval(timer);return;}
-        if(Date.now()+offset>=d.review.reconsiderUntil){buttons.forEach(b=>b.disabled=true);feedback.textContent='Terminó el plazo de reconsideración. Actualiza para consultar las acciones disponibles.';clearInterval(timer);}
+        if(Date.now()+offset>=d.review.reconsiderUntil){buttons.forEach(b=>b.disabled=true);showReviewFeedback(feedback,'Terminó el plazo de reconsideración. Actualiza para consultar las acciones disponibles.');clearInterval(timer);}
       },1000);
     }
     const history=el('details');history.append(el('summary','Historial de decisiones (últimas 30)'));
