@@ -20,3 +20,10 @@
 .score-page-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:18px;flex-wrap:wrap}
 .score-page-pagination span{font-size:.95rem;color:#34546e}
 @media (max-width:600px){#structureScoreboard .scoreboard-entry summary{gap:7px;padding:10px}#structureScoreboard .scoreboard-points{font-size:1rem}#structureScoreboard .scoreboard-position{min-width:20px}}
+
+/* BUILD-20I: buscador destacado al extremo derecho, sin perder navegación móvil. */
+.score-page-search{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:220px}
+.score-page-search label{font-size:.95rem;font-weight:700;white-space:nowrap}
+.score-page-search input{box-sizing:border-box;min-width:210px;width:min(32vw,360px);padding:10px 12px;border:1px solid #9eb4c6;border-radius:8px;font:inherit}
+.score-page-search input:focus-visible{outline:3px solid #1464ad;outline-offset:2px}
+@media(max-width:750px){.score-page-search{margin-left:0;width:100%}.score-page-search input{width:100%;min-width:0;flex:1 1 220px}}

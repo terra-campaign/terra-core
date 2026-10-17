@@ -52,6 +52,14 @@
     .structure-navigation[hidden],#structureScoresShortcut[hidden]{display:none!important}
     .structure-navigation a{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
     .structure-navigation a:focus-visible{outline:3px solid #1464ad;outline-offset:3px}
+    /* BUILD-20I: filtro visible para integrantes autorizados. */
+    .structure-member-search{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:14px 0}
+    .structure-member-search[hidden],#memberSearchClear[hidden]{display:none!important}
+    .structure-member-search__field{flex:1 1 260px;max-width:550px}
+    .structure-member-search__field label{display:block;font-weight:600;margin-bottom:6px}
+    .structure-member-search__field input{width:100%;box-sizing:border-box;min-height:40px;padding:9px 12px;border:1px solid #9eb4c6;border-radius:8px;font:inherit}
+    .structure-member-search__field input:focus-visible{outline:3px solid #1464ad;outline-offset:2px}
+    .structure-member-search__count{margin:0 0 12px}
   </style>
 </head>
 
@@ -244,6 +252,17 @@
         hidden
       ></div>
 
+      <div id="memberSearchControls" class="structure-member-search" hidden>
+        <div class="structure-member-search__field">
+          <label for="memberSearchInput">Buscar integrante por nombre o población</label>
+          <input id="memberSearchInput" type="search" autocomplete="off"
+            placeholder="Ej. Zulema, Zacualpan o Peñita" disabled>
+        </div>
+        <button id="memberSearchClear" type="button"
+          class="button button--secondary" hidden>Limpiar</button>
+      </div>
+      <p id="memberSearchCount" class="muted structure-member-search__count" role="status"
+        aria-live="polite" hidden></p>
 
       <div
         id="memberList"
@@ -738,7 +757,7 @@
 
   <script
     type="module"
-    src="./estructura.js?v=build-20f-001"
+    src="./estructura.js?v=build-20i-001"
   ></script>
 
 

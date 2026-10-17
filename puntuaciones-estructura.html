@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Puntuaciones de mi estructura | TERRA Campaign</title>
   <link rel="stylesheet" href="./styles.css?v=build-117d-001">
-  <link rel="stylesheet" href="./puntuaciones-estructura.css?v=build-20f-001">
+  <link rel="stylesheet" href="./puntuaciones-estructura.css?v=build-20i-001">
 </head>
 <body>
   <header class="topbar">
@@ -22,6 +22,11 @@
     <nav class="card score-page-nav" aria-label="Secciones de mi organización">
       <a id="teamShortcut" href="./admin.html" class="button button--secondary" hidden>← Equipo de estructura</a>
       <span class="button" aria-current="page">Puntuaciones de mi estructura</span>
+      <div class="score-page-search">
+        <label for="scoreboardSearch">Buscar nombre o población</label>
+        <input id="scoreboardSearch" type="search" autocomplete="off"
+          placeholder="Buscar por nombre o población" disabled>
+      </div>
     </nav>
     <section id="structureScoreboard" class="card" aria-label="Clasificación de puntuaciones">
       <div class="section-header">
@@ -32,9 +37,6 @@
         </div>
         <button id="scoreboardRefresh" type="button" class="button button--secondary" disabled>Actualizar</button>
       </div>
-      <label for="scoreboardSearch">Buscar integrante o población</label>
-      <input id="scoreboardSearch" type="search" autocomplete="off"
-        placeholder="Nombre, población o nivel" disabled>
       <p id="scoreboardStatus" class="muted" role="status" aria-live="polite">Comprobando acceso...</p>
       <div id="scoreboardRows" class="scoreboard-list"></div>
       <div id="scoreboardPagination" class="score-page-pagination" hidden>
@@ -44,6 +46,6 @@
       </div>
     </section>
   </main>
-  <script type="module" src="./puntuaciones-estructura.js?v=build-20f-001"></script>
+  <script type="module" src="./puntuaciones-estructura.js?v=build-20i-001"></script>
 </body>
 </html>

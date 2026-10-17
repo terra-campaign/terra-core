@@ -4,6 +4,7 @@ import {auth,db} from "./firebase-config.js";
 import {onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import {doc,getDoc} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
+import {normalizeStructureSearch} from "./structure-member-search.js?v=build-20i-001";
 
 const searchParams=new URLSearchParams(window.location.search);
 const structureDocumentId=String(searchParams.get("id")||"").trim();
@@ -34,9 +35,9 @@ function resetSensitiveData(){
   for(const id of ["teamShortcut","teamShortcutTop"])$(id).hidden=true;
 }
 function render(){
-  const query=text(searchNode.value).toLocaleLowerCase("es");
+  const query=normalizeStructureSearch(searchNode.value);
   const filtered=cache.filter(row=>
-    [row.name,row.locality,row.roleLabel].join(" ").toLocaleLowerCase("es").includes(query)
+    normalizeStructureSearch([row.name,row.locality,row.roleLabel].join(" ")).includes(query)
   );
   const totalPages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));
   if(page>=totalPages)page=totalPages-1;

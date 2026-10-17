@@ -28,6 +28,8 @@ import {
   httpsCallable
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
 
+import { filterStructureMembers } from "./structure-member-search.js?v=build-20i-001";
+
 
 // ======================================================
 // ELEMENTOS
@@ -129,6 +131,15 @@ const memberStatus =
 
 const memberList =
   document.querySelector("#memberList");
+
+const memberSearchControls =
+  document.querySelector("#memberSearchControls");
+const memberSearchInput =
+  document.querySelector("#memberSearchInput");
+const memberSearchClear =
+  document.querySelector("#memberSearchClear");
+const memberSearchCount =
+  document.querySelector("#memberSearchCount");
 
 const memberModal =
   document.querySelector("#memberModal");
@@ -673,11 +684,17 @@ function renderMembers(
     return;
   }
 
-  currentMembers =
-    members;
+  currentMembers = Array.isArray(members) ? members : [];
+  const searchText = memberSearchInput?.value || "";
+  const filteredMembers = filterStructureMembers(currentMembers, searchText);
+  if (memberSearchClear) memberSearchClear.hidden = !searchText.length;
+  if (memberSearchCount) {
+    memberSearchCount.textContent =
+      filteredMembers.length + " de " + currentMembers.length + " integrantes";
+  }
 
   if (
-    members.length === 0
+    currentMembers.length === 0
   ) {
 
     memberList.innerHTML = `
@@ -691,8 +708,13 @@ function renderMembers(
     return;
   }
 
+  if (filteredMembers.length === 0) {
+    memberList.innerHTML = '<p class="muted">No hay coincidencias con ese nombre o población.</p>';
+    return;
+  }
+
   memberList.innerHTML =
-    members
+    filteredMembers
       .map(
         (member) => {
 
@@ -780,6 +802,20 @@ ${currentUserProfile.role === "jefe_estructura"
       .join("");
 }
 
+
+// ======================================================
+// BUILD-20I — FILTRO LOCAL DE INTEGRANTES
+// ======================================================
+memberSearchInput?.addEventListener("input", () => {
+  if (currentUserProfile?.role !== "jefe_estructura" || !currentStructure) return;
+  renderMembers(currentMembers);
+});
+memberSearchClear?.addEventListener("click", () => {
+  if (!memberSearchInput || currentUserProfile?.role !== "jefe_estructura" || !currentStructure) return;
+  memberSearchInput.value = "";
+  renderMembers(currentMembers);
+  memberSearchInput.focus();
+});
 
 // ======================================================
 // ESCUCHAR PERSONAS DE LA ESTRUCTURA
@@ -891,6 +927,9 @@ function listenStructureUsers() {
 ) {
 
   currentMembers = [];
+  if (memberSearchControls) memberSearchControls.hidden = true;
+  if (memberSearchInput) memberSearchInput.disabled = true;
+  if (memberSearchCount) memberSearchCount.hidden = true;
 
   if (memberList) {
     memberList.innerHTML = `
@@ -907,7 +946,9 @@ function listenStructureUsers() {
   }
 
 } else {
-
+  if (memberSearchControls) memberSearchControls.hidden = false;
+  if (memberSearchInput) memberSearchInput.disabled = false;
+  if (memberSearchCount) memberSearchCount.hidden = false;
   renderMembers(
     members
   );
@@ -2080,6 +2121,19 @@ onAuthStateChanged(
   auth,
 
   async (user) => {
+    currentMembers = [];
+    if (memberSearchControls) memberSearchControls.hidden = true;
+    if (memberSearchInput) {
+      memberSearchInput.value = "";
+      memberSearchInput.disabled = true;
+    }
+    if (memberSearchClear) memberSearchClear.hidden = true;
+    if (memberSearchCount) memberSearchCount.hidden = true;
+    if (memberList) memberList.replaceChildren();
+    if (stopStructureUsersListener) {
+      stopStructureUsersListener();
+      stopStructureUsersListener = null;
+    }
 
     if (!user) {
 
