@@ -107,9 +107,26 @@ function render() {
 
   const model = describeParticipation(state);
 
-  statusEl.textContent =
-    "Tu respuesta: " + model.label + ". " +
-    model.explanation;
+  const confirmationClosed = state.canChange === false && Boolean(state.startAt);
+  statusEl.classList.toggle(
+    "terra-participation-status--closed",
+    confirmationClosed
+  );
+  accept.classList.toggle(
+    "terra-participation-button--closed",
+    confirmationClosed
+  );
+  decline.classList.toggle(
+    "terra-participation-button--closed",
+    confirmationClosed
+  );
+
+  statusEl.textContent = confirmationClosed
+    ? "Confirmación cerrada. Tu respuesta: " + model.label + ". " +
+      model.explanation +
+      " Este plazo solo afecta la confirmación de participación. " +
+      "El registro de evidencias tiene un plazo independiente."
+    : "Tu respuesta: " + model.label + ". " + model.explanation;
 
   if (saving || preparingWhatsApp) return;
 
