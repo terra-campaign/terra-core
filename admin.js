@@ -47,6 +47,11 @@ import {
 const terraFunctions =
   getFunctions(auth.app, "us-central1");
 
+const getMyOnboardingStatusCall =
+  httpsCallable(
+    terraFunctions,
+    "getMyOnboardingStatus"
+  );
 const getMyTerritorialAccessCall =
   httpsCallable(
     terraFunctions,
@@ -115,6 +120,8 @@ const missionsButton =
 const eventsButton =
   document.querySelector("#eventsButton");
 
+const myTrainingButton =
+  document.querySelector("#myTrainingButton");
 const myPerformanceButton =
   document.querySelector("#myPerformanceButton");
 
@@ -1071,6 +1078,37 @@ async function loadCurrentUserProfile(user) {
 // INTERFAZ SEGÚN ROL
 // ======================================================
 
+async function refreshMyTrainingAccess(user) {
+
+  if (!myTrainingButton) return;
+
+  myTrainingButton.hidden = true;
+
+  try {
+    const result =
+      await getMyOnboardingStatusCall();
+
+    if (auth.currentUser?.uid !== user.uid) {
+      return;
+    }
+
+    const status = result?.data;
+
+    myTrainingButton.hidden = !(
+      status?.ok === true &&
+      status?.applicable === true &&
+      status?.completed === true
+    );
+
+  } catch (error) {
+    myTrainingButton.hidden = true;
+
+    console.warn(
+      "No se pudo validar Mi capacitación:",
+      error
+    );
+  }
+}
 function applyRoleInterface() {
   if (!currentUserProfile) {
     return;
@@ -2084,6 +2122,7 @@ onAuthStateChanged(auth, async (user) => {
         return;
       }
       applyRoleInterface();
+      void refreshMyTrainingAccess(user);
 
 
     console.log(

@@ -9,7 +9,37 @@ const assign=httpsCallable(functions,'assignPrincipalLeader');
 const listAdminCampaigns=httpsCallable(functions,'listAdminCampaigns');
 const createCampaign=httpsCallable(functions,'createCampaign');
 const createCoordinator=httpsCallable(functions,'createMunicipalCoordinator');
+const getMyOnboardingStatusCall=httpsCallable(functions,'getMyOnboardingStatus');
 
+async function refreshLeaderTrainingAccess(user,version){
+  const link=$('leaderTrainingLink');
+  if(!link)return;
+
+  link.hidden=true;
+
+  try{
+    const {data}=await getMyOnboardingStatusCall();
+
+    if(version!==epoch || auth.currentUser?.uid!==user.uid){
+      return;
+    }
+
+    link.hidden=!(
+      data?.ok===true &&
+      data?.applicable===true &&
+      data?.completed===true
+    );
+  }catch(error){
+    if(version===epoch && auth.currentUser?.uid===user.uid){
+      link.hidden=true;
+    }
+
+    console.warn(
+      "No se pudo validar Mi capacitación:",
+      error
+    );
+  }
+}
 let epoch=0;
 let currentRole='';
 let currentPanelCampaignId='';
@@ -227,9 +257,9 @@ $('createCampaignForm').onsubmit=async e=>{
   button.disabled=false;
  }
 };
-onAuthStateChanged(auth,async user=>{const version=++epoch;$('municipalities').replaceChildren();$('setup').hidden=true;$('leaderMissions').hidden=true;$('leaderEvents').hidden=true;$('refresh').disabled=true;
+onAuthStateChanged(auth,async user=>{const version=++epoch;$('leaderTrainingLink').hidden=true;$('municipalities').replaceChildren();$('setup').hidden=true;$('leaderMissions').hidden=true;$('leaderEvents').hidden=true;$('refresh').disabled=true;
  if(!user){location.replace('./login.html');return;}
- try{const p=(await getDoc(doc(db,'usuarios',user.uid))).data();if(version!==epoch)return;if(!p||p.active!==true||!['admin','lider_principal'].includes(p.role))throw Error('Acceso reservado al Líder principal y administrador.');currentRole=p.role;currentPanelCampaignId='';$('setup').hidden=p.role!=='admin';$('panelCampaignControl').hidden=p.role!=='admin';$('leaderMissions').hidden=p.role!=='lider_principal';$('leaderEvents').hidden=p.role!=='lider_principal';if(p.role==='admin'){const available=await loadAdminCampaigns();if(!available){$('status').textContent='No hay campañas activas autorizadas para esta cuenta.';return;}}await refresh();}catch(e){$('status').textContent=e.message;}
+ try{const p=(await getDoc(doc(db,'usuarios',user.uid))).data();if(version!==epoch)return;if(!p||p.active!==true||!['admin','lider_principal'].includes(p.role))throw Error('Acceso reservado al Líder principal y administrador.');currentRole=p.role;if(p.role==='lider_principal'){void refreshLeaderTrainingAccess(user,version);}currentPanelCampaignId='';$('setup').hidden=p.role!=='admin';$('panelCampaignControl').hidden=p.role!=='admin';$('leaderMissions').hidden=p.role!=='lider_principal';$('leaderEvents').hidden=p.role!=='lider_principal';if(p.role==='admin'){const available=await loadAdminCampaigns();if(!available){$('status').textContent='No hay campañas activas autorizadas para esta cuenta.';return;}}await refresh();}catch(e){$('status').textContent=e.message;}
 });
 $('assign').onsubmit=async e=>{e.preventDefault();const campaignId=$('campaignId').value.trim();if(!campaignId){$('assignmentStatus').textContent='Selecciona la campaña donde se asignará al Líder principal.';return;}$('save').disabled=true;try{await assign({campaignId,uid:$('uid').value.trim(),name:$('name').value.trim()});$('assignmentStatus').textContent=`Líder asignado correctamente en ${campaignId}. Puede entrar con su cuenta desde el acceso habitual.`;$('assign').reset();$('campaignId').value=campaignId;}catch(e){$('assignmentStatus').textContent=e.message;}finally{$('save').disabled=!$('campaignId').value;}};
 
