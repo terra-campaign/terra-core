@@ -26,7 +26,7 @@ const members=[chief,memb('P-ZULEMA','integrante',chiefId,{introducedByPersonId:
   memb('P-BASE','apoyo_territorial','P-ZULEMA',{introducedByPersonId:'P-ZULEMA',accountUid:null})];
 const persons=new Map([
   [chiefId,{personId:chiefId,name:'Lalo Gómez',campaignId:campaign,active:true,accountUid:'UID-LALO'}],
-  ['P-ZULEMA',{personId:'P-ZULEMA',name:'Zulema Lizandi Regalado',campaignId:campaign,active:true,phone:'327 102 9929',hasWhatsApp:true,accountUid:'UID-Z'}],
+  ['P-ZULEMA',{personId:'P-ZULEMA',name:'Zulema Lizandi Regalado',locality:'Zacualpan',campaignId:campaign,active:true,phone:'327 102 9929',hasWhatsApp:true,accountUid:'UID-Z'}],
   ['P-BASE',{personId:'P-BASE',name:'Apoyo sin cuenta',campaignId:campaign,active:true,accountUid:null,hasWhatsApp:false}],
 ]);
 function projector({campaignId,personId,ledgerEntries}){
@@ -74,6 +74,8 @@ test('ordena puntos 60 > 0 y conserva a personas sin cuenta',async()=>{
  assert.deepEqual(data.rows.map(r=>r.name),['Zulema Lizandi Regalado','Apoyo sin cuenta','Lalo Gómez']);
  assert.deepEqual(data.rows.map(r=>r.points),[60,0,0]);
  assert.equal(data.rows[0].position,1);
+ assert.equal(data.rows[0].locality,'Zacualpan');
+ assert.equal(data.rows[1].locality,'');
  assert.equal(data.rows[0].contributions,2);
  assert.equal(data.rows[1].hasDigitalAccount,false);
  assert.equal(data.rows[1].whatsAppNumber,null);
@@ -115,14 +117,20 @@ test('empates se ordenan alfabeticamente',()=>{
  const rows=core.sortRows([{name:'Zulema',points:0,personId:'2'},{name:'Ana',points:0,personId:'1'}]);
  assert.deepEqual(rows.map(x=>x.name),['Ana','Zulema']);
 });
-test('la UI posee panel protegido y enlaces de perfil y WhatsApp',()=>{
- const html=fs.readFileSync(path.join(__dirname,'../estructura.html'),'utf8');
- const js=fs.readFileSync(path.join(__dirname,'../estructura.js'),'utf8');
+test('BUILD-20F: ranking en pantalla separada, conservando protección del servidor',()=>{
+ const team=fs.readFileSync(path.join(__dirname,'../estructura.html'),'utf8');
+ const teamJs=fs.readFileSync(path.join(__dirname,'../estructura.js'),'utf8');
+ const ranking=fs.readFileSync(path.join(__dirname,'../puntuaciones-estructura.html'),'utf8');
+ const rankingJs=fs.readFileSync(path.join(__dirname,'../puntuaciones-estructura.js'),'utf8');
  const index=fs.readFileSync(path.join(__dirname,'index.js'),'utf8');
- assert.match(html,/id="structureScoreboard"[^>]*hidden/);
- assert.match(js,/getStructureScoreboard/);
- assert.match(js,/persona\.html\?id=/);
- assert.match(js,/https:\/\/wa\.me\//);
- assert.match(js,/profile\?\.role!=="jefe_estructura"/);
+ assert.doesNotMatch(team,/id="structureScoreboard"/);
+ assert.match(team,/id="structureScoresShortcut"/);
+ assert.match(teamJs,/structureNameWithLocality/);
+ assert.match(teamJs,/puntuaciones-estructura\.html\?id=/);
+ assert.match(ranking,/id="structureScoreboard"/);
+ assert.match(rankingJs,/getStructureScoreboard/);
+ assert.match(rankingJs,/persona\.html\?id=/);
+ assert.match(rankingJs,/https:\/\/wa\.me\//);
+ assert.match(rankingJs,/role !== "jefe_estructura"/);
  assert.match(index,/exports\.getStructureScoreboard\s*=/);
 });

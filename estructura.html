@@ -47,22 +47,11 @@
       outline:3px solid #075e54;
       outline-offset:3px;
     }
-    /* BUILD-20A — Estilos encapsulados del ranking */
-    #structureScoreboard .scoreboard-list{display:grid;gap:10px;margin-top:12px}
-    #structureScoreboard .scoreboard-entry{border:1px solid #d5e0eb;border-radius:10px;background:#fff;overflow:hidden}
-    #structureScoreboard .scoreboard-entry summary{cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px;list-style:none}
-    #structureScoreboard .scoreboard-entry summary::-webkit-details-marker{display:none}
-    #structureScoreboard .scoreboard-entry summary:focus-visible{outline:3px solid #1464ad;outline-offset:-3px}
-    #structureScoreboard .scoreboard-position{font-weight:800;min-width:32px;color:#34546e}
-    #structureScoreboard .scoreboard-title{flex:1;min-width:0}
-    #structureScoreboard .scoreboard-title strong{display:block;overflow-wrap:anywhere}
-    #structureScoreboard .scoreboard-points{font-weight:800;font-size:1.35rem;color:#18734a;white-space:nowrap;text-align:right}
-    #structureScoreboard .scoreboard-detail{padding:14px;border-top:1px solid #e0e8ef;display:grid;gap:12px}
-    #structureScoreboard .scoreboard-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
-    #structureScoreboard .scoreboard-meta small{color:#536b7d;display:block}
-    #structureScoreboard .scoreboard-actions{display:flex;gap:8px;flex-wrap:wrap}
-    #structureScoreboard a.scoreboard-wa{background:#25D366;color:#083b20;text-decoration:none;font-weight:700}
-    #structureScoreboard .scoreboard-unavailable{color:#576676;font-size:.9rem}
+    /* BUILD-20F: acceso directo a clasificación sin mostrar la lista aquí. */
+    .structure-navigation{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .structure-navigation[hidden],#structureScoresShortcut[hidden]{display:none!important}
+    .structure-navigation a{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+    .structure-navigation a:focus-visible{outline:3px solid #1464ad;outline-offset:3px}
   </style>
 </head>
 
@@ -152,19 +141,13 @@
     </section>
 
 
-    <!-- BUILD-20A — Ranking protegido para Responsable de estructura -->
-    <section id="structureScoreboard" class="card" hidden aria-label="Puntuaciones de mi estructura">
-      <div class="section-header">
-        <div><p class="eyebrow">MI ORGANIZACIÓN</p>
-          <h2>Puntuaciones de mi estructura</h2>
-          <p class="muted">De mayor a menor puntuación operativa verificada. Incluye integrantes con cero puntos.</p></div>
-        <button id="scoreboardRefresh" type="button" class="button button--secondary">Actualizar</button>
-      </div>
-      <label for="scoreboardSearch">Buscar integrante</label>
-      <input id="scoreboardSearch" type="search" autocomplete="off" placeholder="Escribe un nombre o nivel">
-      <p id="scoreboardStatus" class="muted" role="status" aria-live="polite"></p>
-      <div id="scoreboardRows" class="scoreboard-list"></div>
-    </section>
+    <!-- BUILD-20F: dos pantallas independientes, sin lista de puntos aquí. -->
+    <nav id="structureNavigation" class="card structure-navigation" aria-label="Secciones de mi organización" hidden>
+      <span class="button" aria-current="page">Equipo de estructura</span>
+      <a id="structureScoresShortcut" class="button button--secondary" href="#" hidden>
+        Ver puntuaciones de mi estructura →
+      </a>
+    </nav>
 
     <!-- RESPONSABLE DE ESTRUCTURA -->
 
@@ -755,7 +738,7 @@
 
   <script
     type="module"
-    src="./estructura.js?v=build-20a-001"
+    src="./estructura.js?v=build-20f-001"
   ></script>
 
 

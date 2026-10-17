@@ -75,6 +75,7 @@ function projectRows({members, personsById, ledgerByPerson, nameById, campaignId
     result.push({
       personId,name,role:membership.role||"",roleLabel:ROLE_LABELS[membership.role]||"Integrante",
       municipality:clean(membership.municipalityName)||clean(person.municipalityName)||"No registrado",
+      locality:clean(person.locality), // población canónica; nunca derivar del municipio
       parentPersonId:parentId,
       parentName:parentId?(nameById.get(parentId)||"No registrado"):"No registrado",
       introducedByPersonId:introducerId,
