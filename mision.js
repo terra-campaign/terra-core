@@ -1,4 +1,5 @@
 import {deadlineText, missionOpen, missionState} from "./mission-deadline.js?v=cierre-001";
+import {missionStartDisplay} from "./mission-start-display.js?v=19r-01";
 // ======================================================
 // TERRA CAMPAIGN
 // DETALLE PRIVADO DE MISIÓN + EVIDENCIAS
@@ -55,6 +56,8 @@ const missionLocalityElement =
 
 const missionDateElement =
   document.querySelector("#missionDate");
+
+const missionStartAtElement = document.querySelector("#missionStartAt");
 
 const missionBrigadeElement =
   document.querySelector("#missionBrigade");
@@ -388,6 +391,9 @@ function renderMission() {
   missionDateElement.textContent =
     currentMission.missionDate ||
     "Sin fecha";
+
+  missionStartAtElement.textContent =
+    missionStartDisplay(currentMission);
 
   missionBrigadeElement.textContent =
     currentMission.brigadeId ||

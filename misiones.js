@@ -1,4 +1,5 @@
 import {deadlineText, deadlineInputValue, inputDeadline, missionOpen, missionState} from "./mission-deadline.js?v=cierre-001";
+import {missionStartDisplay} from "./mission-start-display.js?v=19r-01";
 // ======================================================
 // TERRA CAMPAIGN
 // MÓDULO PRIVADO DE MISIONES
@@ -1248,6 +1249,7 @@ function renderMissions() {
                     )}
                   </strong>
                 </p>
+                <p style="border-left:3px solid #2563eb;padding-left:9px;margin:8px 0">Inicio programado: <strong>${escapeHtml(missionStartDisplay(mission))}</strong></p>
                 <p data-deadline-id="${escapeHtml(mission.id)}">${escapeHtml(deadlineText(mission))}</p>
                 <p>Asignada el: <strong>${escapeHtml(formatFirestoreDate(mission.createdAt))}</strong></p>
 
