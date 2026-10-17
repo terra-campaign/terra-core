@@ -1013,6 +1013,16 @@ async function handleCreateCoordinator(
       .trim();
 
 
+  const hasWhatsAppValue =
+    document.querySelector("#coordinatorHasWhatsApp")?.value || "";
+
+  const hasWhatsApp =
+    hasWhatsAppValue === "true"
+      ? true
+      : hasWhatsAppValue === "false"
+        ? false
+        : null;
+
   const password =
     String(
       coordinatorPasswordInput?.value ||
@@ -1093,6 +1103,8 @@ async function handleCreateCoordinator(
         email,
 
         phone,
+
+        hasWhatsApp,
 
         password,
 
