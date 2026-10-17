@@ -2104,6 +2104,7 @@ onAuthStateChanged(
 
       listenStructureUsers();
       void loadStructureProgress();
+      void loadStructureScoreboard();
 
     } catch (error) {
 
@@ -2169,3 +2170,100 @@ async function loadStructureProgress() {
     if (version === progressVersion) progressButton.disabled = false;
   }
 }
+
+
+// ======================================================
+// BUILD-20A — RANKING DE LA ESTRUCTURA (SOLO LECTURA)
+// ======================================================
+const getStructureScoreboard = httpsCallable(functions,"getStructureScoreboard");
+const scoreboardSection = document.querySelector("#structureScoreboard");
+const scoreboardStatus = document.querySelector("#scoreboardStatus");
+const scoreboardRows = document.querySelector("#scoreboardRows");
+const scoreboardSearch = document.querySelector("#scoreboardSearch");
+const scoreboardRefresh = document.querySelector("#scoreboardRefresh");
+let scoreboardCache = [];
+let scoreboardRevision = 0;
+
+function scoreboardText(value) {return typeof value==="string" ? value : "";}
+function scoreboardEl(tag, text, className="") {
+  const node=document.createElement(tag);
+  if(text!==undefined && text!==null) node.textContent=String(text);
+  if(className) node.className=className;
+  return node;
+}
+function scoreboardField(label, value) {
+  const box=scoreboardEl("div");
+  box.append(scoreboardEl("small",label),scoreboardEl("strong",value));
+  return box;
+}
+function renderStructureScoreboard() {
+  if (!scoreboardRows) return;
+  const q=scoreboardText(scoreboardSearch?.value).trim().toLocaleLowerCase("es");
+  scoreboardRows.replaceChildren();
+  const filtered=scoreboardCache.filter(row=>(row.name+" "+row.roleLabel)
+    .toLocaleLowerCase("es").includes(q));
+  if(!filtered.length){scoreboardRows.append(scoreboardEl("p",q?"No hay coincidencias.":"No hay integrantes activos registrados.","muted"));return;}
+  for(const row of filtered){
+    const detail=scoreboardEl("details",null,"scoreboard-entry");
+    const summary=scoreboardEl("summary");
+    const pos=scoreboardEl("span",String(row.position)+".","scoreboard-position");
+    const title=scoreboardEl("span",null,"scoreboard-title");
+    title.append(scoreboardEl("strong",row.name),scoreboardEl("small",row.roleLabel+" · "+row.municipality));
+    const score=scoreboardEl("span",String(row.points)+" puntos","scoreboard-points");
+    summary.append(pos,title,score);detail.append(summary);
+    const body=scoreboardEl("div",null,"scoreboard-detail");
+    const meta=scoreboardEl("div",null,"scoreboard-meta");
+    meta.append(
+      scoreboardField("Superior directo",row.parentName||"No registrado"),
+      scoreboardField("Quién lo incorporó",row.introducedByName||"No registrado"),
+      scoreboardField("Contribuciones verificadas",String(row.contributions)),
+      scoreboardField("Cuenta digital",row.hasDigitalAccount?"Sí":"No")
+    );
+    body.append(meta);
+    const actions=scoreboardEl("div",null,"scoreboard-actions");
+    const profile=scoreboardEl("a","Ver perfil","button button--secondary button--small");
+    profile.href="./persona.html?id="+encodeURIComponent(row.personId);
+    actions.append(profile);
+    if(/^52\d{10}$/.test(row.whatsAppNumber||"")){
+      const wa=scoreboardEl("a","WhatsApp · "+row.name,"button button--small scoreboard-wa");
+      const sender=scoreboardText(currentUserProfile?.name)||"tu responsable";
+      const message="Hola, "+row.name+". Soy "+sender+". Me gustaría conversar contigo sobre tu actividad registrada en TERRA Campaign. ¿Tienes un momento?";
+      wa.href="https://wa.me/"+row.whatsAppNumber+"?text="+encodeURIComponent(message);
+      wa.target="_blank";wa.rel="noopener noreferrer";
+      wa.title="Preparar mensaje para "+row.name+" (no se envía automáticamente)";
+      actions.append(wa);
+    } else {
+      actions.append(scoreboardEl("span","WhatsApp no disponible · contactar por otro medio","scoreboard-unavailable"));
+    }
+    body.append(actions);detail.append(body);scoreboardRows.append(detail);
+  }
+}
+async function loadStructureScoreboard(){
+  if(!scoreboardSection)return;
+  const actor=currentUser;
+  const profile=currentUserProfile;
+  const rev=++scoreboardRevision;
+  scoreboardSection.hidden=profile?.role!=="jefe_estructura";
+  if(scoreboardSection.hidden || !actor || !currentStructure)return;
+  scoreboardRefresh.disabled=true;
+  scoreboardStatus.textContent="Consultando puntuaciones verificadas...";
+  try{
+    const {data}=await getStructureScoreboard({structureDocumentId});
+    if(rev!==scoreboardRevision || auth.currentUser?.uid!==actor.uid ||
+      currentUserProfile!==profile)return;
+    if(!data?.ok || !Array.isArray(data.rows)) throw new Error("Respuesta incompleta.");
+    scoreboardCache=data.rows;
+    scoreboardStatus.textContent=scoreboardCache.length+
+      " personas · Orden descendente por puntos · Datos verificados por TERRA";
+    renderStructureScoreboard();
+  }catch(error){
+    if(rev!==scoreboardRevision || auth.currentUser?.uid!==actor.uid)return;
+    scoreboardCache=[];scoreboardRows.replaceChildren();
+    scoreboardStatus.textContent="No fue posible cargar la clasificación. "+getErrorMessage(error);
+  }finally{if(rev===scoreboardRevision)scoreboardRefresh.disabled=false;}
+}
+scoreboardRefresh?.addEventListener("click",()=>void loadStructureScoreboard());
+scoreboardSearch?.addEventListener("input",renderStructureScoreboard);
+onAuthStateChanged(auth,()=>{scoreboardRevision++;scoreboardCache=[];
+  if(scoreboardRows)scoreboardRows.replaceChildren();
+  if(scoreboardSection)scoreboardSection.hidden=true;});

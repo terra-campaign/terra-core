@@ -6240,6 +6240,10 @@ exports.createParticipant = onCall(
   }
 );
 
+// BUILD-20A — clasificación nominal protegida por campaña y estructura.
+exports.getStructureScoreboard =
+  require("./structure-scoreboard.cjs").getStructureScoreboard;
+
 exports.getStructureProgress =
   require("./structure-progress.cjs").getStructureProgress;
 
