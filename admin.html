@@ -24,6 +24,47 @@
   rel="stylesheet"
   href="./styles.css?v=build-123d4h-c21"
 >
+<style>
+/* BUILD-127 / 23A — Encabezado compacto de la guía de inicio */
+#terraStartGuide[hidden],
+#terraStartContent[hidden] { display: none !important; }
+#terraStartGuide .terraStartGuide__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+#terraStartGuide .terraStartGuide__header h2 {
+  margin-block: 0;
+}
+#terraStartGuide .terraStartGuide__toggle {
+  appearance: none;
+  cursor: pointer;
+  flex: 0 0 auto;
+  min-height: 44px;
+  min-width: 80px;
+  border: 1px solid #356187;
+  border-radius: 9px;
+  padding: 8px 14px;
+  background: #f2f7fc;
+  color: #17324d;
+  font: inherit;
+  font-weight: 700;
+}
+#terraStartGuide .terraStartGuide__toggle:focus-visible {
+  outline: 3px solid #1b6dad;
+  outline-offset: 3px;
+}
+#terraStartGuide #terraStartContent:not([hidden]) {
+  margin-top: 12px;
+}
+#terraStartGuide[data-collapsed="true"] {
+  padding-block: 12px;
+}
+@media (max-width: 480px) {
+  #terraStartGuide .terraStartGuide__header h2 { font-size: 1.15rem; }
+}
+</style>
 </head>
 
 
@@ -142,6 +183,86 @@
   </header>
 
   <main class="shell">
+        <section
+      id="terraStartGuide"
+      class="card"
+      aria-labelledby="terraStartTitle"
+      hidden
+    >
+      <div class="terraStartGuide__header">
+        <h2 id="terraStartTitle">Mi inicio en TERRA</h2>
+        <button id="terraStartToggle" class="terraStartGuide__toggle"
+                type="button" aria-controls="terraStartContent"
+                aria-expanded="true">Ocultar ▴</button>
+      </div>
+      <div id="terraStartContent">
+
+      <h3 id="terraStartHeading"></h3>
+
+      <p><strong id="terraStartRole"></strong></p>
+
+      <div id="terraStartInstructions"></div>
+
+      <details id="terraDigitalGuide" hidden>
+        <summary><strong>¿Qué es una cuenta digital?</strong></summary>
+
+        <p>
+          <strong>Con cuenta digital:</strong>
+          la persona puede iniciar sesión en TERRA y utilizar
+          directamente las funciones autorizadas para su perfil.
+        </p>
+
+        <p>
+          <strong>Sin cuenta digital:</strong>
+          la persona pertenece al equipo aunque no tenga
+          correo, contraseña, teléfono o WhatsApp.
+          Su historial, actividades, desempeño, puntos
+          y reconocimientos pertenecen a su propio perfil.
+        </p>
+
+        <p>
+          Su responsable autorizado podrá darle seguimiento,
+          ayudarle a conocer sus actividades y mostrarle
+          sus resultados cuando corresponda.
+        </p>
+      </details>
+
+      <details id="terraScoringGuide" hidden>
+        <summary><strong>¿Cómo obtengo puntos?</strong></summary>
+
+        <p>
+          <strong>¡Tus acciones verificables construyen
+          tu historial de desempeño!</strong>
+        </p>
+
+        <p>
+          Las misiones, asistencias a eventos, actividades
+          territoriales y contribuciones organizacionales
+          pueden generar puntos cuando cumplen las
+          reglas y validaciones correspondientes.
+        </p>
+
+        <p>
+          <strong>Registrar una persona, aceptar una misión
+          o enviar evidencia no otorga automáticamente puntos.</strong>
+        </p>
+
+        <p>
+          Los puntos pertenecen a quien realmente realizó
+          la contribución, incluso si otra persona autorizada
+          le ayudó a registrarla.
+        </p>
+      </details>
+
+      <p>
+        <small>
+          Los accesos y operaciones disponibles dependen
+          de los permisos efectivos de tu perfil.
+        </small>
+      </p>
+      </div>
+    </section>
+
 
     <!-- =====================================================
          BUILD-121C1 — CONTEXTO DE SUPERVISIÓN TERRITORIAL
@@ -1024,7 +1145,7 @@
 
 <script
   type="module"
-  src="./admin.js?v=build-126-training-review-20261017"
+  src="./admin.js?v=build-127-guide-fold-15cr-20261101"
 ></script>
 
 </body>

@@ -35,7 +35,61 @@ assert.equal(
     },
     structure
   ),
+  false
+);
+// BUILD-127 15DD: acceso administrativo mediante grant explicito.
+
+assert.equal(
+  test.canViewStructureMembers(
+    {
+      active: true,
+      role: 'admin',
+      uid: 'ADMIN-LAB',
+      campaignId: 'CAM-LEGACY'
+    },
+    structure,
+    {
+      active: true,
+      adminUid: 'ADMIN-LAB',
+      campaignId: 'CAM-001'
+    }
+  ),
   true
+);
+
+assert.equal(
+  test.canViewStructureMembers(
+    {
+      active: true,
+      role: 'admin',
+      uid: 'ADMIN-LAB',
+      campaignId: 'CAM-001'
+    },
+    structure,
+    {
+      active: false,
+      adminUid: 'ADMIN-LAB',
+      campaignId: 'CAM-001'
+    }
+  ),
+  false
+);
+
+assert.equal(
+  test.canViewStructureMembers(
+    {
+      active: true,
+      role: 'admin',
+      uid: 'ADMIN-LAB'
+    },
+    structure,
+    {
+      active: true,
+      adminUid: 'ADMIN-LAB',
+      campaignId: 'CAM-AJENA'
+    }
+  ),
+  false
 );
 
 

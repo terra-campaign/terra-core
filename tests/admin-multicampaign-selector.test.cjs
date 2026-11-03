@@ -201,12 +201,12 @@ test(
 
     assert.match(
       html,
-      /styles\.css\?v=build-123d4h-c20/
+      /styles\.css\?v=build-123d4h-c21/
     );
 
     assert.match(
       html,
-      /admin\.js\?v=build-123d4h-c20/
+      /admin\.js\?v=build-127-guide-fold-15cr-20261101/
     );
 
     assert.match(

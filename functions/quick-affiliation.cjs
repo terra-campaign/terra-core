@@ -51,6 +51,13 @@ const {
   './person-deduplication.cjs'
 );
 
+const {
+  adminCampaignAccessDocumentPath,
+  adminCanAccessCampaign
+} = require(
+  './admin-campaign-access.cjs'
+);
+
 
 const OPTIONS = {
   region:
@@ -370,28 +377,39 @@ async function readCaller(
 
 function canViewStructureMembers(
   viewer,
-  structure
+  structure,
+  accessRecord = null
 ) {
 
   if (
     !viewer ||
     !structure ||
     viewer.active !== true ||
+    !structure.campaignId
+  ) {
+    return false;
+  }
+
+  if (
+    viewer.role ===
+      'admin'
+  ) {
+
+    return adminCanAccessCampaign({
+      profile: viewer,
+      adminUid: viewer.uid,
+      campaignId: structure.campaignId,
+      accessRecord
+    });
+  }
+
+  if (
     !viewer.campaignId ||
     viewer.campaignId !==
       structure.campaignId
   ) {
     return false;
   }
-
-
-  if (
-    viewer.role ===
-      'admin'
-  ) {
-    return true;
-  }
-
 
   if (
     viewer.role ===
@@ -406,10 +424,8 @@ function canViewStructureMembers(
     );
   }
 
-
   return false;
 }
-
 
 async function readStructureViewer(
   db,
@@ -458,7 +474,10 @@ async function readStructureViewer(
 
   if (
     viewer.active !== true ||
-    !viewer.campaignId
+    (
+      viewer.role !== 'admin' &&
+      !viewer.campaignId
+    )
   ) {
 
     fail(
@@ -545,10 +564,37 @@ exports.getStructureMembers =
       };
 
 
+      // El Administrador técnico requiere un grant explícito.
+      // Su profile.campaignId histórico NO autoriza acceso.
+      let adminAccessRecord =
+        null;
+
+      if (
+        viewer.role ===
+          'admin'
+      ) {
+
+        const accessSnapshot =
+          await db
+            .doc(
+              adminCampaignAccessDocumentPath(
+                viewer.uid,
+                structure.campaignId
+              )
+            )
+            .get();
+
+        adminAccessRecord =
+          accessSnapshot.exists
+            ? accessSnapshot.data()
+            : null;
+      }
+
       if (
         !canViewStructureMembers(
           viewer,
-          structure
+          structure,
+          adminAccessRecord
         )
       ) {
 
@@ -559,8 +605,21 @@ exports.getStructureMembers =
       }
 
 
-      // Consulta amplia por campaña para evitar depender
-      // todavía de un índice compuesto adicional.
+      // Filtrar en Firestore ANTES de aplicar el limite.
+      // structureId no es necesariamente unico entre campanas.
+      // El tope de 1,000 afecta solo integrantes activos
+      // de la campana y estructura solicitadas.
+      // Paginacion y cambios de interfaz quedan pendientes.
+      if (
+        typeof structure.id !== 'string' ||
+        !structure.id.trim()
+      ) {
+        fail(
+          'failed-precondition',
+          'La estructura no tiene identificador territorial válido.'
+        );
+      }
+
       const membershipsSnapshot =
         await db
           .collection(
@@ -569,7 +628,22 @@ exports.getStructureMembers =
           .where(
             'campaignId',
             '==',
-            viewer.campaignId
+            structure.campaignId
+          )
+          .where(
+            'structureId',
+            '==',
+            structure.id
+          )
+          .where(
+            'role',
+            '==',
+            'integrante'
+          )
+          .where(
+            'active',
+            '==',
+            true
           )
           .limit(
             1001
@@ -584,7 +658,7 @@ exports.getStructureMembers =
 
         fail(
           'resource-exhausted',
-          'La campaña requiere un índice escalable antes de continuar.'
+          'La estructura supera 1,000 integrantes activos. Requiere paginacion del listado.'
         );
       }
 
@@ -602,6 +676,8 @@ exports.getStructureMembers =
             membership =>
               membership.active ===
                 true &&
+              membership.campaignId ===
+                structure.campaignId &&
               membership.role ===
                 'integrante' &&
               membership.structureId ===
@@ -679,7 +755,7 @@ exports.getStructureMembers =
         if (
           !membership ||
           person.campaignId !==
-            viewer.campaignId ||
+            structure.campaignId ||
           person.structureId !==
             structure.id
         ) {
@@ -707,7 +783,7 @@ exports.getStructureMembers =
           personRef:
             hash(
               'structure-member',
-              viewer.campaignId,
+              structure.campaignId,
               structure.id,
               snapshot.id
             ),

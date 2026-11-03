@@ -1079,6 +1079,7 @@ async function loadCurrentUserProfile(user) {
 // ======================================================
 
 async function refreshMyTrainingAccess(user) {
+  const requestEpoch = authGuideEpoch;
 
   if (!myTrainingButton) return;
 
@@ -1088,7 +1089,7 @@ async function refreshMyTrainingAccess(user) {
     const result =
       await getMyOnboardingStatusCall();
 
-    if (auth.currentUser?.uid !== user.uid) {
+    if (!authSessionCurrent(requestEpoch, user.uid)) {
       return;
     }
 
@@ -1101,6 +1102,7 @@ async function refreshMyTrainingAccess(user) {
     );
 
   } catch (error) {
+    if (!authSessionCurrent(requestEpoch, user.uid)) return;
     myTrainingButton.hidden = true;
 
     console.warn(
@@ -1108,6 +1110,441 @@ async function refreshMyTrainingAccess(user) {
       error
     );
   }
+}
+// ======================================================
+// BUILD-127 / PASO 23A — GUIA DE INICIO PLEGABLE
+// Solo presentacion. Sin cambios a Firebase ni permisos.
+// ======================================================
+let terraStartFoldCleanup = null;
+
+function stopTerraStartGuideFold() {
+  if (typeof terraStartFoldCleanup === "function") {
+    terraStartFoldCleanup();
+  }
+  terraStartFoldCleanup = null;
+}
+
+function activateTerraStartGuideFold(role) {
+  stopTerraStartGuideFold();
+
+  const section = document.querySelector("#terraStartGuide");
+  const body = document.querySelector("#terraStartContent");
+  const toggle = document.querySelector("#terraStartToggle");
+  const digitalGuide = document.querySelector("#terraDigitalGuide");
+  const scoringGuide = document.querySelector("#terraScoringGuide");
+  const uid = currentUser?.uid;
+  // El Administrador guarda la preferencia por campaña autorizada activa,
+  // no por el campaignId histórico de su perfil.
+  const campaignId = role === "admin"
+    ? selectedAdminCampaignId
+    : currentUserProfile?.campaignId || "sin-campana";
+  if (
+    !section || !body || !toggle || !uid || !role ||
+    (role === "admin" && !campaignId)
+  ) return;
+
+  // La preferencia solo almacena si el usuario ya plegó la guía.
+  // No almacena datos operativos, puntuaciones ni autorizaciones.
+  const storageKey = [
+    "terra-campaign", "build127", "inicio-plegado-v1",
+    encodeURIComponent(uid),
+    encodeURIComponent(campaignId),
+    encodeURIComponent(role),
+    "admin"
+  ].join(":");
+
+  let plegadoRecordado = false;
+  try {
+    plegadoRecordado = window.localStorage.getItem(storageKey) === "1";
+  } catch (error) {
+    // En modo privado/restringido la guía sigue funcionando en esta visita.
+    console.info("Preferencia de guía no disponible en este navegador.");
+  }
+
+  function cambiarEstado(plegado, recordar = false) {
+    body.hidden = plegado;
+    section.dataset.collapsed = plegado ? "true" : "false";
+    toggle.setAttribute("aria-expanded", plegado ? "false" : "true");
+    toggle.textContent = plegado ? "Ver ▾" : "Ocultar ▴";
+
+    if (plegado) {
+      if (digitalGuide) digitalGuide.open = false;
+      if (scoringGuide) scoringGuide.open = false;
+    }
+
+    // Después del primer plegado, un nuevo ingreso comienza plegado.
+    // Pulsar Ver abre la guía en esta visita, sin borrar la preferencia.
+    if (plegado && recordar) {
+      try {
+        window.localStorage.setItem(storageKey, "1");
+      } catch (error) {
+        console.info("No fue posible guardar la preferencia de guía.");
+      }
+    }
+  }
+
+  let previousY = Math.max(0, window.scrollY || 0);
+  let accumulatedDown = 0;
+
+  function onToggle() {
+    const abrir = body.hidden;
+    cambiarEstado(!abrir, !abrir);
+    accumulatedDown = 0;
+    previousY = Math.max(0, window.scrollY || 0);
+  }
+
+  function onScroll() {
+    const y = Math.max(0, window.scrollY || 0);
+    const delta = y - previousY;
+    previousY = y;
+
+    if (section.hidden || body.hidden) return;
+    if (delta <= 0) {
+      accumulatedDown = Math.max(0, accumulatedDown + delta);
+      return;
+    }
+
+    accumulatedDown += delta;
+    const bounds = section.getBoundingClientRect();
+
+    // Espera un desplazamiento deliberado hacia abajo (dedo hacia arriba).
+    // No se pliega por un toque accidental ni se vuelve a desplegar al subir.
+    if (
+      accumulatedDown >= 120 &&
+      bounds.top <= 72 &&
+      bounds.bottom > 0
+    ) {
+      cambiarEstado(true, true);
+      accumulatedDown = 0;
+    }
+  }
+
+  toggle.addEventListener("click", onToggle);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  terraStartFoldCleanup = () => {
+    toggle.removeEventListener("click", onToggle);
+    window.removeEventListener("scroll", onScroll);
+  };
+
+  cambiarEstado(plegadoRecordado);
+}
+
+function renderTerraStartGuide(role) {
+  const section = document.querySelector("#terraStartGuide");
+  const heading = document.querySelector("#terraStartHeading");
+  const roleLabel = document.querySelector("#terraStartRole");
+  const instructions = document.querySelector("#terraStartInstructions");
+  const digitalGuide = document.querySelector("#terraDigitalGuide");
+  const scoringGuide = document.querySelector("#terraScoringGuide");
+
+  if (
+    !section ||
+    !heading ||
+    !roleLabel ||
+    !instructions ||
+    !digitalGuide ||
+    !scoringGuide
+  ) {
+    return;
+  }
+
+  section.hidden = true;
+
+  // Contenido fijo y confiable definido dentro del código.
+  // Nunca se inserta contenido proporcionado por usuarios.
+
+  const guidanceByRole = {
+    admin: [
+      "Administración técnica",
+      `<p>
+        Utiliza los controles de administración que
+        tengas autorizados. Las operaciones territoriales
+        conservan sus validaciones y permisos.
+      </p>`
+    ],
+
+    coordinador: [
+      "Coordinación operativa",
+      `<p>
+        Consulta las herramientas de administración de
+        brigadistas habilitadas para tu perfil.
+      </p>`
+    ],
+
+    coordinador_municipal: [
+      "Coordinación municipal",
+      `<p>
+        <strong>¡Tu organización cuenta contigo!</strong>
+        Comienza consultando tu municipio asignado.
+        Utiliza los módulos de organización, misiones
+        y eventos según tus permisos.
+      </p>`
+    ],
+
+    jefe_estructura: [
+      "Responsable de estructura",
+      `<p>
+        <strong>¡Tu liderazgo fortalece a todo el equipo!</strong>
+        Comienza consultando tu estructura asignada
+        mediante Mi organización.
+      </p>
+      <p>
+        Organiza, acompaña y supervisa las actividades
+        que correspondan a tu ámbito autorizado.
+      </p>`
+    ],
+
+    integrante: [
+      "Integrante",
+      `<p>
+        <strong>¡Tu trabajo puede impulsar el crecimiento
+        de toda tu organización!</strong>
+      </p>
+      <p>
+        Una de tus primeras responsabilidades es
+        <strong>incorporar y orientar Participantes</strong>.
+        Puedes comenzar por familiares, amigos y personas
+        de confianza que deseen colaborar voluntariamente.
+      </p>
+      <p>
+        <strong>¡Tu equipo puede seguir creciendo!</strong>
+        Cuando las personas de tu rama continúen
+        organizándose, también contribuirán al
+        fortalecimiento de la estructura.
+      </p>
+      <p>
+        No se trata solamente de registrar personas.
+        <strong>Tu responsabilidad también es acompañarlas,
+        mantenerlas informadas y darles seguimiento.</strong>
+      </p>
+      <p>
+        Puedes incorporar Participantes
+        <strong>con cuenta digital o sin ella</strong>,
+        conforme a los permisos de tu perfil.
+      </p>
+      <p>
+        <strong>¡Queremos que tu trabajo deje huella!</strong>
+      </p>
+      <p class="terraStartRecognition"
+         style="color:#a62fa4;font-style:italic;font-weight:700;">
+        ¡QUE TU PUNTUACIÓN OBTENIDA Y TUS RESULTADOS VALIDADOS
+        TE AYUDEN A SER UNA DE LAS PERSONAS TOMADAS EN CUENTA
+        PARA UN CARGO O UNA RESPONSABILIDAD DE DIRECCIÓN,
+        CONFORME A LOS CRITERIOS DE LA ORGANIZACIÓN!
+        RECUERDA: ¡LA LUCHA ES DE QUIEN LA HACE!
+      </p>`
+    ],
+
+    participante: [
+      "Participante",
+      `<p>
+        <strong>¡Tú también puedes construir un gran equipo!</strong>
+      </p>
+      <p>
+        Comienza incorporando
+        <strong>Colaboradores de Base</strong>
+        cuando tengas autorización.
+        Invita a personas que deseen participar
+        voluntariamente y explícales cómo funciona TERRA.
+      </p>
+      <p>
+        <strong>¡Tu equipo puede seguir creciendo!</strong>
+        Los Colaboradores podrán integrar Apoyos
+        Territoriales conforme a la estructura autorizada.
+      </p>
+      <p>
+        Puedes incorporar personas
+        <strong>con cuenta digital o sin ella</strong>.
+        Lo importante es registrarlas correctamente,
+        orientarlas y darles seguimiento.
+      </p>
+      <p>
+        <strong>¡Un buen equipo crece, participa
+        y reconoce el trabajo de cada persona!</strong>
+      </p>
+      <p class="terraStartRecognition"
+         style="color:#a62fa4;font-style:italic;font-weight:700;">
+        ¡QUE TU PUNTUACIÓN OBTENIDA Y TUS RESULTADOS VALIDADOS
+        TE AYUDEN A SER UNA DE LAS PERSONAS TOMADAS EN CUENTA
+        PARA UN CARGO O UNA RESPONSABILIDAD DE DIRECCIÓN,
+        CONFORME A LOS CRITERIOS DE LA ORGANIZACIÓN!
+        RECUERDA: ¡LA LUCHA ES DE QUIEN LA HACE!
+      </p>`
+    ],
+
+    colaborador_base: [
+      "Colaborador de base",
+      `<p>
+        <strong>¡Tu participación es fundamental
+        para ampliar nuestra organización!</strong>
+      </p>
+      <p>
+        Puedes incorporar
+        <strong>Apoyos Territoriales</strong>
+        conforme a los permisos de tu perfil.
+      </p>
+      <p>
+        <strong>No necesitan tener teléfono, WhatsApp,
+        correo o cuenta digital</strong>
+        para pertenecer al equipo.
+      </p>
+      <p>
+        Cuando una persona participe sin cuenta digital,
+        podrás darle seguimiento mediante los
+        mecanismos autorizados y ayudarle a conocer
+        sus actividades y resultados.
+      </p>
+      <p>
+        <strong>¡Tu compromiso se refleja en lo que haces
+        y en la organización que ayudas a construir!</strong>
+      </p>
+      <p class="terraStartRecognition"
+         style="color:#a62fa4;font-style:italic;font-weight:700;">
+        ¡QUE TU PUNTUACIÓN OBTENIDA Y TUS RESULTADOS VALIDADOS
+        TE AYUDEN A SER UNA DE LAS PERSONAS TOMADAS EN CUENTA
+        PARA UN CARGO O UNA RESPONSABILIDAD DE DIRECCIÓN,
+        CONFORME A LOS CRITERIOS DE LA ORGANIZACIÓN!
+        RECUERDA: ¡LA LUCHA ES DE QUIEN LA HACE!
+      </p>`
+    ],
+
+    apoyo_territorial: [
+      "Apoyo territorial",
+      `<p>
+        <strong>¡TU PARTICIPACIÓN ES FUNDAMENTAL
+        PARA EL CRECIMIENTO DEL EQUIPO!</strong>
+      </p>
+      <p>
+        Nuestra organización tiene <strong>cuatro niveles
+        de participación a partir del Responsable de Estructura</strong>.
+        Tu función se ubica en el cuarto para facilitar
+        la organización y el seguimiento, no porque tu
+        trabajo sea menos importante.
+      </p>
+      <p>
+        <strong>¡LAS MISMAS REGLAS DE PUNTUACIÓN
+        SE APLICAN A TODOS!</strong>
+        Las actividades que cumplas y se validen
+        cuentan a tu nombre, conforme a las reglas
+        de cada misión, evento o contribución.
+        Tu posición en la estructura no reduce
+        esos puntos.
+      </p>
+      <p>
+        <strong>¡TÚ TAMBIÉN PUEDES INCORPORAR PERSONAS!</strong>
+        TERRA te permite integrarlas en un nivel
+        autorizado de <strong>tu misma rama</strong>.
+        Así ayudas a crecer al equipo sin crear
+        un nivel adicional por debajo.
+      </p>
+      <p>
+        Al usar el formulario de incorporación,
+        primero selecciona <strong>el nivel de la
+        persona nueva</strong> y después el nombre
+        del responsable al que la asignarás:
+      </p>
+      <ul>
+        <li>
+          <strong>Nueva persona Participante:</strong>
+          eliges como responsable a un
+          <strong>Integrante</strong> autorizado de tu rama.
+        </li>
+        <li>
+          <strong>Nueva persona Apoyo Territorial:</strong>
+          eliges como responsable a un
+          <strong>Colaborador de Base</strong> autorizado
+          de tu rama.
+        </li>
+      </ul>
+      <p>
+        <strong>En estas incorporaciones, cada persona
+        nueva debe tener su propia cuenta digital.</strong>
+        Para realizar el alta directamente desde TERRA
+        tú también necesitas acceso digital autorizado.
+      </p>
+      <p>
+        <strong>¡TU INICIATIVA QUEDA REGISTRADA!</strong>
+        TERRA distingue quién incorporó a la persona
+        y quién es su responsable. El reconocimiento
+        en puntos depende de las acciones que cumplan
+        las condiciones de validación correspondientes;
+        <strong>el simple registro no concede puntos
+        automáticamente</strong>.
+      </p>
+      <p>
+        También puedes participar en
+        <strong>misiones, eventos y actividades
+        territoriales autorizadas</strong>.
+        Si participas sin cuenta digital, tu historial
+        y tus contribuciones verificadas pueden
+        conservarse en tu perfil operacional.
+      </p>
+      <p>
+        <strong>¡TU ESFUERZO CUENTA Y TUS RESULTADOS
+        HABLAN POR TI!</strong>
+      </p>
+      <p class="terraStartRecognition"
+         style="color:#a62fa4;font-style:italic;font-weight:700;">
+        ¡QUE TU PUNTUACIÓN OBTENIDA Y TUS RESULTADOS VALIDADOS
+        TE AYUDEN A SER UNA DE LAS PERSONAS TOMADAS EN CUENTA
+        PARA UN CARGO O UNA RESPONSABILIDAD DE DIRECCIÓN,
+        CONFORME A LOS CRITERIOS DE LA ORGANIZACIÓN!
+        RECUERDA: ¡LA LUCHA ES DE QUIEN LA HACE!
+      </p>`
+    ],
+    brigadista: [
+      "Brigadista",
+      `<p>
+        Consulta las actividades que tengas autorizadas.
+        Tu trabajo territorial debe registrarse mediante
+        los mecanismos de validación correspondientes.
+      </p>`
+    ],
+
+    consulta: [
+      "Perfil de consulta",
+      `<p>
+        Utiliza las herramientas de consulta autorizadas
+        para tu perfil. Esta orientación no concede
+        permisos adicionales.
+      </p>`
+    ]
+  };
+
+  const guidance = Object.prototype.hasOwnProperty.call(
+    guidanceByRole,
+    role
+  )
+    ? guidanceByRole[role]
+    : [
+        "Bienvenido a TERRA",
+        `<p>
+          Consulta los accesos disponibles según
+          tu función y tus permisos.
+        </p>`
+      ];
+
+  const growthRoles = [
+    "integrante",
+    "participante",
+    "colaborador_base",
+    "apoyo_territorial"
+  ];
+
+  const showGrowthGuidance = growthRoles.includes(role);
+
+  heading.textContent = showGrowthGuidance
+    ? "Tu primera tarea: organizar y hacer crecer tu equipo"
+    : "Orientación de tu perfil";
+
+  roleLabel.textContent = guidance[0];
+  instructions.innerHTML = guidance[1];
+
+  digitalGuide.hidden = !showGrowthGuidance;
+  scoringGuide.hidden = !showGrowthGuidance;
+
+  section.hidden = false;
+  activateTerraStartGuideFold(role);
 }
 function applyRoleInterface() {
   if (!currentUserProfile) {
@@ -1118,6 +1555,7 @@ function applyRoleInterface() {
   const isAdmin = role === "admin";
 
   applyActiveProfileLabel();
+  renderTerraStartGuide(role);
 
   const canManageBrigadistas =
     isAdmin || role === "coordinador";
@@ -1766,6 +2204,8 @@ function applyTerritorialWorkspaceAccess(access) {
 
 function scheduleTerritorialAccessValidation(access) {
   clearTerritorialAccessTimer();
+  const requestEpoch = authGuideEpoch;
+  const requestUid = currentUser?.uid;
 
   const expiresAt =
     Number(access?.grant?.expiresAt || 0);
@@ -1787,12 +2227,14 @@ function scheduleTerritorialAccessValidation(access) {
   territorialAccessTimer =
     setTimeout(
       async () => {
+        if (!authSessionCurrent(requestEpoch, requestUid)) return;
         const wasAuthorized =
           currentTerritorialAccess?.read === true;
 
         const accessNow =
           await validateTerritorialAccess();
 
+        if (!authSessionCurrent(requestEpoch, requestUid)) return;
         if (
           accessNow &&
           wasAuthorized &&
@@ -1807,9 +2249,13 @@ function scheduleTerritorialAccessValidation(access) {
 }
 
 async function loadAdminCampaignContext() {
+  const requestEpoch = authGuideEpoch;
+  const requestUid = currentUser?.uid;
 
   const response =
     await listAdminCampaignsCall({});
+
+  if (!authSessionCurrent(requestEpoch, requestUid)) return null;
 
   const data =
     response?.data || {};
@@ -1920,6 +2366,10 @@ async function loadAdminCampaignContext() {
       }. El Administrador Técnico tiene acceso de solo lectura.`;
   }
 
+  // El selector es la fuente de la campaña administrativa activa.
+  // Reaplicar el estado plegado sólo después de validarla en backend.
+  activateTerraStartGuideFold("admin");
+
   return adminSupervisorAccess(
     selectedAdminCampaignId
   );
@@ -1952,6 +2402,9 @@ async function changeAdminCampaign(
   selectedAdminCampaignId =
     target;
 
+  // Al cambiar de campaña, cambiar también la preferencia visual.
+  activateTerraStartGuideFold("admin");
+
   const access =
     adminSupervisorAccess(
       target
@@ -1982,6 +2435,8 @@ async function changeAdminCampaign(
 
 
 async function validateTerritorialAccess() {
+  const requestEpoch = authGuideEpoch;
+  const requestUid = currentUser?.uid;
 
   if (isTechnicalAdmin()) {
 
@@ -1990,6 +2445,10 @@ async function validateTerritorialAccess() {
       const access =
         await loadAdminCampaignContext();
 
+      if (!authSessionCurrent(requestEpoch, requestUid) || !access) {
+        return null;
+      }
+
       applyTerritorialWorkspaceAccess(
         access
       );
@@ -1997,6 +2456,7 @@ async function validateTerritorialAccess() {
       return access;
 
     } catch (error) {
+      if (!authSessionCurrent(requestEpoch, requestUid)) return null;
 
       console.error(
         "Error al cargar campañas del Administrador Técnico:",
@@ -2014,6 +2474,8 @@ async function validateTerritorialAccess() {
   try {
     const response =
       await getMyTerritorialAccessCall({});
+
+    if (!authSessionCurrent(requestEpoch, requestUid)) return null;
 
     const access =
       response?.data || null;
@@ -2041,6 +2503,7 @@ async function validateTerritorialAccess() {
     return access;
 
   } catch (error) {
+    if (!authSessionCurrent(requestEpoch, requestUid)) return null;
     console.error(
       "Error al validar acceso territorial:",
       error
@@ -2104,8 +2567,50 @@ if (adminCampaignSelect) {
 // INICIO DE SESIÓN Y MAPA
 // ======================================================
 
+let authGuideEpoch = 0;
+function authSessionCurrent(epoch, uid) {
+  return Boolean(uid) && epoch === authGuideEpoch &&
+    auth.currentUser?.uid === uid && currentUser?.uid === uid;
+}
+
 onAuthStateChanged(auth, async (user) => {
+  const version = ++authGuideEpoch;
+  clearTerritorialAccessTimer();
+  stopTerritorialVisitListener();
+  clearCandidateSupportStats();
+  clearTerritorialSupervisionContext();
+  currentTerritorialAccess = null;
+  currentUserProfile = null;
+  latestVisits = [];
+  filteredVisits = [];
+  mapReady = false;
+  adminCampaigns = [];
+  selectedAdminCampaignId = "";
+  if (adminCampaignContext) adminCampaignContext.hidden = true;
+  if (adminCampaignSelect) adminCampaignSelect.replaceChildren();
+  const main = territorialMainWorkspace();
+  if (main) main.hidden = true;
+  const accessPanel = document.querySelector("#territorialAccessPanel");
+  if (accessPanel) {
+    accessPanel.hidden = true;
+    accessPanel.replaceChildren();
+  }
+  for (const control of [
+    brigadistasAdminButton, brigadasAdminButton,
+    municipalitiesButton, campaignsButton, organizationButton,
+    missionsButton, eventsButton, myPerformanceButton
+  ]) {
+    if (control) control.hidden = true;
+  }
+  stopTerraStartGuideFold();
+  const guide = document.querySelector("#terraStartGuide");
+  if (guide) guide.hidden = true;
+  if (activeProfileLabel) activeProfileLabel.hidden = true;
+  if (myTrainingButton) myTrainingButton.hidden = true;
+
   if (!user) {
+    currentUser = null;
+    currentUserProfile = null;
     window.location.href = "./login.html";
     return;
   }
@@ -2113,8 +2618,11 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
 
   try {
-    currentUserProfile =
-      await loadCurrentUserProfile(user);
+    const authorizedProfile = await loadCurrentUserProfile(user);
+    if (!authSessionCurrent(version, user.uid)) {
+      return;
+    }
+    currentUserProfile = authorizedProfile;
 
 
       if (currentUserProfile.role === "lider_principal") {
@@ -2133,16 +2641,21 @@ onAuthStateChanged(auth, async (user) => {
     const territorialAccess =
       await validateTerritorialAccess();
 
-    if (!territorialAccess) {
+    if (!authSessionCurrent(version, user.uid) || !territorialAccess) {
       return;
     }
 
-    mapReady =
+    const mapInitialized =
       await initializeTerritoryMap();
 
+    if (!authSessionCurrent(version, user.uid)) return;
+    mapReady = mapInitialized;
     listenVisits();
 
   } catch (error) {
+    if (!authSessionCurrent(version, user.uid)) {
+      return;
+    }
     console.error(
       "Acceso rechazado:",
       error
@@ -2158,6 +2671,9 @@ onAuthStateChanged(auth, async (user) => {
     visitForm.hidden = true;
 
     setTimeout(async () => {
+      if (!authSessionCurrent(version, user.uid)) {
+        return;
+      }
       await signOut(auth);
       window.location.href =
         "./login.html";
@@ -3969,6 +4485,14 @@ function updateTerritorialSupervisionContext() {
 
 function listenVisits() {
   stopTerritorialVisitListener();
+  const requestEpoch = authGuideEpoch;
+  const requestUid = currentUser?.uid;
+  const requestCampaign = selectedAdminCampaignId;
+  if (!authSessionCurrent(requestEpoch, requestUid) ||
+      currentTerritorialAccess?.read !== true) return;
+  const sameListenerSession = () =>
+    authSessionCurrent(requestEpoch, requestUid) &&
+    (!isTechnicalAdmin() || selectedAdminCampaignId === requestCampaign);
 
   const visitsQuery = query(
     collection(db, "visitas"),
@@ -3988,6 +4512,7 @@ function listenVisits() {
     visitsQuery,
 
     async (snapshot) => {
+      if (!sameListenerSession()) return;
       latestVisits = [];
 
       snapshot.forEach((documentSnapshot) => {
@@ -4001,6 +4526,7 @@ function listenVisits() {
     },
 
     (error) => {
+      if (!sameListenerSession()) return;
       console.error("Error al consultar visitas:", error);
 
       visitsList.innerHTML =
