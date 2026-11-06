@@ -1,6 +1,6 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const vm=require('node:vm');const fs=require('node:fs');const path=require('node:path');
 const adminCampaignAccess=require('../functions/admin-campaign-access.cjs');
-function harness(initial={},extra={}){const records=new Map(Object.entries(initial));const api={};let lookups=0;const db={doc:p=>({path:p}),collection:name=>({where:(_f,_op,c)=>({limit:()=>({name,c})})}),runTransaction:async fn=>fn({get:async ref=>{if(ref.name){const docs=Object.entries(extra[ref.name]||{}).filter(([,v])=>v.campaignId===ref.c).map(([id,v])=>({id,data:()=>v}));return {size:docs.length,docs};}return {exists:records.has(ref.path),data:()=>records.get(ref.path)};},create:(r,v)=>records.set(r.path,v)})};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../functions/leader-panel.cjs'),'utf8'),{exports:api,require:n=>n==='./admin-campaign-access.cjs'?adminCampaignAccess:n.includes('firebase-functions')?{onCall:(_o,f)=>f,HttpsError:class extends Error{constructor(c,m){super(m);this.code=c;}}}:n.includes('firestore')?{getFirestore:()=>db}:{getAuth:()=>({getUser:async()=>{lookups++;return {email:'leader@example.test'};}})},Date,Map,Set});return {api,records,lookups:()=>lookups};}
+function harness(initial={},extra={}){const records=new Map(Object.entries(initial));const api={};let lookups=0;let docSequence=0;const db={doc:p=>({path:p}),collection:name=>({doc:id=>{const key=id||('mock-person-'+(++docSequence));return {path:name+'/'+key,id:key};},where:(field,op,value)=>({limit:()=>({name,field,op,value})})}),runTransaction:async fn=>fn({get:async ref=>{if(ref.name){const docs=Object.entries(extra[ref.name]||{}).filter(([,v])=>v[ref.field]===ref.value).map(([id,v])=>({id,data:()=>v}));return {size:docs.length,empty:docs.length===0,docs};}return {exists:records.has(ref.path),data:()=>records.get(ref.path)};},create:(r,v)=>records.set(r.path,v)})};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../functions/leader-panel.cjs'),'utf8'),{exports:api,require:n=>n==='./admin-campaign-access.cjs'?adminCampaignAccess:n==='./territorial-membership-id.cjs'?require('../functions/territorial-membership-id.cjs'):n.includes('firebase-functions')?{onCall:(_o,f)=>f,HttpsError:class extends Error{constructor(c,m){super(m);this.code=c;}}}:n.includes('firestore')?{getFirestore:()=>db}:{getAuth:()=>({getUser:async()=>{lookups++;return {email:'leader@example.test'};}})},Date,Map,Set});return {api,records,lookups:()=>lookups};}
 const admin={role:'admin',active:true,campaignId:'A'};const leader={role:'lider_principal',active:true,campaignId:'A'};
 test('anonymous rejected',async()=>{await assert.rejects(harness().api.getPrincipalLeaderPanel({}),e=>e.code==='unauthenticated');});
 test('municipal coordinator cannot access direction or assign',async()=>{const h=harness({'usuarios/u':{...admin,role:'coordinador_municipal'}});for(const f of ['getPrincipalLeaderPanel','assignPrincipalLeader'])await assert.rejects(h.api[f]({auth:{uid:'u'},data:{campaignId:'A',uid:'new',name:'Leader'}}),e=>e.code==='permission-denied');assert.equal(h.lookups(),0);});
@@ -21,3 +21,39 @@ test('principal leader ignores requested foreign campaign and remains in own cam
 test('campaign isolation and unique evidence count',async()=>{const h=harness({'usuarios/u':leader,'principalLeaders/A':{uid:'u'}},{municipios:{m:{campaignId:'A',id:'M',name:'Municipio'},foreign:{campaignId:'B',id:'B'}},usuarios:{person:{campaignId:'A',municipalityId:'M',role:'participante'}},misiones:{one:{campaignId:'A',assignedTo:'person'},two:{campaignId:'A',assignedTo:'person'},foreign:{campaignId:'B',assignedTo:'person'}},missionEvidence:{a:{campaignId:'A',missionId:'one',uploadedBy:'person'},b:{campaignId:'A',missionId:'one',uploadedBy:'person'},forged:{campaignId:'A',missionId:'two',uploadedBy:'other'}}});const r=await h.api.getPrincipalLeaderPanel({auth:{uid:'u'}});assert.equal(r.municipalities.length,1);assert.equal(r.municipalities[0].total,2);assert.equal(r.municipalities[0].withEvidence,1);assert.equal(r.municipalities[0].percentage,50);});
 
 test('unassigned missions separated from unresolved recipients and municipal progress',()=>{const {api}=harness();const r=api._buildPanel([{id:'M',name:'Municipio'}],[{_id:'person',municipalityId:'M'}],[],[{_id:'old',brigadeId:'B'},{_id:'blank',assignedTo:''},{_id:'null',assignedTo:null},{_id:'unknown',assignedTo:'missing'},{_id:'valid',assignedTo:'person'}],[{missionId:'valid',uploadedBy:'person'}]);assert.equal(r.unassignedMissions,3);assert.equal(r.unmatchedMissions,1);assert.equal(r.municipalities[0].total,1);assert.equal(r.municipalities[0].withEvidence,1);assert.equal(r.municipalities[0].percentage,100);});
+
+
+for (const collectionName of ['persons','territorialMemberships']) {
+  test(`rejects preexisting identity in ${collectionName}`, async () => {
+    const h = harness(
+      {
+        'usuarios/admin': admin,
+        'campaigns/A': {campaignId:'A',active:true},
+        'adminCampaignAccess/admin/campaigns/A': {
+          adminUid:'admin',campaignId:'A',active:true
+        }
+      },
+      {
+        [collectionName]: {
+          residual: {
+            accountUid:'new',
+            campaignId:'OTHER'
+          }
+        }
+      }
+    );
+
+    await assert.rejects(
+      h.api.assignPrincipalLeader({
+        auth:{uid:'admin'},
+        data:{campaignId:'A',uid:'new',name:'Leader'}
+      }),
+      error =>
+        error.code === 'failed-precondition' &&
+        error.message.includes('identidad territorial')
+    );
+
+    assert.equal(h.records.has('principalLeaders/A'), false);
+    assert.equal(h.records.has('usuarios/new'), false);
+  });
+}

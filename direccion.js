@@ -40,6 +40,105 @@ async function refreshLeaderTrainingAccess(user,version){
     );
   }
 }
+// BUILD-127 / PASO 24F — UX del Líder Principal; no altera permisos ni datos.
+let principalGuideFoldStop = null;
+function stopPrincipalGuideFold() {
+  if (typeof principalGuideFoldStop === 'function') principalGuideFoldStop();
+  principalGuideFoldStop = null;
+}
+function activatePrincipalGuideFold(user, profile) {
+  stopPrincipalGuideFold();
+  if (!user?.uid || profile?.role !== 'lider_principal') return;
+  const section = $('principalStartGuide');
+  const body = $('principalGuideContent');
+  const toggle = $('principalGuideToggle');
+  if (!section || !body || !toggle) return;
+
+  const campaignId = String(profile.campaignId || 'sin-campana').trim();
+  const key = [
+    'terra-campaign', 'build127', 'inicio-plegado-v1',
+    encodeURIComponent(user.uid), encodeURIComponent(campaignId),
+    'lider_principal', 'direccion'
+  ].join(':');
+
+  let foldedBefore = false;
+  try { foldedBefore = window.localStorage.getItem(key) === '1'; }
+  catch (_) { /* Almacenamiento restringido: funciona solo en esta visita. */ }
+
+  function applyFold(folded, remember=false) {
+    body.hidden = folded;
+    section.dataset.collapsed = folded ? 'true' : 'false';
+    toggle.setAttribute('aria-expanded', folded ? 'false' : 'true');
+    toggle.textContent = folded ? 'Ver ▾' : 'Ocultar ▴';
+    if (folded && remember) {
+      try { window.localStorage.setItem(key, '1'); }
+      catch (_) { /* Sin almacenamiento: se conserva el estado de esta visita. */ }
+    }
+  }
+
+  // No dependemos solo de window.scrollY: en paneles cortos no hay
+  // espacio suficiente para desplazar 120 px ni mover el encabezado.
+  const THRESHOLD = 120;
+  let priorY = Math.max(0, window.scrollY || 0);
+  let accumulatedDown = 0;
+  let priorTouchY = null;
+  function registerAdvance(pixels) {
+    if (section.hidden || body.hidden || !Number.isFinite(pixels) || pixels <= 0) return;
+    accumulatedDown = Math.min(THRESHOLD, accumulatedDown + pixels);
+    if (accumulatedDown >= THRESHOLD) {
+      applyFold(true, true);
+      accumulatedDown = 0;
+    }
+  }
+  function onToggle() {
+    const show = body.hidden;
+    applyFold(!show, !show);
+    priorY = Math.max(0, window.scrollY || 0);
+    accumulatedDown = 0;
+    priorTouchY = null;
+  }
+  function onScroll() {
+    const y = Math.max(0, window.scrollY || 0);
+    const delta = y - priorY;
+    priorY = y;
+    registerAdvance(delta);
+  }
+  function onWheel(event) {
+    // El gesto se detecta incluso si no existe desplazamiento real.
+    const factor = event.deltaMode === 1 ? 16 :
+      event.deltaMode === 2 ? Math.max(400, window.innerHeight || 700) : 1;
+    registerAdvance((Number(event.deltaY) || 0) * factor);
+  }
+  function onTouchStart(event) {
+    priorTouchY = event.touches?.[0]?.clientY ?? null;
+  }
+  function onTouchMove(event) {
+    const y = event.touches?.[0]?.clientY;
+    if (typeof y !== 'number') return;
+    if (priorTouchY !== null) registerAdvance(priorTouchY - y);
+    priorTouchY = y;
+  }
+  function onTouchEnd() { priorTouchY = null; }
+
+  toggle.addEventListener('click', onToggle);
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('wheel', onWheel, {passive:true});
+  window.addEventListener('touchstart', onTouchStart, {passive:true});
+  window.addEventListener('touchmove', onTouchMove, {passive:true});
+  window.addEventListener('touchend', onTouchEnd, {passive:true});
+  window.addEventListener('touchcancel', onTouchEnd, {passive:true});
+  principalGuideFoldStop = () => {
+    toggle.removeEventListener('click', onToggle);
+    window.removeEventListener('scroll', onScroll);
+    window.removeEventListener('wheel', onWheel);
+    window.removeEventListener('touchstart', onTouchStart);
+    window.removeEventListener('touchmove', onTouchMove);
+    window.removeEventListener('touchend', onTouchEnd);
+    window.removeEventListener('touchcancel', onTouchEnd);
+  };
+  applyFold(foldedBefore);
+}
+
 let epoch=0;
 let currentRole='';
 let currentPanelCampaignId='';
@@ -257,9 +356,9 @@ $('createCampaignForm').onsubmit=async e=>{
   button.disabled=false;
  }
 };
-onAuthStateChanged(auth,async user=>{const version=++epoch;$('leaderTrainingLink').hidden=true;$('municipalities').replaceChildren();$('setup').hidden=true;$('leaderMissions').hidden=true;$('leaderEvents').hidden=true;$('refresh').disabled=true;
+onAuthStateChanged(auth,async user=>{const version=++epoch;stopPrincipalGuideFold();$('leaderTrainingLink').hidden=true;$('principalStartGuide').hidden=true;$('municipalities').replaceChildren();$('setup').hidden=true;$('leaderMissions').hidden=true;$('leaderEvents').hidden=true;$('refresh').disabled=true;
  if(!user){location.replace('./login.html');return;}
- try{const p=(await getDoc(doc(db,'usuarios',user.uid))).data();if(version!==epoch)return;if(!p||p.active!==true||!['admin','lider_principal'].includes(p.role))throw Error('Acceso reservado al Líder principal y administrador.');currentRole=p.role;if(p.role==='lider_principal'){void refreshLeaderTrainingAccess(user,version);}currentPanelCampaignId='';$('setup').hidden=p.role!=='admin';$('panelCampaignControl').hidden=p.role!=='admin';$('leaderMissions').hidden=p.role!=='lider_principal';$('leaderEvents').hidden=p.role!=='lider_principal';if(p.role==='admin'){const available=await loadAdminCampaigns();if(!available){$('status').textContent='No hay campañas activas autorizadas para esta cuenta.';return;}}await refresh();}catch(e){$('status').textContent=e.message;}
+ try{const p=(await getDoc(doc(db,'usuarios',user.uid))).data();if(version!==epoch)return;if(!p||p.active!==true||!['admin','lider_principal'].includes(p.role))throw Error('Acceso reservado al Líder principal y administrador.');currentRole=p.role;if(p.role==='lider_principal'){void refreshLeaderTrainingAccess(user,version);}currentPanelCampaignId='';$('setup').hidden=p.role!=='admin';$('panelCampaignControl').hidden=p.role!=='admin';$('leaderMissions').hidden=p.role!=='lider_principal';$('principalStartGuide').hidden=p.role!=='lider_principal';if(p.role==='lider_principal')activatePrincipalGuideFold(user,p);$('leaderEvents').hidden=p.role!=='lider_principal';if(p.role==='admin'){const available=await loadAdminCampaigns();if(!available){$('status').textContent='No hay campañas activas autorizadas para esta cuenta.';return;}}await refresh();}catch(e){$('status').textContent=e.message;}
 });
 $('assign').onsubmit=async e=>{e.preventDefault();const campaignId=$('campaignId').value.trim();if(!campaignId){$('assignmentStatus').textContent='Selecciona la campaña donde se asignará al Líder principal.';return;}$('save').disabled=true;try{await assign({campaignId,uid:$('uid').value.trim(),name:$('name').value.trim()});$('assignmentStatus').textContent=`Líder asignado correctamente en ${campaignId}. Puede entrar con su cuenta desde el acceso habitual.`;$('assign').reset();$('campaignId').value=campaignId;}catch(e){$('assignmentStatus').textContent=e.message;}finally{$('save').disabled=!$('campaignId').value;}};
 
