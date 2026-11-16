@@ -65,7 +65,7 @@ assert.match(
 
 assert.match(
   source,
-  /hash\(\s*['"]structure-member['"],\s*viewer\.campaignId,\s*structure\.id,\s*snapshot\.id\s*\)/
+  /hash\(\s*['"]structure-member['"],\s*structure\.campaignId,\s*structure\.id,\s*snapshot\.id\s*\)/
 );
 
 
